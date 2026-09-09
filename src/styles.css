@@ -1,0 +1,612 @@
+/* ========== RESET & BASE ========== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #1a56db;
+  --primary-dark: #1648b3;
+  --primary-light: #e8effc;
+  --success: #059669;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --bg: #f1f5f9;
+  --bg-card: #ffffff;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --sidebar-bg: #1e293b;
+  --sidebar-text: #cbd5e1;
+  --sidebar-active: #334155;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-lg: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* ========== LAYOUT ========== */
+#app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ========== SIDEBAR ========== */
+#sidebar {
+  width: 240px;
+  min-width: 240px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+.sidebar-header {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-header h1 {
+  font-size: 20px;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.sidebar-header .subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+#sidebar nav {
+  flex: 1;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: var(--sidebar-text);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+
+.nav-btn.active {
+  background: var(--sidebar-active);
+  color: #fff;
+  font-weight: 600;
+}
+
+.nav-icon {
+  width: 20px;
+  text-align: center;
+  font-size: 16px;
+}
+
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sidebar-footer .version {
+  margin-top: 2px;
+  opacity: 0.6;
+}
+
+/* ========== MAIN ========== */
+#main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ========== FORM ========== */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  background: var(--bg-card);
+  padding: 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(26,86,219,0.1);
+}
+
+.form-group input.readonly {
+  background: #f8fafc;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* ========== BUTTONS ========== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+
+.btn-secondary {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--border);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* ========== TABLE ========== */
+.table-container {
+  overflow-x: auto;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: #f8fafc;
+}
+
+th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+tbody tr:hover {
+  background: #f8fafc;
+}
+
+td.empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+td .actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ========== SEARCH ========== */
+.search-bar input {
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  width: 300px;
+  background: var(--bg-card);
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(26,86,219,0.1);
+}
+
+/* ========== IMPORT / UPLOAD ========== */
+.import-area {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.import-info {
+  background: var(--bg-card);
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.import-info h3 {
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.import-info code {
+  display: block;
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+}
+
+.import-info .hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.upload-area {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg-card);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.upload-area:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.upload-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ========== TOAST ========== */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 14px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  z-index: 9999;
+  transition: opacity 0.3s, transform 0.3s;
+  box-shadow: var(--shadow-lg);
+}
+
+.toast.hidden {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
+.toast.success {
+  background: var(--success);
+}
+
+.toast.error {
+  background: var(--danger);
+}
+
+.toast.warning {
+  background: var(--warning);
+}
+
+/* ========== HIDDEN ========== */
+.hidden {
+  display: none !important;
+}
+
+/* ========== FORMAT RUPIAH DISPLAY ========== */
+.rupiah {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ========== PRINT PREVIEW ========== */
+#print-container {
+  background: var(--bg-card);
+  padding: 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* ========== KWITANSI PRINT TEMPLATE ========== */
+.kwitansi-page {
+  width: 210mm;
+  min-height: 148mm;
+  margin: 0 auto;
+  padding: 12mm 15mm;
+  background: #fff;
+  font-family: 'Times New Roman', serif;
+  font-size: 12pt;
+  color: #000;
+  border: 1px solid #ccc;
+  position: relative;
+}
+
+.kwitansi-header {
+  text-align: center;
+  margin-bottom: 8mm;
+  border-bottom: 3px double #000;
+  padding-bottom: 5mm;
+}
+
+.kwitansi-header .merk {
+  font-size: 8pt;
+  color: #999;
+  text-align: right;
+  margin-bottom: 2mm;
+}
+
+.kwitansi-header h2 {
+  font-size: 18pt;
+  font-weight: bold;
+  letter-spacing: 4px;
+  margin: 0;
+}
+
+.kwitansi-header .nomor {
+  font-size: 10pt;
+  margin-top: 3mm;
+}
+
+.kwitansi-body {
+  margin-bottom: 8mm;
+}
+
+.kwitansi-row {
+  display: flex;
+  margin-bottom: 3mm;
+  line-height: 1.6;
+}
+
+.kwitansi-label {
+  width: 45mm;
+  flex-shrink: 0;
+  font-weight: normal;
+}
+
+.kwitansi-sep {
+  width: 5mm;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.kwitansi-value {
+  flex: 1;
+  border-bottom: 1px dotted #000;
+  padding-bottom: 1px;
+}
+
+.kwitansi-value.terbilang {
+  font-style: italic;
+}
+
+.kwitansi-jumlah-box {
+  display: inline-block;
+  border: 2px solid #000;
+  padding: 2mm 5mm;
+  font-size: 14pt;
+  font-weight: bold;
+  margin: 3mm 0;
+  float: right;
+}
+
+.kwitansi-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15mm;
+  text-align: center;
+}
+
+.kwitansi-ttd {
+  width: 40%;
+  text-align: center;
+}
+
+.kwitansi-ttd .label {
+  font-size: 10pt;
+  margin-bottom: 20mm;
+}
+
+.kwitansi-ttd .nama {
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+.kwitansi-ttd .nip {
+  font-size: 9pt;
+}
+
+.kwitansi-stamp {
+  position: absolute;
+  bottom: 15mm;
+  right: 15mm;
+  width: 25mm;
+  height: 25mm;
+  border: 1px dashed #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8pt;
+  color: #ccc;
+}
+
+.kwitansi-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10pt;
+  margin-bottom: 5mm;
+  color: #333;
+}
+
+/* ========== PRINT STYLES ========== */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #print-container,
+  #print-container * {
+    visibility: visible;
+  }
+
+  #print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff;
+    box-shadow: none;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .kwitansi-page {
+    border: none;
+    box-shadow: none;
+    page-break-after: always;
+    margin: 0;
+    padding: 10mm 15mm;
+  }
+
+  .page-header {
+    display: none !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+}

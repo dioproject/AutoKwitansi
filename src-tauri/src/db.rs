@@ -1,0 +1,260 @@
+use rusqlite::{Connection, Result, params};
+use std::path::PathBuf;
+use crate::models::{Kwitansi, Sekolah};
+
+fn get_db_path() -> PathBuf {
+    let mut path = dirs_next().unwrap_or_else(|| PathBuf::from("."));
+    path.push("auto_kwitansi.db");
+    path
+}
+
+fn dirs_next() -> Option<PathBuf> {
+    if let Some(data_dir) = std::env::var_os("APPDATA") {
+        let mut p = PathBuf::from(data_dir);
+        p.push("AutoKwitansi");
+        std::fs::create_dir_all(&p).ok();
+        Some(p)
+    } else {
+        let mut p = PathBuf::from(".");
+        p.push("data");
+        std::fs::create_dir_all(&p).ok();
+        Some(p)
+    }
+}
+
+pub fn get_connection() -> Result<Connection> {
+    let path = get_db_path();
+    let conn = Connection::open(path)?;
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
+    Ok(conn)
+}
+
+pub fn init_db() -> Result<()> {
+    let conn = get_connection()?;
+
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sekolah (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nama_sekolah TEXT NOT NULL DEFAULT '',
+            alamat TEXT NOT NULL DEFAULT '',
+            kota TEXT NOT NULL DEFAULT '',
+            kepala_sekolah TEXT NOT NULL DEFAULT '',
+            nip_kepala TEXT NOT NULL DEFAULT '',
+            bendahara TEXT NOT NULL DEFAULT '',
+            nip_bendahara TEXT NOT NULL DEFAULT ''
+        );
+
+        CREATE TABLE IF NOT EXISTS kwitansi (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nomor_kwitansi TEXT NOT NULL,
+            tanggal TEXT NOT NULL,
+            sudah_terima_dari TEXT NOT NULL,
+            jumlah REAL NOT NULL DEFAULT 0,
+            terbilang TEXT NOT NULL DEFAULT '',
+            untuk_pembayaran TEXT NOT NULL DEFAULT '',
+            kode_rekening TEXT NOT NULL DEFAULT '',
+            tahun_anggaran TEXT NOT NULL DEFAULT '',
+            mengetahui TEXT NOT NULL DEFAULT '',
+            nip_mengetahui TEXT NOT NULL DEFAULT '',
+            bendahara TEXT NOT NULL DEFAULT '',
+            nip_bendahara TEXT NOT NULL DEFAULT '',
+            penerima TEXT NOT NULL DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_kwitansi_nomor ON kwitansi(nomor_kwitansi);
+        CREATE INDEX IF NOT EXISTS idx_kwitansi_tanggal ON kwitansi(tanggal);
+        "
+    )?;
+
+    // Insert default sekolah if empty
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM sekolah", [], |row| row.get(0))?;
+    if count == 0 {
+        conn.execute(
+            "INSERT INTO sekolah (nama_sekolah, alamat, kota, kepala_sekolah, nip_kepala, bendahara, nip_bendahara)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                "Nama Sekolah",
+                "Alamat Sekolah",
+                "Kota",
+                "Nama Kepala Sekolah",
+                "NIP Kepala Sekolah",
+                "Nama Bendahara",
+                "NIP Bendahara"
+            ],
+        )?;
+    }
+
+    Ok(())
+}
+
+// ============ SEKOLAH ============
+
+pub fn get_sekolah() -> Result<Sekolah> {
+    let conn = get_connection()?;
+    conn.query_row(
+        "SELECT id, nama_sekolah, alamat, kota, kepala_sekolah, nip_kepala, bendahara, nip_bendahara FROM sekolah LIMIT 1",
+        [],
+        |row| {
+            Ok(Sekolah {
+                id: row.get(0)?,
+                nama_sekolah: row.get(1)?,
+                alamat: row.get(2)?,
+                kota: row.get(3)?,
+                kepala_sekolah: row.get(4)?,
+                nip_kepala: row.get(5)?,
+                bendahara: row.get(6)?,
+                nip_bendahara: row.get(7)?,
+            })
+        },
+    )
+}
+
+pub fn update_sekolah(sekolah: &Sekolah) -> Result<()> {
+    let conn = get_connection()?;
+    conn.execute(
+        "UPDATE sekolah SET nama_sekolah=?1, alamat=?2, kota=?3, kepala_sekolah=?4, nip_kepala=?5, bendahara=?6, nip_bendahara=?7 WHERE id=?8",
+        params![
+            sekolah.nama_sekolah,
+            sekolah.alamat,
+            sekolah.kota,
+            sekolah.kepala_sekolah,
+            sekolah.nip_kepala,
+            sekolah.bendahara,
+            sekolah.nip_bendahara,
+            sekolah.id,
+        ],
+    )?;
+    Ok(())
+}
+
+// ============ KWITANSI ============
+
+pub fn insert_kwitansi(k: &Kwitansi) -> Result<i64> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT INTO kwitansi (nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
+        params![
+            k.nomor_kwitansi,
+            k.tanggal,
+            k.sudah_terima_dari,
+            k.jumlah,
+            k.terbilang,
+            k.untuk_pembayaran,
+            k.kode_rekening,
+            k.tahun_anggaran,
+            k.mengetahui,
+            k.nip_mengetahui,
+            k.bendahara,
+            k.nip_bendahara,
+            k.penerima,
+        ],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn get_all_kwitansi() -> Result<Vec<Kwitansi>> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, created_at
+         FROM kwitansi ORDER BY id DESC"
+    )?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok(Kwitansi {
+            id: row.get(0)?,
+            nomor_kwitansi: row.get(1)?,
+            tanggal: row.get(2)?,
+            sudah_terima_dari: row.get(3)?,
+            jumlah: row.get(4)?,
+            terbilang: row.get(5)?,
+            untuk_pembayaran: row.get(6)?,
+            kode_rekening: row.get(7)?,
+            tahun_anggaran: row.get(8)?,
+            mengetahui: row.get(9)?,
+            nip_mengetahui: row.get(10)?,
+            bendahara: row.get(11)?,
+            nip_bendahara: row.get(12)?,
+            penerima: row.get(13)?,
+            created_at: row.get(14)?,
+        })
+    })?;
+
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
+pub fn get_kwitansi_by_id(id: i64) -> Result<Kwitansi> {
+    let conn = get_connection()?;
+    conn.query_row(
+        "SELECT id, nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, created_at
+         FROM kwitansi WHERE id=?1",
+        params![id],
+        |row| {
+            Ok(Kwitansi {
+                id: row.get(0)?,
+                nomor_kwitansi: row.get(1)?,
+                tanggal: row.get(2)?,
+                sudah_terima_dari: row.get(3)?,
+                jumlah: row.get(4)?,
+                terbilang: row.get(5)?,
+                untuk_pembayaran: row.get(6)?,
+                kode_rekening: row.get(7)?,
+                tahun_anggaran: row.get(8)?,
+                mengetahui: row.get(9)?,
+                nip_mengetahui: row.get(10)?,
+                bendahara: row.get(11)?,
+                nip_bendahara: row.get(12)?,
+                penerima: row.get(13)?,
+                created_at: row.get(14)?,
+            })
+        },
+    )
+}
+
+pub fn delete_kwitansi(id: i64) -> Result<()> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM kwitansi WHERE id=?1", params![id])?;
+    Ok(())
+}
+
+pub fn search_kwitansi(query: &str) -> Result<Vec<Kwitansi>> {
+    let conn = get_connection()?;
+    let pattern = format!("%{}%", query);
+    let mut stmt = conn.prepare(
+        "SELECT id, nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, created_at
+         FROM kwitansi
+         WHERE nomor_kwitansi LIKE ?1 OR sudah_terima_dari LIKE ?1 OR untuk_pembayaran LIKE ?1 OR penerima LIKE ?1
+         ORDER BY id DESC"
+    )?;
+
+    let rows = stmt.query_map(params![pattern], |row| {
+        Ok(Kwitansi {
+            id: row.get(0)?,
+            nomor_kwitansi: row.get(1)?,
+            tanggal: row.get(2)?,
+            sudah_terima_dari: row.get(3)?,
+            jumlah: row.get(4)?,
+            terbilang: row.get(5)?,
+            untuk_pembayaran: row.get(6)?,
+            kode_rekening: row.get(7)?,
+            tahun_anggaran: row.get(8)?,
+            mengetahui: row.get(9)?,
+            nip_mengetahui: row.get(10)?,
+            bendahara: row.get(11)?,
+            nip_bendahara: row.get(12)?,
+            penerima: row.get(13)?,
+            created_at: row.get(14)?,
+        })
+    })?;
+
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}

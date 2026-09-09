@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoKwitansi - Kwitansi SPJ Sekolah</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h1>AutoKwitansi</h1>
+        <p class="subtitle">Kwitansi SPJ Sekolah</p>
+      </div>
+      <nav>
+        <button class="nav-btn active" data-page="input" onclick="showPage('input')">
+          <span class="nav-icon">+</span> Buat Kwitansi
+        </button>
+        <button class="nav-btn" data-page="riwayat" onclick="showPage('riwayat')">
+          <span class="nav-icon">&#9776;</span> Riwayat
+        </button>
+        <button class="nav-btn" data-page="import" onclick="showPage('import')">
+          <span class="nav-icon">&#8593;</span> Import CSV
+        </button>
+        <button class="nav-btn" data-page="sekolah" onclick="showPage('sekolah')">
+          <span class="nav-icon">&#9881;</span> Data Sekolah
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <p>Silver Horse Edition</p>
+        <p class="version">v1.0.0</p>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main id="main-content">
+
+      <!-- PAGE: INPUT KWITANSI -->
+      <section id="page-input" class="page active">
+        <div class="page-header">
+          <h2>Buat Kwitansi Baru</h2>
+        </div>
+        <form id="form-kwitansi" onsubmit="return handleSimpanKwitansi(event)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="nomor_kwitansi">Nomor Kwitansi</label>
+              <input type="text" id="nomor_kwitansi" required placeholder="001/KWT/2026" />
+            </div>
+            <div class="form-group">
+              <label for="tanggal">Tanggal</label>
+              <input type="date" id="tanggal" required />
+            </div>
+            <div class="form-group">
+              <label for="tahun_anggaran">Tahun Anggaran</label>
+              <input type="text" id="tahun_anggaran" required placeholder="2026" />
+            </div>
+            <div class="form-group">
+              <label for="kode_rekening">Kode Rekening</label>
+              <input type="text" id="kode_rekening" placeholder="5.1.02.01.01.0001" />
+            </div>
+            <div class="form-group full-width">
+              <label for="sudah_terima_dari">Sudah Terima Dari</label>
+              <input type="text" id="sudah_terima_dari" required placeholder="Bendahara BOS / Nama Bendahara" />
+            </div>
+            <div class="form-group">
+              <label for="jumlah">Jumlah (Rp)</label>
+              <input type="text" id="jumlah" required placeholder="1.500.000" oninput="handleJumlahInput(this)" />
+            </div>
+            <div class="form-group">
+              <label for="terbilang_preview">Terbilang</label>
+              <input type="text" id="terbilang_preview" readonly class="readonly" />
+            </div>
+            <div class="form-group full-width">
+              <label for="untuk_pembayaran">Untuk Pembayaran</label>
+              <textarea id="untuk_pembayaran" required rows="2" placeholder="Pembelian ATK untuk kegiatan..."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="penerima">Yang Menerima</label>
+              <input type="text" id="penerima" required placeholder="Nama penerima uang" />
+            </div>
+            <div class="form-group">
+              <label for="mengetahui">Mengetahui / Lunas Dibayar</label>
+              <input type="text" id="mengetahui" placeholder="Kepala Sekolah (auto dari data sekolah)" />
+            </div>
+            <div class="form-group">
+              <label for="nip_mengetahui">NIP Mengetahui</label>
+              <input type="text" id="nip_mengetahui" placeholder="NIP" />
+            </div>
+            <div class="form-group">
+              <label for="bendahara">Bendahara</label>
+              <input type="text" id="bendahara" placeholder="Bendahara (auto dari data sekolah)" />
+            </div>
+            <div class="form-group">
+              <label for="nip_bendahara">NIP Bendahara</label>
+              <input type="text" id="nip_bendahara" placeholder="NIP" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Simpan & Preview</button>
+            <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- PAGE: RIWAYAT -->
+      <section id="page-riwayat" class="page">
+        <div class="page-header">
+          <h2>Riwayat Kwitansi</h2>
+          <div class="search-bar">
+            <input type="text" id="search-input" placeholder="Cari nomor, nama, keterangan..." oninput="handleSearch(this.value)" />
+          </div>
+        </div>
+        <div class="table-container">
+          <table id="tabel-kwitansi">
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Nomor Kwitansi</th>
+                <th>Tanggal</th>
+                <th>Diterima Dari</th>
+                <th>Jumlah</th>
+                <th>Untuk Pembayaran</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-kwitansi">
+              <tr><td colspan="7" class="empty">Belum ada data kwitansi</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- PAGE: IMPORT CSV -->
+      <section id="page-import" class="page">
+        <div class="page-header">
+          <h2>Import Data CSV</h2>
+        </div>
+        <div class="import-area">
+          <div class="import-info">
+            <h3>Format CSV yang dibutuhkan:</h3>
+            <code>nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, untuk_pembayaran, kode_rekening, penerima</code>
+            <p class="hint">Baris pertama harus berisi header. Kolom dipisahkan dengan koma. Jumlah dalam angka tanpa Rp (contoh: 1500000)</p>
+            <button class="btn btn-secondary" onclick="downloadTemplateCsv()">Download Template CSV</button>
+          </div>
+          <div class="upload-area" id="upload-area" onclick="document.getElementById('csv-file').click()">
+            <input type="file" id="csv-file" accept=".csv" onchange="handleFileUpload(event)" hidden />
+            <p class="upload-text">Klik atau seret file CSV ke sini</p>
+            <p class="upload-hint">Format: .csv</p>
+          </div>
+
+          <!-- Import settings -->
+          <div id="import-settings" class="hidden">
+            <h3>Pengaturan Import</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="import_tahun">Tahun Anggaran</label>
+                <input type="text" id="import_tahun" value="2026" />
+              </div>
+              <div class="form-group">
+                <label for="import_mengetahui">Mengetahui</label>
+                <input type="text" id="import_mengetahui" placeholder="Kepala Sekolah" />
+              </div>
+              <div class="form-group">
+                <label for="import_nip_mengetahui">NIP Mengetahui</label>
+                <input type="text" id="import_nip_mengetahui" />
+              </div>
+              <div class="form-group">
+                <label for="import_bendahara">Bendahara</label>
+                <input type="text" id="import_bendahara" />
+              </div>
+              <div class="form-group">
+                <label for="import_nip_bendahara">NIP Bendahara</label>
+                <input type="text" id="import_nip_bendahara" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview Table -->
+          <div id="csv-preview" class="hidden">
+            <h3>Preview Data (<span id="csv-count">0</span> baris)</h3>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>No Kwitansi</th>
+                    <th>Tanggal</th>
+                    <th>Diterima Dari</th>
+                    <th>Jumlah</th>
+                    <th>Untuk Pembayaran</th>
+                    <th>Kode Rek</th>
+                    <th>Penerima</th>
+                  </tr>
+                </thead>
+                <tbody id="csv-tbody"></tbody>
+              </table>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="handleImportCsv()">Import Semua</button>
+              <button class="btn btn-secondary" onclick="resetImport()">Batal</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAGE: DATA SEKOLAH -->
+      <section id="page-sekolah" class="page">
+        <div class="page-header">
+          <h2>Data Sekolah</h2>
+        </div>
+        <form id="form-sekolah" onsubmit="return handleSimpanSekolah(event)">
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label for="s_nama">Nama Sekolah</label>
+              <input type="text" id="s_nama" required placeholder="SDN 1 Contoh" />
+            </div>
+            <div class="form-group full-width">
+              <label for="s_alamat">Alamat</label>
+              <input type="text" id="s_alamat" required placeholder="Jl. Pendidikan No. 1" />
+            </div>
+            <div class="form-group">
+              <label for="s_kota">Kota / Kabupaten</label>
+              <input type="text" id="s_kota" required placeholder="Kab. Contoh" />
+            </div>
+            <div class="form-group">&nbsp;</div>
+            <div class="form-group">
+              <label for="s_kepala">Kepala Sekolah</label>
+              <input type="text" id="s_kepala" required placeholder="Dr. Contoh, M.Pd" />
+            </div>
+            <div class="form-group">
+              <label for="s_nip_kepala">NIP Kepala Sekolah</label>
+              <input type="text" id="s_nip_kepala" placeholder="19700101 199903 1 001" />
+            </div>
+            <div class="form-group">
+              <label for="s_bendahara">Bendahara</label>
+              <input type="text" id="s_bendahara" required placeholder="Nama Bendahara" />
+            </div>
+            <div class="form-group">
+              <label for="s_nip_bendahara">NIP Bendahara</label>
+              <input type="text" id="s_nip_bendahara" placeholder="19800202 200501 2 002" />
+            </div>
+          </div>
+          <input type="hidden" id="s_id" />
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Simpan Data Sekolah</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- PRINT PREVIEW (hidden, only shown when printing) -->
+      <section id="page-print" class="page">
+        <div class="page-header">
+          <h2>Preview Kwitansi</h2>
+          <div>
+            <button class="btn btn-primary" onclick="cetakKwitansi()">Cetak</button>
+            <button class="btn btn-secondary" onclick="showPage('riwayat')">Kembali</button>
+          </div>
+        </div>
+        <div id="print-container"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
