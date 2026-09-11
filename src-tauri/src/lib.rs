@@ -2,6 +2,7 @@ mod commands;
 mod csv_import;
 mod db;
 mod models;
+mod pdf_import;
 mod terbilang;
 
 use commands::*;
@@ -26,6 +27,10 @@ pub fn run() {
             cmd_search_kwitansi,
             cmd_parse_csv,
             cmd_import_csv,
+            cmd_parse_bku_pdf,
+            cmd_import_bku,
+            cmd_get_print_settings,
+            cmd_save_print_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -327,6 +327,43 @@ td .actions {
 }
 
 /* ========== IMPORT / UPLOAD ========== */
+.import-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--border);
+}
+
+.import-tab {
+  padding: 10px 24px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.import-tab:hover {
+  color: var(--primary);
+}
+
+.import-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.import-tab-content {
+  display: none;
+}
+
+.import-tab-content.active {
+  display: block;
+}
+
 .import-area {
   display: flex;
   flex-direction: column;
@@ -387,6 +424,56 @@ td .actions {
 .upload-hint {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+/* ========== LOADING SPINNER ========== */
+#pdf-loading {
+  text-align: center;
+  padding: 32px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+#pdf-loading p {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========== PDF PREVIEW TABLE ========== */
+#pdf-preview .table-container td input[type="text"] {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+  width: 100%;
+  min-width: 120px;
+}
+
+#pdf-preview .table-container td input[type="text"]:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+#pdf-preview .table-container td input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 /* ========== TOAST ========== */
@@ -453,6 +540,36 @@ td .actions {
   color: #000;
   border: 1px solid #ccc;
   position: relative;
+}
+
+/* Values-only mode */
+.kwitansi-page.values-only {
+  border: none;
+}
+
+.kwitansi-page.values-only .kv {
+  position: absolute;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.kwitansi-page.values-only .kv.multi-line {
+  white-space: normal;
+  line-height: 1.5;
+}
+
+.kwitansi-page.values-only .sig-space {
+  display: block;
+}
+
+.kwitansi-page.values-only .kv.jumlah {
+  font-weight: bold;
+  font-size: 110%;
+}
+
+.kwitansi-page.values-only .kv.nip {
+  font-size: 85%;
+  color: #333;
 }
 
 .kwitansi-header {
@@ -537,7 +654,7 @@ td .actions {
 
 .kwitansi-ttd .label {
   font-size: 10pt;
-  margin-bottom: 20mm;
+  margin-bottom: 10mm;
 }
 
 .kwitansi-ttd .nama {
@@ -571,6 +688,92 @@ td .actions {
   color: #333;
 }
 
+/* ========== PRINT SETTINGS PAGE ========== */
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.settings-form {
+  background: var(--bg-card);
+  padding: 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.settings-preview {
+  background: var(--bg-card);
+  padding: 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.settings-form .form-grid {
+  box-shadow: none;
+  padding: 0;
+  margin-bottom: 16px;
+}
+
+.settings-form .form-group label {
+  font-size: 12px;
+}
+
+.settings-form .form-group input,
+.settings-form .form-group select {
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.settings-form .form-group select {
+  cursor: pointer;
+}
+
+/* ========== VISUAL EDITOR (PAPER PREVIEW) ========== */
+.paper-preview {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  cursor: default;
+}
+
+.paper-margin {
+  background: rgba(200, 220, 255, 0.05);
+}
+
+.field-dragger {
+  position: absolute;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1.5px solid;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.92);
+  cursor: grab;
+  user-select: none;
+  white-space: nowrap;
+  z-index: 10;
+  transition: box-shadow 0.15s;
+}
+
+.field-dragger:hover {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  z-index: 20;
+}
+
+.field-dragger:active {
+  cursor: grabbing;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+}
+
+.field-static {
+  position: absolute;
+  color: #999;
+  pointer-events: none;
+}
+
 /* ========== PRINT STYLES ========== */
 @media print {
   body * {
@@ -578,11 +781,14 @@ td .actions {
   }
 
   #print-container,
-  #print-container * {
+  #print-container *,
+  #batch-print-container,
+  #batch-print-container * {
     visibility: visible;
   }
 
-  #print-container {
+  #print-container,
+  #batch-print-container {
     position: absolute;
     left: 0;
     top: 0;
@@ -601,12 +807,23 @@ td .actions {
     padding: 10mm 15mm;
   }
 
+  .kwitansi-page.values-only {
+    border: none;
+  }
+
   .page-header {
     display: none !important;
   }
 
   @page {
     size: A4;
+    margin: 0;
+  }
+}
+
+/* Dynamic @page rules injected by JS */
+@media print and (min-width: 1px) {
+  @page {
     margin: 0;
   }
 }

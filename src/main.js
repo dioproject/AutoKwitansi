@@ -1,20 +1,38 @@
-const { invoke } = window.__TAURI__.core;
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 
 // ========== STATE ==========
 let currentCsvData = [];
+let currentBkuData = null;
 let sekolahData = null;
+let currentPrintSettings = null;
+let currentRiwayatData = [];
+let selectedKwitansiIds = new Set();
+
+// Default field positions (mm) for values_only mode
+// Field gabungan: mengetahui = "Mengetahui,\nNama\nNIP", bendahara = "Bendahara,\nNama\nNIP", penerima = "Yang Menerima,\nNama"
+const DEFAULT_FIELD_POSITIONS = {
+  nomor: { x: 110, y: 18 },
+  tahun_anggaran: { x: 15, y: 28 },
+  kode_rekening: { x: 100, y: 28 },
+  sudah_terima_dari: { x: 60, y: 40 },
+  uang_sejumlah: { x: 60, y: 52 },
+  untuk_pembayaran: { x: 60, y: 64 },
+  jumlah_rp: { x: 120, y: 80 },
+  tanggal: { x: 100, y: 120 },
+  mengetahui: { x: 15, y: 120 },
+  penerima: { x: 100, y: 120 },
+  bendahara: { x: 155, y: 120 },
+};
 
 // ========== INIT ==========
 document.addEventListener("DOMContentLoaded", async () => {
-  // Set default tanggal hari ini
   const today = new Date().toISOString().split("T")[0];
   document.getElementById("tanggal").value = today;
-  document.getElementById("tahun_anggaran").value = new Date()
-    .getFullYear()
-    .toString();
+  document.getElementById("tahun_anggaran").value = new Date().getFullYear().toString();
 
-  // Load data sekolah
   await loadSekolah();
+  await loadPrintSettings();
 });
 
 // ========== NAVIGATION ==========
@@ -23,12 +41,11 @@ window.showPage = function (pageName) {
   document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
 
   document.getElementById(`page-${pageName}`).classList.add("active");
-  document
-    .querySelector(`.nav-btn[data-page="${pageName}"]`)
-    ?.classList.add("active");
+  document.querySelector(`.nav-btn[data-page="${pageName}"]`)?.classList.add("active");
 
   if (pageName === "riwayat") loadRiwayat();
   if (pageName === "sekolah") loadSekolahForm();
+  if (pageName === "print-settings") loadPrintSettingsForm();
 };
 
 // ========== SEKOLAH ==========
@@ -50,8 +67,7 @@ async function loadSekolahForm() {
     document.getElementById("s_kepala").value = sekolahData.kepala_sekolah || "";
     document.getElementById("s_nip_kepala").value = sekolahData.nip_kepala || "";
     document.getElementById("s_bendahara").value = sekolahData.bendahara || "";
-    document.getElementById("s_nip_bendahara").value =
-      sekolahData.nip_bendahara || "";
+    document.getElementById("s_nip_bendahara").value = sekolahData.nip_bendahara || "";
   }
 }
 
@@ -79,18 +95,13 @@ window.handleSimpanSekolah = async function (e) {
 
 // ========== KWITANSI INPUT ==========
 window.handleJumlahInput = async function (el) {
-  // Remove non-digit chars for parsing
   let raw = el.value.replace(/[^\d]/g, "");
   if (raw === "") {
     document.getElementById("terbilang_preview").value = "";
     return;
   }
-
-  // Format display with dots
   let formatted = parseInt(raw).toLocaleString("id-ID");
   el.value = formatted;
-
-  // Get terbilang from Rust
   try {
     const jumlah = parseInt(raw);
     const result = await invoke("cmd_terbilang", { jumlah: jumlah });
@@ -103,23 +114,11 @@ window.handleJumlahInput = async function (el) {
 window.handleSimpanKwitansi = async function (e) {
   e.preventDefault();
 
-  // Auto-fill dari data sekolah jika kosong
-  const mengetahui =
-    document.getElementById("mengetahui").value ||
-    (sekolahData ? sekolahData.kepala_sekolah : "");
-  const nipMengetahui =
-    document.getElementById("nip_mengetahui").value ||
-    (sekolahData ? sekolahData.nip_kepala : "");
-  const bendahara =
-    document.getElementById("bendahara").value ||
-    (sekolahData ? sekolahData.bendahara : "");
-  const nipBendahara =
-    document.getElementById("nip_bendahara").value ||
-    (sekolahData ? sekolahData.nip_bendahara : "");
-
-  const jumlahRaw = document
-    .getElementById("jumlah")
-    .value.replace(/[^\d]/g, "");
+  const mengetahui = document.getElementById("mengetahui").value || (sekolahData ? sekolahData.kepala_sekolah : "");
+  const nipMengetahui = document.getElementById("nip_mengetahui").value || (sekolahData ? sekolahData.nip_kepala : "");
+  const bendahara = document.getElementById("bendahara").value || (sekolahData ? sekolahData.bendahara : "");
+  const nipBendahara = document.getElementById("nip_bendahara").value || (sekolahData ? sekolahData.nip_bendahara : "");
+  const jumlahRaw = document.getElementById("jumlah").value.replace(/[^\d]/g, "");
 
   const kwitansi = {
     id: null,
@@ -142,14 +141,11 @@ window.handleSimpanKwitansi = async function (e) {
   try {
     const id = await invoke("cmd_simpan_kwitansi", { kwitansi: kwitansi });
     showToast("Kwitansi berhasil disimpan", "success");
-
-    // Load and show preview
     const saved = await invoke("cmd_get_kwitansi", { id: id });
     showPrintPreview(saved);
   } catch (e) {
     showToast("Gagal menyimpan: " + e, "error");
   }
-
   return false;
 };
 
@@ -158,15 +154,17 @@ window.resetForm = function () {
   document.getElementById("terbilang_preview").value = "";
   const today = new Date().toISOString().split("T")[0];
   document.getElementById("tanggal").value = today;
-  document.getElementById("tahun_anggaran").value = new Date()
-    .getFullYear()
-    .toString();
+  document.getElementById("tahun_anggaran").value = new Date().getFullYear().toString();
 };
 
 // ========== RIWAYAT ==========
 async function loadRiwayat() {
   try {
     const data = await invoke("cmd_get_all_kwitansi");
+    currentRiwayatData = data;
+    selectedKwitansiIds.clear();
+    document.getElementById("riwayat-select-all").checked = false;
+    updateBatchButton();
     renderTable(data);
   } catch (e) {
     showToast("Gagal memuat data: " + e, "error");
@@ -176,15 +174,13 @@ async function loadRiwayat() {
 function renderTable(data) {
   const tbody = document.getElementById("tbody-kwitansi");
   if (data.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="7" class="empty">Belum ada data kwitansi</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Belum ada data kwitansi</td></tr>';
     return;
   }
 
-  tbody.innerHTML = data
-    .map(
-      (k, i) => `
+  tbody.innerHTML = data.map((k, i) => `
     <tr>
+      <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
       <td>${i + 1}</td>
       <td>${esc(k.nomor_kwitansi)}</td>
       <td>${formatTanggal(k.tanggal)}</td>
@@ -198,9 +194,7 @@ function renderTable(data) {
         </div>
       </td>
     </tr>
-  `
-    )
-    .join("");
+  `).join("");
 }
 
 window.handleSearch = async function (query) {
@@ -209,6 +203,7 @@ window.handleSearch = async function (query) {
       await loadRiwayat();
     } else {
       const data = await invoke("cmd_search_kwitansi", { query: query });
+      currentRiwayatData = data;
       renderTable(data);
     }
   } catch (e) {
@@ -230,9 +225,53 @@ window.hapusKwitansi = async function (id) {
 window.previewKwitansi = async function (id) {
   try {
     const k = await invoke("cmd_get_kwitansi", { id: id });
-    showPrintPreview(k);
+    showPrintPreview([k]);
   } catch (e) {
     showToast("Gagal memuat kwitansi: " + e, "error");
+  }
+};
+
+// ========== RIWAYAT BATCH SELECT ==========
+window.toggleSelectAllRiwayat = function (el) {
+  document.querySelectorAll(".riwayat-check").forEach((cb) => {
+    cb.checked = el.checked;
+    const id = parseInt(cb.dataset.id);
+    if (el.checked) selectedKwitansiIds.add(id);
+    else selectedKwitansiIds.delete(id);
+  });
+  updateBatchButton();
+};
+
+window.handleRiwayatCheck = function () {
+  selectedKwitansiIds.clear();
+  document.querySelectorAll(".riwayat-check").forEach((cb) => {
+    if (cb.checked) selectedKwitansiIds.add(parseInt(cb.dataset.id));
+  });
+  updateBatchButton();
+};
+
+function updateBatchButton() {
+  const btn = document.getElementById("btn-cetak-batch");
+  if (selectedKwitansiIds.size > 1) {
+    btn.style.display = "inline-flex";
+    btn.textContent = `Cetak yang Dipilih (${selectedKwitansiIds.size})`;
+  } else {
+    btn.style.display = "none";
+  }
+}
+
+window.handleCetakBatch = async function () {
+  if (selectedKwitansiIds.size === 0) {
+    showToast("Pilih minimal satu kwitansi", "warning");
+    return;
+  }
+
+  try {
+    const allData = await invoke("cmd_get_all_kwitansi");
+    const selected = allData.filter((k) => selectedKwitansiIds.has(k.id));
+    showBatchPrintPreview(selected);
+  } catch (e) {
+    showToast("Gagal memuat data: " + e, "error");
   }
 };
 
@@ -247,23 +286,15 @@ window.handleFileUpload = async function (event) {
     currentCsvData = await invoke("cmd_parse_csv", { content: text });
     document.getElementById("csv-count").textContent = currentCsvData.length;
 
-    // Fill import settings from sekolah data
     if (sekolahData) {
-      document.getElementById("import_mengetahui").value =
-        sekolahData.kepala_sekolah || "";
-      document.getElementById("import_nip_mengetahui").value =
-        sekolahData.nip_kepala || "";
-      document.getElementById("import_bendahara").value =
-        sekolahData.bendahara || "";
-      document.getElementById("import_nip_bendahara").value =
-        sekolahData.nip_bendahara || "";
+      document.getElementById("import_mengetahui").value = sekolahData.kepala_sekolah || "";
+      document.getElementById("import_nip_mengetahui").value = sekolahData.nip_kepala || "";
+      document.getElementById("import_bendahara").value = sekolahData.bendahara || "";
+      document.getElementById("import_nip_bendahara").value = sekolahData.nip_bendahara || "";
     }
 
-    // Render preview
     const csvTbody = document.getElementById("csv-tbody");
-    csvTbody.innerHTML = currentCsvData
-      .map(
-        (r) => `
+    csvTbody.innerHTML = currentCsvData.map((r) => `
       <tr>
         <td>${esc(r.nomor_kwitansi)}</td>
         <td>${esc(r.tanggal)}</td>
@@ -273,9 +304,7 @@ window.handleFileUpload = async function (event) {
         <td>${esc(r.kode_rekening)}</td>
         <td>${esc(r.penerima)}</td>
       </tr>
-    `
-      )
-      .join("");
+    `).join("");
 
     document.getElementById("import-settings").classList.remove("hidden");
     document.getElementById("csv-preview").classList.remove("hidden");
@@ -316,10 +345,8 @@ window.resetImport = function () {
 };
 
 window.downloadTemplateCsv = function () {
-  const header =
-    "nomor_kwitansi,tanggal,sudah_terima_dari,jumlah,untuk_pembayaran,kode_rekening,penerima";
-  const sample =
-    '001/KWT/2026,2026-01-15,Bendahara BOS,1500000,Pembelian ATK untuk kegiatan belajar mengajar,5.1.02.01.01.0001,Toko Makmur Jaya';
+  const header = "nomor_kwitansi,tanggal,sudah_terima_dari,jumlah,untuk_pembayaran,kode_rekening,penerima";
+  const sample = '001/KWT/2026,2026-01-15,Bendahara BOS,1500000,Pembelian ATK untuk kegiatan belajar mengajar,5.1.02.01.01.0001,Toko Makmur Jaya';
   const csv = header + "\n" + sample + "\n";
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -330,18 +357,380 @@ window.downloadTemplateCsv = function () {
   URL.revokeObjectURL(url);
 };
 
+// ========== IMPORT TAB SWITCH ==========
+window.switchImportTab = function (tab) {
+  document.querySelectorAll(".import-tab").forEach((t) => t.classList.remove("active"));
+  document.querySelectorAll(".import-tab-content").forEach((c) => c.classList.remove("active"));
+  document.querySelector(`.import-tab[data-tab="${tab}"]`).classList.add("active");
+  document.getElementById(`tab-${tab}`).classList.add("active");
+};
+
+// ========== PDF BKU IMPORT ==========
+window.openPdfDialog = async function () {
+  try {
+    const filePath = await open({
+      multiple: false,
+      filters: [{ name: "PDF BKU", extensions: ["pdf"] }],
+    });
+    if (!filePath) return;
+    await processPdfFile(filePath);
+  } catch (e) {
+    showToast("Gagal membuka dialog: " + e, "error");
+  }
+};
+
+async function processPdfFile(filePath) {
+  document.getElementById("pdf-loading").classList.remove("hidden");
+  document.getElementById("pdf-preview").classList.add("hidden");
+  document.getElementById("pdf-import-settings").classList.add("hidden");
+
+  try {
+    const result = await invoke("cmd_parse_bku_pdf", { filePath: filePath });
+    currentBkuData = result;
+
+    document.getElementById("pdf_tahun").value = result.tahun || new Date().getFullYear().toString();
+    document.getElementById("pdf_sudah_terima_dari").value =
+      (sekolahData ? `Bendahara BOS ${sekolahData.nama_sekolah}` : `Bendahara BOS ${result.nama_sekolah}`) || "";
+    document.getElementById("pdf_mengetahui").value = result.kepala_sekolah || (sekolahData ? sekolahData.kepala_sekolah : "");
+    document.getElementById("pdf_nip_mengetahui").value = result.nip_kepala || (sekolahData ? sekolahData.nip_kepala : "");
+    document.getElementById("pdf_bendahara").value = result.bendahara || (sekolahData ? sekolahData.bendahara : "");
+    document.getElementById("pdf_nip_bendahara").value = result.nip_bendahara || (sekolahData ? sekolahData.nip_bendahara : "");
+
+    document.getElementById("pdf-count").textContent = result.transactions.length;
+    const tbody = document.getElementById("pdf-tbody");
+    tbody.innerHTML = result.transactions.map((tx, i) => `
+      <tr>
+        <td><input type="checkbox" class="pdf-row-check" data-index="${i}" checked /></td>
+        <td>${esc(tx.no_bukti)}</td>
+        <td>${esc(tx.tanggal)}</td>
+        <td>${esc(tx.kode_rekening)}</td>
+        <td title="${esc(tx.uraian)}">${esc(tx.uraian.length > 60 ? tx.uraian.substring(0, 60) + "..." : tx.uraian)}</td>
+        <td class="rupiah">Rp ${formatRupiah(tx.pengeluaran)}</td>
+        <td><input type="text" class="pdf-penerima-input" data-index="${i}" value="${esc(tx.penerima)}" placeholder="Isi penerima..." /></td>
+      </tr>
+    `).join("");
+
+    document.getElementById("pdf-import-settings").classList.remove("hidden");
+    document.getElementById("pdf-preview").classList.remove("hidden");
+    showToast(`${result.transactions.length} transaksi ditemukan dari BKU ${result.bulan} ${result.tahun}`, "success");
+  } catch (e) {
+    showToast("Gagal memproses PDF: " + e, "error");
+  } finally {
+    document.getElementById("pdf-loading").classList.add("hidden");
+  }
+}
+
+window.toggleSelectAllPdf = function (el) {
+  document.querySelectorAll(".pdf-row-check").forEach((cb) => {
+    cb.checked = el.checked;
+  });
+};
+
+window.handleImportBku = async function () {
+  if (!currentBkuData || currentBkuData.transactions.length === 0) {
+    showToast("Tidak ada data untuk diimport", "warning");
+    return;
+  }
+
+  const checkboxes = document.querySelectorAll(".pdf-row-check");
+  const penerimaInputs = document.querySelectorAll(".pdf-penerima-input");
+  const selectedTransactions = [];
+
+  checkboxes.forEach((cb) => {
+    if (cb.checked) {
+      const idx = parseInt(cb.dataset.index);
+      const tx = { ...currentBkuData.transactions[idx] };
+      const input = penerimaInputs[idx];
+      if (input) tx.penerima = input.value;
+      selectedTransactions.push(tx);
+    }
+  });
+
+  if (selectedTransactions.length === 0) {
+    showToast("Pilih minimal satu transaksi untuk diimport", "warning");
+    return;
+  }
+
+  try {
+    const count = await invoke("cmd_import_bku", {
+      transactions: selectedTransactions,
+      tahunAnggaran: document.getElementById("pdf_tahun").value,
+      sudahTerimaDari: document.getElementById("pdf_sudah_terima_dari").value,
+      mengetahui: document.getElementById("pdf_mengetahui").value,
+      nipMengetahui: document.getElementById("pdf_nip_mengetahui").value,
+      bendahara: document.getElementById("pdf_bendahara").value,
+      nipBendahara: document.getElementById("pdf_nip_bendahara").value,
+    });
+    showToast(`${count} kwitansi berhasil diimport dari BKU`, "success");
+    resetPdfImport();
+    showPage("riwayat");
+  } catch (e) {
+    showToast("Gagal import: " + e, "error");
+  }
+};
+
+window.resetPdfImport = function () {
+  currentBkuData = null;
+  document.getElementById("pdf-loading").classList.add("hidden");
+  document.getElementById("pdf-import-settings").classList.add("hidden");
+  document.getElementById("pdf-preview").classList.add("hidden");
+};
+
+// ========== PRINT SETTINGS ==========
+async function loadPrintSettings() {
+  try {
+    currentPrintSettings = await invoke("cmd_get_print_settings");
+    if (currentPrintSettings.field_positions === "{}" || !currentPrintSettings.field_positions) {
+      currentPrintSettings.field_positions = JSON.stringify(DEFAULT_FIELD_POSITIONS);
+    }
+  } catch (e) {
+    console.error("Gagal load print settings:", e);
+    currentPrintSettings = {
+      id: null,
+      mode: "values_only",
+      paper_width: 176,
+      paper_height: 190,
+      margin_top: 10,
+      margin_bottom: 10,
+      margin_left: 10,
+      margin_right: 10,
+      font_size: 9,
+      sig_gap: 15,
+      field_positions: JSON.stringify(DEFAULT_FIELD_POSITIONS),
+    };
+  }
+}
+
+async function loadPrintSettingsForm() {
+  await loadPrintSettings();
+  const s = currentPrintSettings;
+  document.getElementById("ps_mode").value = s.mode;
+  document.getElementById("ps_paper_width").value = s.paper_width;
+  document.getElementById("ps_paper_height").value = s.paper_height;
+  document.getElementById("ps_margin_top").value = s.margin_top;
+  document.getElementById("ps_margin_bottom").value = s.margin_bottom;
+  document.getElementById("ps_margin_left").value = s.margin_left;
+  document.getElementById("ps_margin_right").value = s.margin_right;
+  document.getElementById("ps_font_size").value = s.font_size;
+  document.getElementById("ps_sig_gap").value = s.sig_gap || 15;
+  renderPaperPreview();
+}
+
+window.handleModeChange = function (mode) {
+  currentPrintSettings.mode = mode;
+  renderPaperPreview();
+};
+
+window.handleSimpanPrintSettings = async function () {
+  currentPrintSettings.mode = document.getElementById("ps_mode").value;
+  currentPrintSettings.paper_width = parseFloat(document.getElementById("ps_paper_width").value);
+  currentPrintSettings.paper_height = parseFloat(document.getElementById("ps_paper_height").value);
+  currentPrintSettings.margin_top = parseFloat(document.getElementById("ps_margin_top").value);
+  currentPrintSettings.margin_bottom = parseFloat(document.getElementById("ps_margin_bottom").value);
+  currentPrintSettings.margin_left = parseFloat(document.getElementById("ps_margin_left").value);
+  currentPrintSettings.margin_right = parseFloat(document.getElementById("ps_margin_right").value);
+  currentPrintSettings.font_size = parseFloat(document.getElementById("ps_font_size").value);
+  currentPrintSettings.sig_gap = parseFloat(document.getElementById("ps_sig_gap").value) || 15;
+
+  try {
+    await invoke("cmd_save_print_settings", { settings: currentPrintSettings });
+    showToast("Pengaturan cetak berhasil disimpan", "success");
+  } catch (e) {
+    showToast("Gagal menyimpan pengaturan: " + e, "error");
+  }
+};
+
+window.handleResetPrintSettings = function () {
+  document.getElementById("ps_paper_width").value = 176;
+  document.getElementById("ps_paper_height").value = 190;
+  document.getElementById("ps_margin_top").value = 10;
+  document.getElementById("ps_margin_bottom").value = 10;
+  document.getElementById("ps_margin_left").value = 10;
+  document.getElementById("ps_margin_right").value = 10;
+  document.getElementById("ps_font_size").value = 9;
+  document.getElementById("ps_sig_gap").value = 15;
+  currentPrintSettings.field_positions = JSON.stringify(DEFAULT_FIELD_POSITIONS);
+  renderPaperPreview();
+};
+
+// ========== VISUAL EDITOR (DRAG & DROP) ==========
+let dragState = null;
+
+function renderPaperPreview() {
+  const container = document.getElementById("paper-preview-container");
+  if (!container) return;
+
+  const s = currentPrintSettings;
+  const positions = JSON.parse(s.field_positions || "{}");
+  const mode = s.mode;
+
+  const previewWidth = 400;
+  const scale = previewWidth / s.paper_width;
+  const previewHeight = s.paper_height * scale;
+  const marginLeft = s.margin_left * scale;
+  const marginTop = s.margin_top * scale;
+  const marginRight = s.margin_right * scale;
+  const marginBottom = s.margin_bottom * scale;
+
+  let fieldsHtml = "";
+
+  if (mode === "values_only") {
+    const fieldDefs = [
+      { key: "nomor", label: "No Kwitansi", color: "#1a56db" },
+      { key: "tahun_anggaran", label: "Tahun Anggaran", color: "#059669" },
+      { key: "kode_rekening", label: "Kode Rekening", color: "#059669" },
+      { key: "sudah_terima_dari", label: "Sudah Terima Dari", color: "#d97706" },
+      { key: "uang_sejumlah", label: "Uang Sejumlah", color: "#d97706" },
+      { key: "untuk_pembayaran", label: "Untuk Pembayaran", color: "#d97706" },
+      { key: "jumlah_rp", label: "Jumlah Rp", color: "#dc2626" },
+      { key: "tanggal", label: "Tanggal", color: "#8b5cf6" },
+      { key: "mengetahui", label: "Mengetahui (Nama + NIP)", color: "#6366f1" },
+      { key: "penerima", label: "Yang Menerima (Nama)", color: "#ec4899" },
+      { key: "bendahara", label: "Bendahara (Nama + NIP)", color: "#14b8a6" },
+    ];
+
+    fieldsHtml = fieldDefs.map((f) => {
+      const pos = positions[f.key] || { x: 10, y: 10 };
+      return `<div class="field-dragger" data-key="${f.key}"
+        style="left:${pos.x * scale}px; top:${pos.y * scale}px; border-color:${f.color}; color:${f.color};"
+        title="${f.label}">${f.label}</div>`;
+    }).join("");
+  } else {
+    // Full mode: show layout labels
+    fieldsHtml = `
+      <div class="field-static" style="top:8px; left:50%; transform:translateX(-50%); font-weight:bold; font-size:13px;">KWITANSI</div>
+      <div class="field-static" style="top:30px; right:10px; font-size:10px;">No: ...</div>
+      <div class="field-static" style="top:50px; left:10px; font-size:10px;">Sudah terima dari: ............</div>
+      <div class="field-static" style="top:70px; left:10px; font-size:10px;">Uang sejumlah: ............</div>
+      <div class="field-static" style="top:90px; left:10px; font-size:10px;">Untuk pembayaran: ............</div>
+      <div class="field-static" style="top:110px; right:10px; font-size:10px; font-weight:bold;">Rp .......</div>
+      <div class="field-static" style="bottom:80px; left:10px; font-size:10px;">Mengetahui,</div>
+      <div class="field-static" style="bottom:80px; right:10px; font-size:10px;">Bendahara,</div>
+      <div class="field-static" style="bottom:60px; left:50%; transform:translateX(-50%); font-size:10px;">Yang Menerima,</div>
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="paper-preview" style="width:${previewWidth}px; height:${previewHeight}px; position:relative; background:#fff; border:2px solid #ccc; overflow:hidden; border-radius:4px;">
+      <div class="paper-margin" style="position:absolute; left:${marginLeft}px; top:${marginTop}px; right:${marginRight}px; bottom:${marginBottom}px; border:1px dashed #aaa; pointer-events:none;"></div>
+      ${fieldsHtml}
+    </div>
+  `;
+
+  if (mode === "values_only") {
+    initDraggers(container);
+  }
+}
+
+function initDraggers(container) {
+  const scale = 400 / currentPrintSettings.paper_width;
+
+  container.querySelectorAll(".field-dragger").forEach((el) => {
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      const key = el.dataset.key;
+      const positions = JSON.parse(currentPrintSettings.field_positions || "{}");
+      const startPos = positions[key] || { x: 0, y: 0 };
+      const startMouseX = e.clientX;
+      const startMouseY = e.clientY;
+
+      dragState = { el, key, startPos, startMouseX, startMouseY, scale };
+
+      const onMove = (e) => {
+        if (!dragState) return;
+        const dx = (e.clientX - dragState.startMouseX) / dragState.scale;
+        const dy = (e.clientY - dragState.startMouseY) / dragState.scale;
+        let newX = Math.round(dragState.startPos.x + dx);
+        let newY = Math.round(dragState.startPos.y + dy);
+        newX = Math.max(0, Math.min(currentPrintSettings.paper_width - 15, newX));
+        newY = Math.max(0, Math.min(currentPrintSettings.paper_height - 10, newY));
+
+        dragState.el.style.left = `${newX * dragState.scale}px`;
+        dragState.el.style.top = `${newY * dragState.scale}px`;
+
+        const pos = JSON.parse(currentPrintSettings.field_positions || "{}");
+        pos[dragState.key] = { x: newX, y: newY };
+        currentPrintSettings.field_positions = JSON.stringify(pos);
+      };
+
+      const onUp = () => {
+        dragState = null;
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+      };
+
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    });
+  });
+}
+
 // ========== PRINT PREVIEW & CETAK ==========
-function showPrintPreview(k) {
+function showPrintPreview(kwitansiList) {
   const container = document.getElementById("print-container");
-  container.innerHTML = renderKwitansiTemplate(k);
+  container.innerHTML = kwitansiList.map((k) => renderKwitansiTemplate(k)).join("");
   showPage("print");
 }
 
+function showBatchPrintPreview(kwitansiList) {
+  const container = document.getElementById("batch-print-container");
+  document.getElementById("batch-count").textContent = kwitansiList.length;
+  container.innerHTML = kwitansiList.map((k) => renderKwitansiTemplate(k)).join("");
+  showPage("batch-print");
+}
+
 function renderKwitansiTemplate(k) {
-  const tgl = formatTanggalPanjang(k.tanggal);
+  if (currentPrintSettings && currentPrintSettings.mode === "values_only") {
+    return renderValuesOnlyTemplate(k);
+  }
+  return renderFullTemplate(k);
+}
+
+function renderValuesOnlyTemplate(k) {
+  const s = currentPrintSettings;
+  const positions = JSON.parse(s.field_positions || "{}");
+  const fontSize = s.font_size || 9;
+  const gap = s.sig_gap || 15;
+
+  function pos(key) {
+    const p = positions[key] || { x: 0, y: 0 };
+    return `left:${p.x}mm; top:${p.y}mm;`;
+  }
+
+  const mengetahuiBlock = `<div class="kv multi-line" style="${pos('mengetahui')}">Mengetahui,<div class="sig-space" style="height:${gap}mm"></div>${esc(k.mengetahui)}<br>NIP. ${esc(k.nip_mengetahui)}</div>`;
+  const penerimaBlock = `<div class="kv multi-line" style="${pos('penerima')}">${esc(formatTanggalPanjang(k.tanggal))}<br>Yang Menerima,<div class="sig-space" style="height:${gap}mm"></div>${esc(k.penerima)}</div>`;
+  const bendaharaBlock = `<div class="kv multi-line" style="${pos('bendahara')}">Bendahara,<div class="sig-space" style="height:${gap}mm"></div>${esc(k.bendahara)}<br>NIP. ${esc(k.nip_bendahara)}</div>`;
 
   return `
-    <div class="kwitansi-page">
+    <div class="kwitansi-page values-only" style="width:${s.paper_width}mm; min-height:${s.paper_height}mm; padding:${s.margin_top}mm ${s.margin_right}mm ${s.margin_bottom}mm ${s.margin_left}mm; font-size:${fontSize}pt;">
+      <div class="kv" style="${pos('nomor')}">No: ${esc(k.nomor_kwitansi)}</div>
+      <div class="kv" style="${pos('tahun_anggaran')}">Tahun Anggaran: ${esc(k.tahun_anggaran)}</div>
+      <div class="kv" style="${pos('kode_rekening')}">Kode Rekening: ${esc(k.kode_rekening)}</div>
+      <div class="kv" style="${pos('sudah_terima_dari')}">${esc(k.sudah_terima_dari)}</div>
+      <div class="kv" style="${pos('uang_sejumlah')}">${esc(capitalize(k.terbilang))}</div>
+      <div class="kv" style="${pos('untuk_pembayaran')}">${esc(k.untuk_pembayaran)}</div>
+      <div class="kv jumlah" style="${pos('jumlah_rp')}">Rp ${formatRupiah(k.jumlah)}</div>
+      ${mengetahuiBlock}
+      ${penerimaBlock}
+      ${bendaharaBlock}
+    </div>
+  `;
+}
+
+function renderFullTemplate(k) {
+  const tgl = formatTanggalPanjang(k.tanggal);
+  const s = currentPrintSettings;
+  const pw = s ? s.paper_width : 210;
+  const ph = s ? s.paper_height : 148;
+  const mt = s ? s.margin_top : 12;
+  const ml = s ? s.margin_left : 15;
+  const mr = s ? s.margin_right : 15;
+  const mb = s ? s.margin_bottom : 12;
+  const fs = s ? s.font_size : 12;
+  const gap = s ? (s.sig_gap || 15) : 15;
+
+  return `
+    <div class="kwitansi-page" style="width:${pw}mm; min-height:${ph}mm; padding:${mt}mm ${mr}mm ${mb}mm ${ml}mm; font-size:${fs}pt;">
       <div class="kwitansi-header">
         <div class="merk">Silver Horse</div>
         <h2>KWITANSI</h2>
@@ -359,19 +748,16 @@ function renderKwitansiTemplate(k) {
           <span class="kwitansi-sep">:</span>
           <span class="kwitansi-value">${esc(k.sudah_terima_dari)}</span>
         </div>
-
         <div class="kwitansi-row">
           <span class="kwitansi-label">Uang sejumlah</span>
           <span class="kwitansi-sep">:</span>
           <span class="kwitansi-value terbilang">${esc(capitalize(k.terbilang))}</span>
         </div>
-
         <div class="kwitansi-row">
           <span class="kwitansi-label">Untuk pembayaran</span>
           <span class="kwitansi-sep">:</span>
           <span class="kwitansi-value">${esc(k.untuk_pembayaran)}</span>
         </div>
-
         <div style="text-align: right; margin-top: 5mm;">
           <div class="kwitansi-jumlah-box">Rp ${formatRupiah(k.jumlah)}</div>
         </div>
@@ -379,21 +765,19 @@ function renderKwitansiTemplate(k) {
 
       <div class="kwitansi-footer">
         <div class="kwitansi-ttd">
-          <div class="label">Mengetahui,</div>
+          <div class="label" style="margin-bottom:${gap}mm">Mengetahui,</div>
           <div class="nama">${esc(k.mengetahui)}</div>
           <div class="nip">NIP. ${esc(k.nip_mengetahui)}</div>
         </div>
-
         <div class="kwitansi-ttd" style="text-align: center;">
-          <div class="label">${esc(tgl)}</div>
-          <div class="label">Yang Menerima,</div>
-          <div class="nama">${esc(k.penerima)}</div>
-        </div>
-
-        <div class="kwitansi-ttd">
-          <div class="label">Bendahara,</div>
+          <div class="label" style="margin-bottom:${gap}mm">Bendahara,</div>
           <div class="nama">${esc(k.bendahara)}</div>
           <div class="nip">NIP. ${esc(k.nip_bendahara)}</div>
+        </div>
+        <div class="kwitansi-ttd">
+          <div class="label">${esc(tgl)}</div>
+          <div class="label" style="margin-bottom:${gap}mm">Yang Menerima,</div>
+          <div class="nama">${esc(k.penerima)}</div>
         </div>
       </div>
 
@@ -403,36 +787,44 @@ function renderKwitansiTemplate(k) {
 }
 
 window.cetakKwitansi = function () {
+  // Inject dynamic @page rules based on print settings
+  if (currentPrintSettings) {
+    const s = currentPrintSettings;
+    let styleEl = document.getElementById("dynamic-print-style");
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "dynamic-print-style";
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `
+      @media print {
+        @page {
+          size: ${s.paper_width}mm ${s.paper_height}mm;
+          margin: 0;
+        }
+      }
+    `;
+  }
   window.print();
 };
 
 // ========== UTILITIES ==========
 function formatRupiah(num) {
-  return Math.round(num)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function formatTanggal(dateStr) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function formatTanggalPanjang(dateStr) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 }
 
 function capitalize(str) {

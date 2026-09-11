@@ -1,6 +1,6 @@
-use rusqlite::{Connection, Result, params};
+use crate::models::{Kwitansi, PrintSettings, Sekolah};
+use rusqlite::{params, Connection, Result};
 use std::path::PathBuf;
-use crate::models::{Kwitansi, Sekolah};
 
 fn get_db_path() -> PathBuf {
     let mut path = dirs_next().unwrap_or_else(|| PathBuf::from("."));
@@ -64,8 +64,32 @@ pub fn init_db() -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_kwitansi_nomor ON kwitansi(nomor_kwitansi);
         CREATE INDEX IF NOT EXISTS idx_kwitansi_tanggal ON kwitansi(tanggal);
-        "
+
+        CREATE TABLE IF NOT EXISTS print_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            mode TEXT NOT NULL DEFAULT 'values_only',
+            paper_width REAL NOT NULL DEFAULT 176.0,
+            paper_height REAL NOT NULL DEFAULT 190.0,
+            margin_top REAL NOT NULL DEFAULT 10.0,
+            margin_bottom REAL NOT NULL DEFAULT 10.0,
+            margin_left REAL NOT NULL DEFAULT 10.0,
+            margin_right REAL NOT NULL DEFAULT 10.0,
+            font_size REAL NOT NULL DEFAULT 9.0,
+            sig_gap REAL NOT NULL DEFAULT 15.0,
+            field_positions TEXT NOT NULL DEFAULT '{}'
+        );
+        ",
     )?;
+
+    // Migration: add sig_gap column if missing (for existing DB)
+    let sig_gap_exists: bool = conn
+        .prepare("SELECT sig_gap FROM print_settings LIMIT 1")
+        .is_ok();
+    if !sig_gap_exists {
+        let _ = conn.execute_batch(
+            "ALTER TABLE print_settings ADD COLUMN sig_gap REAL NOT NULL DEFAULT 15.0",
+        );
+    }
 
     // Insert default sekolah if empty
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM sekolah", [], |row| row.get(0))?;
@@ -257,4 +281,109 @@ pub fn search_kwitansi(query: &str) -> Result<Vec<Kwitansi>> {
         result.push(row?);
     }
     Ok(result)
+}
+
+// ============ PRINT SETTINGS ============
+
+pub fn get_print_settings() -> Result<PrintSettings> {
+    let conn = get_connection()?;
+    let result = conn.query_row(
+        "SELECT id, mode, paper_width, paper_height, margin_top, margin_bottom, margin_left, margin_right, font_size, sig_gap, field_positions
+         FROM print_settings LIMIT 1",
+        [],
+        |row| {
+            Ok(PrintSettings {
+                id: row.get(0)?,
+                mode: row.get(1)?,
+                paper_width: row.get(2)?,
+                paper_height: row.get(3)?,
+                margin_top: row.get(4)?,
+                margin_bottom: row.get(5)?,
+                margin_left: row.get(6)?,
+                margin_right: row.get(7)?,
+                font_size: row.get(8)?,
+                sig_gap: row.get(9)?,
+                field_positions: row.get(10)?,
+            })
+        },
+    );
+
+    match result {
+        Ok(s) => Ok(s),
+        Err(_) => {
+            let mut default = PrintSettings {
+                id: None,
+                mode: "values_only".to_string(),
+                paper_width: 176.0,
+                paper_height: 190.0,
+                margin_top: 10.0,
+                margin_bottom: 10.0,
+                margin_left: 10.0,
+                margin_right: 10.0,
+                font_size: 9.0,
+                sig_gap: 15.0,
+                field_positions: "{}".to_string(),
+            };
+            let conn2 = get_connection()?;
+            conn2.execute(
+                "INSERT INTO print_settings (mode, paper_width, paper_height, margin_top, margin_bottom, margin_left, margin_right, font_size, sig_gap, field_positions)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+                params![
+                    default.mode,
+                    default.paper_width,
+                    default.paper_height,
+                    default.margin_top,
+                    default.margin_bottom,
+                    default.margin_left,
+                    default.margin_right,
+                    default.font_size,
+                    default.sig_gap,
+                    default.field_positions,
+                ],
+            )?;
+            let id = conn2.last_insert_rowid();
+            default.id = Some(id);
+            Ok(default)
+        }
+    }
+}
+
+pub fn save_print_settings(s: &PrintSettings) -> Result<()> {
+    let conn = get_connection()?;
+    if let Some(id) = s.id {
+        conn.execute(
+            "UPDATE print_settings SET mode=?1, paper_width=?2, paper_height=?3, margin_top=?4, margin_bottom=?5, margin_left=?6, margin_right=?7, font_size=?8, sig_gap=?9, field_positions=?10 WHERE id=?11",
+            params![
+                s.mode,
+                s.paper_width,
+                s.paper_height,
+                s.margin_top,
+                s.margin_bottom,
+                s.margin_left,
+                s.margin_right,
+                s.font_size,
+                s.sig_gap,
+                s.field_positions,
+                id,
+            ],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT INTO print_settings (mode, paper_width, paper_height, margin_top, margin_bottom, margin_left, margin_right, font_size, sig_gap, field_positions)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            params![
+                s.mode,
+                s.paper_width,
+                s.paper_height,
+                s.margin_top,
+                s.margin_bottom,
+                s.margin_left,
+                s.margin_right,
+                s.font_size,
+                s.sig_gap,
+                s.field_positions,
+            ],
+        )?;
+    }
+    Ok(())
 }

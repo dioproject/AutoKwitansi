@@ -22,15 +22,18 @@
           <span class="nav-icon">&#9776;</span> Riwayat
         </button>
         <button class="nav-btn" data-page="import" onclick="showPage('import')">
-          <span class="nav-icon">&#8593;</span> Import CSV
+          <span class="nav-icon">&#8593;</span> Import Data
         </button>
         <button class="nav-btn" data-page="sekolah" onclick="showPage('sekolah')">
           <span class="nav-icon">&#9881;</span> Data Sekolah
         </button>
+        <button class="nav-btn" data-page="print-settings" onclick="showPage('print-settings')">
+          <span class="nav-icon">&#9998;</span> Pengaturan Cetak
+        </button>
       </nav>
       <div class="sidebar-footer">
-        <p>Silver Horse Edition</p>
-        <p class="version">v1.0.0</p>
+        <p>dio project</p>
+        <p class="version">v1.1.0</p>
       </div>
     </aside>
 
@@ -108,14 +111,18 @@
       <section id="page-riwayat" class="page">
         <div class="page-header">
           <h2>Riwayat Kwitansi</h2>
-          <div class="search-bar">
-            <input type="text" id="search-input" placeholder="Cari nomor, nama, keterangan..." oninput="handleSearch(this.value)" />
+          <div style="display:flex; gap:10px; align-items:center;">
+            <div class="search-bar">
+              <input type="text" id="search-input" placeholder="Cari nomor, nama, keterangan..." oninput="handleSearch(this.value)" />
+            </div>
+            <button class="btn btn-primary" onclick="handleCetakBatch()" id="btn-cetak-batch" style="display:none;">Cetak yang Dipilih</button>
           </div>
         </div>
         <div class="table-container">
           <table id="tabel-kwitansi">
             <thead>
               <tr>
+                <th><input type="checkbox" id="riwayat-select-all" onchange="toggleSelectAllRiwayat(this)" /></th>
                 <th>No</th>
                 <th>Nomor Kwitansi</th>
                 <th>Tanggal</th>
@@ -126,79 +133,166 @@
               </tr>
             </thead>
             <tbody id="tbody-kwitansi">
-              <tr><td colspan="7" class="empty">Belum ada data kwitansi</td></tr>
+              <tr><td colspan="8" class="empty">Belum ada data kwitansi</td></tr>
             </tbody>
           </table>
         </div>
       </section>
 
-      <!-- PAGE: IMPORT CSV -->
+      <!-- PAGE: IMPORT DATA -->
       <section id="page-import" class="page">
         <div class="page-header">
-          <h2>Import Data CSV</h2>
+          <h2>Import Data</h2>
         </div>
-        <div class="import-area">
-          <div class="import-info">
-            <h3>Format CSV yang dibutuhkan:</h3>
-            <code>nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, untuk_pembayaran, kode_rekening, penerima</code>
-            <p class="hint">Baris pertama harus berisi header. Kolom dipisahkan dengan koma. Jumlah dalam angka tanpa Rp (contoh: 1500000)</p>
-            <button class="btn btn-secondary" onclick="downloadTemplateCsv()">Download Template CSV</button>
-          </div>
-          <div class="upload-area" id="upload-area" onclick="document.getElementById('csv-file').click()">
-            <input type="file" id="csv-file" accept=".csv" onchange="handleFileUpload(event)" hidden />
-            <p class="upload-text">Klik atau seret file CSV ke sini</p>
-            <p class="upload-hint">Format: .csv</p>
-          </div>
 
-          <!-- Import settings -->
-          <div id="import-settings" class="hidden">
-            <h3>Pengaturan Import</h3>
-            <div class="form-grid">
-              <div class="form-group">
-                <label for="import_tahun">Tahun Anggaran</label>
-                <input type="text" id="import_tahun" value="2026" />
+        <!-- Import Tabs -->
+        <div class="import-tabs">
+          <button class="import-tab active" data-tab="pdf" onclick="switchImportTab('pdf')">Import PDF BKU</button>
+          <button class="import-tab" data-tab="csv" onclick="switchImportTab('csv')">Import CSV</button>
+        </div>
+
+        <!-- TAB: PDF BKU IMPORT -->
+        <div id="tab-pdf" class="import-tab-content active">
+          <div class="import-area">
+            <div class="import-info">
+              <h3>Import dari PDF Buku Kas Umum (BKU)</h3>
+              <p class="hint">Upload file PDF BKU yang diexport dari ARKAS. Data akan diekstrak otomatis: No. Bukti, Tanggal, Kode Rekening, Uraian, dan Jumlah Pengeluaran.</p>
+            </div>
+            <div class="upload-area" id="upload-area-pdf" onclick="openPdfDialog()">
+              <input type="file" id="pdf-file" accept=".pdf" hidden />
+              <p class="upload-text">Klik untuk pilih file PDF BKU</p>
+              <p class="upload-hint">Format: .pdf (dari ARKAS)</p>
+            </div>
+
+            <!-- PDF Loading indicator -->
+            <div id="pdf-loading" class="hidden">
+              <div class="loading-spinner"></div>
+              <p>Sedang memproses PDF...</p>
+            </div>
+
+            <!-- PDF Import settings (auto-filled from PDF) -->
+            <div id="pdf-import-settings" class="hidden">
+              <h3>Data dari PDF</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="pdf_tahun">Tahun Anggaran</label>
+                  <input type="text" id="pdf_tahun" />
+                </div>
+                <div class="form-group">
+                  <label for="pdf_sudah_terima_dari">Sudah Terima Dari</label>
+                  <input type="text" id="pdf_sudah_terima_dari" />
+                </div>
+                <div class="form-group">
+                  <label for="pdf_mengetahui">Mengetahui (Kepala Sekolah)</label>
+                  <input type="text" id="pdf_mengetahui" />
+                </div>
+                <div class="form-group">
+                  <label for="pdf_nip_mengetahui">NIP Mengetahui</label>
+                  <input type="text" id="pdf_nip_mengetahui" />
+                </div>
+                <div class="form-group">
+                  <label for="pdf_bendahara">Bendahara</label>
+                  <input type="text" id="pdf_bendahara" />
+                </div>
+                <div class="form-group">
+                  <label for="pdf_nip_bendahara">NIP Bendahara</label>
+                  <input type="text" id="pdf_nip_bendahara" />
+                </div>
               </div>
-              <div class="form-group">
-                <label for="import_mengetahui">Mengetahui</label>
-                <input type="text" id="import_mengetahui" placeholder="Kepala Sekolah" />
+            </div>
+
+            <!-- PDF Preview Table -->
+            <div id="pdf-preview" class="hidden">
+              <h3>Preview Data BKU (<span id="pdf-count">0</span> transaksi)</h3>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th><input type="checkbox" id="pdf-select-all" onchange="toggleSelectAllPdf(this)" checked /></th>
+                      <th>No. Bukti</th>
+                      <th>Tanggal</th>
+                      <th>Kode Rekening</th>
+                      <th>Uraian</th>
+                      <th>Jumlah</th>
+                      <th>Penerima</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pdf-tbody"></tbody>
+                </table>
               </div>
-              <div class="form-group">
-                <label for="import_nip_mengetahui">NIP Mengetahui</label>
-                <input type="text" id="import_nip_mengetahui" />
-              </div>
-              <div class="form-group">
-                <label for="import_bendahara">Bendahara</label>
-                <input type="text" id="import_bendahara" />
-              </div>
-              <div class="form-group">
-                <label for="import_nip_bendahara">NIP Bendahara</label>
-                <input type="text" id="import_nip_bendahara" />
+              <div class="form-actions">
+                <button class="btn btn-primary" onclick="handleImportBku()">Import yang Dipilih</button>
+                <button class="btn btn-secondary" onclick="resetPdfImport()">Batal</button>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Preview Table -->
-          <div id="csv-preview" class="hidden">
-            <h3>Preview Data (<span id="csv-count">0</span> baris)</h3>
-            <div class="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>No Kwitansi</th>
-                    <th>Tanggal</th>
-                    <th>Diterima Dari</th>
-                    <th>Jumlah</th>
-                    <th>Untuk Pembayaran</th>
-                    <th>Kode Rek</th>
-                    <th>Penerima</th>
-                  </tr>
-                </thead>
-                <tbody id="csv-tbody"></tbody>
-              </table>
+        <!-- TAB: CSV IMPORT -->
+        <div id="tab-csv" class="import-tab-content">
+          <div class="import-area">
+            <div class="import-info">
+              <h3>Format CSV yang dibutuhkan:</h3>
+              <code>nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, untuk_pembayaran, kode_rekening, penerima</code>
+              <p class="hint">Baris pertama harus berisi header. Kolom dipisahkan dengan koma. Jumlah dalam angka tanpa Rp (contoh: 1500000)</p>
+              <button class="btn btn-secondary" onclick="downloadTemplateCsv()">Download Template CSV</button>
             </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="handleImportCsv()">Import Semua</button>
-              <button class="btn btn-secondary" onclick="resetImport()">Batal</button>
+            <div class="upload-area" id="upload-area" onclick="document.getElementById('csv-file').click()">
+              <input type="file" id="csv-file" accept=".csv" onchange="handleFileUpload(event)" hidden />
+              <p class="upload-text">Klik atau seret file CSV ke sini</p>
+              <p class="upload-hint">Format: .csv</p>
+            </div>
+
+            <!-- Import settings -->
+            <div id="import-settings" class="hidden">
+              <h3>Pengaturan Import</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="import_tahun">Tahun Anggaran</label>
+                  <input type="text" id="import_tahun" value="2026" />
+                </div>
+                <div class="form-group">
+                  <label for="import_mengetahui">Mengetahui</label>
+                  <input type="text" id="import_mengetahui" placeholder="Kepala Sekolah" />
+                </div>
+                <div class="form-group">
+                  <label for="import_nip_mengetahui">NIP Mengetahui</label>
+                  <input type="text" id="import_nip_mengetahui" />
+                </div>
+                <div class="form-group">
+                  <label for="import_bendahara">Bendahara</label>
+                  <input type="text" id="import_bendahara" />
+                </div>
+                <div class="form-group">
+                  <label for="import_nip_bendahara">NIP Bendahara</label>
+                  <input type="text" id="import_nip_bendahara" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Preview Table -->
+            <div id="csv-preview" class="hidden">
+              <h3>Preview Data (<span id="csv-count">0</span> baris)</h3>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>No Kwitansi</th>
+                      <th>Tanggal</th>
+                      <th>Diterima Dari</th>
+                      <th>Jumlah</th>
+                      <th>Untuk Pembayaran</th>
+                      <th>Kode Rek</th>
+                      <th>Penerima</th>
+                    </tr>
+                  </thead>
+                  <tbody id="csv-tbody"></tbody>
+                </table>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" onclick="handleImportCsv()">Import Semua</button>
+                <button class="btn btn-secondary" onclick="resetImport()">Batal</button>
+              </div>
             </div>
           </div>
         </div>
@@ -246,6 +340,87 @@
             <button type="submit" class="btn btn-primary">Simpan Data Sekolah</button>
           </div>
         </form>
+      </section>
+
+      <!-- PAGE: PENGATURAN CETAK -->
+      <section id="page-print-settings" class="page">
+        <div class="page-header">
+          <h2>Pengaturan Cetak Kwitansi</h2>
+        </div>
+
+        <div class="settings-grid">
+          <!-- Left: Settings Form -->
+          <div class="settings-form">
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+              <div class="form-group full-width">
+                <label for="ps_mode">Mode Cetak</label>
+                <select id="ps_mode" onchange="handleModeChange(this.value)">
+                  <option value="values_only">Isi Nilai Saja (Kertas Pre-Print Silver Horse)</option>
+                  <option value="full">Kwitansi Lengkap (Kosongan)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="ps_paper_width">Lebar Kertas (mm)</label>
+                <input type="number" id="ps_paper_width" step="0.1" min="50" max="500" value="176" />
+              </div>
+              <div class="form-group">
+                <label for="ps_paper_height">Tinggi Kertas (mm)</label>
+                <input type="number" id="ps_paper_height" step="0.1" min="50" max="500" value="190" />
+              </div>
+              <div class="form-group">
+                <label for="ps_margin_top">Margin Atas (mm)</label>
+                <input type="number" id="ps_margin_top" step="0.1" min="0" max="100" value="10" />
+              </div>
+              <div class="form-group">
+                <label for="ps_margin_bottom">Margin Bawah (mm)</label>
+                <input type="number" id="ps_margin_bottom" step="0.1" min="0" max="100" value="10" />
+              </div>
+              <div class="form-group">
+                <label for="ps_margin_left">Margin Kiri (mm)</label>
+                <input type="number" id="ps_margin_left" step="0.1" min="0" max="100" value="10" />
+              </div>
+              <div class="form-group">
+                <label for="ps_margin_right">Margin Kanan (mm)</label>
+                <input type="number" id="ps_margin_right" step="0.1" min="0" max="100" value="10" />
+              </div>
+              <div class="form-group">
+                <label for="ps_font_size">Ukuran Font (pt)</label>
+                <input type="number" id="ps_font_size" step="0.5" min="6" max="24" value="9" />
+              </div>
+              <div class="form-group">
+                <label for="ps_sig_gap">Jarak TTD (mm)</label>
+                <input type="number" id="ps_sig_gap" step="1" min="0" max="50" value="15" title="Jarak kosong antara label tanda tangan (Mengetahui/Bendahara/Yang Menerima) dengan nama di bawahnya" />
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="handleSimpanPrintSettings()">Simpan Pengaturan</button>
+              <button class="btn btn-secondary" onclick="handleResetPrintSettings()">Reset ke Default</button>
+            </div>
+          </div>
+
+          <!-- Right: Visual Preview -->
+          <div class="settings-preview">
+            <h3 style="margin-bottom:10px; font-size:14px;">Preview Kertas</h3>
+            <div id="paper-preview-container"></div>
+            <p class="hint" style="margin-top:8px; font-size:11px; color:var(--text-muted);">
+              Geser field ke posisi yang diinginkan pada kertas Silver Horse.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAGE: BATCH PRINT PREVIEW -->
+      <section id="page-batch-print" class="page">
+        <div class="page-header">
+          <h2>Preview Cetak (<span id="batch-count">0</span> kwitansi)</h2>
+          <div>
+            <button class="btn btn-primary" onclick="cetakKwitansi()">Cetak Semua</button>
+            <button class="btn btn-secondary" onclick="showPage('riwayat')">Kembali</button>
+          </div>
+        </div>
+        <div id="batch-print-container"></div>
       </section>
 
       <!-- PRINT PREVIEW (hidden, only shown when printing) -->

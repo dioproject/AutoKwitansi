@@ -23,51 +23,47 @@ fn bilang(n: u64) -> String {
     ];
 
     if n == 0 {
-        return String::new();
+        String::new()
     } else if n < 12 {
-        return satuan[n as usize].to_string();
+        satuan[n as usize].to_string()
     } else if n < 20 {
-        return format!("{} belas", bilang(n - 10));
+        format!("{} belas", bilang(n - 10))
     } else if n < 100 {
-        return format!("{} puluh {}", bilang(n / 10), bilang(n % 10))
+        format!("{} puluh {}", bilang(n / 10), bilang(n % 10))
             .trim()
-            .to_string();
+            .to_string()
     } else if n < 200 {
-        return format!("seratus {}", bilang(n - 100)).trim().to_string();
+        format!("seratus {}", bilang(n - 100)).trim().to_string()
     } else if n < 1_000 {
-        return format!("{} ratus {}", bilang(n / 100), bilang(n % 100))
+        format!("{} ratus {}", bilang(n / 100), bilang(n % 100))
             .trim()
-            .to_string();
+            .to_string()
     } else if n < 2_000 {
-        return format!("seribu {}", bilang(n - 1_000)).trim().to_string();
+        format!("seribu {}", bilang(n - 1_000)).trim().to_string()
     } else if n < 1_000_000 {
-        return format!("{} ribu {}", bilang(n / 1_000), bilang(n % 1_000))
+        format!("{} ribu {}", bilang(n / 1_000), bilang(n % 1_000))
             .trim()
-            .to_string();
+            .to_string()
     } else if n < 1_000_000_000 {
-        return format!(
-            "{} juta {}",
-            bilang(n / 1_000_000),
-            bilang(n % 1_000_000)
-        )
-        .trim()
-        .to_string();
+        format!("{} juta {}", bilang(n / 1_000_000), bilang(n % 1_000_000))
+            .trim()
+            .to_string()
     } else if n < 1_000_000_000_000 {
-        return format!(
+        format!(
             "{} miliar {}",
             bilang(n / 1_000_000_000),
             bilang(n % 1_000_000_000)
         )
         .trim()
-        .to_string();
+        .to_string()
     } else {
-        return format!(
+        format!(
             "{} triliun {}",
             bilang(n / 1_000_000_000_000),
             bilang(n % 1_000_000_000_000)
         )
         .trim()
-        .to_string();
+        .to_string()
     }
 }
 
@@ -85,10 +81,7 @@ mod tests {
         assert_eq!(terbilang(150.0), "seratus lima puluh rupiah");
         assert_eq!(terbilang(1_000.0), "seribu rupiah");
         assert_eq!(terbilang(1_500.0), "seribu lima ratus rupiah");
-        assert_eq!(
-            terbilang(1_500_000.0),
-            "satu juta lima ratus ribu rupiah"
-        );
+        assert_eq!(terbilang(1_500_000.0), "satu juta lima ratus ribu rupiah");
         assert_eq!(
             terbilang(25_750_000.0),
             "dua puluh lima juta tujuh ratus lima puluh ribu rupiah"

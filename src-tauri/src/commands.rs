@@ -1,8 +1,9 @@
-use tauri::command;
-use crate::db;
-use crate::models::{Kwitansi, Sekolah, CsvRow};
-use crate::terbilang::terbilang;
 use crate::csv_import::parse_csv;
+use crate::db;
+use crate::models::{BkuData, BkuTransaction, CsvRow, Kwitansi, PrintSettings, Sekolah};
+use crate::pdf_import::parse_bku_pdf;
+use crate::terbilang::terbilang;
+use tauri::command;
 
 // ============ TERBILANG ============
 
@@ -59,7 +60,14 @@ pub fn cmd_parse_csv(content: String) -> Result<Vec<CsvRow>, String> {
 }
 
 #[command]
-pub fn cmd_import_csv(rows: Vec<CsvRow>, tahun_anggaran: String, mengetahui: String, nip_mengetahui: String, bendahara: String, nip_bendahara: String) -> Result<usize, String> {
+pub fn cmd_import_csv(
+    rows: Vec<CsvRow>,
+    tahun_anggaran: String,
+    mengetahui: String,
+    nip_mengetahui: String,
+    bendahara: String,
+    nip_bendahara: String,
+) -> Result<usize, String> {
     let mut count = 0;
     for row in &rows {
         let kwitansi = Kwitansi {
@@ -83,4 +91,58 @@ pub fn cmd_import_csv(rows: Vec<CsvRow>, tahun_anggaran: String, mengetahui: Str
         count += 1;
     }
     Ok(count)
+}
+
+// ============ PDF BKU IMPORT ============
+
+#[command]
+pub fn cmd_parse_bku_pdf(file_path: String) -> Result<BkuData, String> {
+    parse_bku_pdf(&file_path)
+}
+
+#[command]
+pub fn cmd_import_bku(
+    transactions: Vec<BkuTransaction>,
+    tahun_anggaran: String,
+    sudah_terima_dari: String,
+    mengetahui: String,
+    nip_mengetahui: String,
+    bendahara: String,
+    nip_bendahara: String,
+) -> Result<usize, String> {
+    let mut count = 0;
+    for tx in &transactions {
+        let kwitansi = Kwitansi {
+            id: None,
+            nomor_kwitansi: tx.no_bukti.clone(),
+            tanggal: tx.tanggal.clone(),
+            sudah_terima_dari: sudah_terima_dari.clone(),
+            jumlah: tx.pengeluaran,
+            terbilang: terbilang(tx.pengeluaran),
+            untuk_pembayaran: tx.uraian.clone(),
+            kode_rekening: tx.kode_rekening.clone(),
+            tahun_anggaran: tahun_anggaran.clone(),
+            mengetahui: mengetahui.clone(),
+            nip_mengetahui: nip_mengetahui.clone(),
+            bendahara: bendahara.clone(),
+            nip_bendahara: nip_bendahara.clone(),
+            penerima: tx.penerima.clone(),
+            created_at: None,
+        };
+        db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())?;
+        count += 1;
+    }
+    Ok(count)
+}
+
+// ============ PRINT SETTINGS ============
+
+#[command]
+pub fn cmd_get_print_settings() -> Result<PrintSettings, String> {
+    db::get_print_settings().map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_save_print_settings(settings: PrintSettings) -> Result<(), String> {
+    db::save_print_settings(&settings).map_err(|e| e.to_string())
 }
