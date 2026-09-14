@@ -160,12 +160,10 @@ fn parse_signature(lines: &[&str]) -> SignatureInfo {
     let mut bendahara = String::new();
     let mut nip_bendahara = String::new();
     let mut tanggal_tutup = String::new();
-
     let re_tanggal_tutup =
         Regex::new(r"(\d{1,2}\s+\w+\s+\d{4})\s+Buku\s+Kas\s+Umum\s+Ditutup").unwrap();
     let re_tanggal_ttd = Regex::new(r"(?:Kec\.\s*[\w,]+\s*,?\s*)(\d{1,2}\s+\w+\s+\d{4})").unwrap();
     let re_nip = Regex::new(r"NIP[.\s:]+(\d+)").unwrap();
-    // Name pattern: uppercase letters with dots (e.g., "SAMAK BASAR, S.Pd")
     let re_name =
         Regex::new(r"^([A-Z][A-Z\s,.']+(?:S\.Pd|M\.Pd|S\.E|M\.M|S\.Ag|M\.Si|S\.Sos)?)$").unwrap();
 
@@ -263,14 +261,10 @@ fn parse_transactions(lines: &[&str]) -> Result<Vec<RawTransaction>, String> {
 
     // Date pattern: DD-MM-YYYY at start of line
     let re_date = Regex::new(r"^(\d{2}-\d{2}-\d{4})\s+(.+)$").unwrap();
-    // No Bukti pattern on continuation line: "XX BPUNN" or "XX BNUNN"
     let re_bukti_line = Regex::new(r"^(\d{1,4})\s+(B[A-Z]{1,3}\d+)\s*$").unwrap();
-    // Kode rekening prefix at end of line: "...XX.XX.XX. 5.1.02.02.01.00"
     let re_kode_rek_end =
         Regex::new(r"(\d{2}\.\d{2}\.\d{2}\.)\s*(5\.\d\.\d{2}\.\d{2}\.\d{2}\.\d{2})\s*$").unwrap();
-    // Amount pattern: Indonesian format with dot separator
     let _re_amounts = Regex::new(r"\b(\d{1,3}(?:\.\d{3})+)\b").unwrap();
-    // Kode kegiatan inline
     let re_kode_keg = Regex::new(r"(\d{2}\.\d{2}\.\d{2}\.)").unwrap();
 
     // Content to skip

@@ -23,11 +23,19 @@ pub struct Kwitansi {
     pub untuk_pembayaran: String,
     pub kode_rekening: String,
     pub tahun_anggaran: String,
+    #[serde(default)]
+    pub bulan: String,
     pub mengetahui: String,
     pub nip_mengetahui: String,
     pub bendahara: String,
     pub nip_bendahara: String,
     pub penerima: String,
+    #[serde(default)]
+    pub nama_toko: String,
+    #[serde(default)]
+    pub alamat_toko: String,
+    #[serde(default)]
+    pub pimpinan_toko: String,
     pub created_at: Option<String>,
 }
 
@@ -85,4 +93,38 @@ pub struct PrintSettings {
     pub font_size: f64,
     pub sig_gap: f64,
     pub field_positions: String,
+}
+
+// ============ POS SETTINGS ============
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[cfg_attr(not(feature = "full"), allow(dead_code))]
+pub struct PosSettings {
+    pub id: Option<i64>,
+    pub paper_width: i32,
+    pub connection: String,
+}
+
+// ============ BPU DOKUMEN ============
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[cfg_attr(not(feature = "full"), allow(dead_code))]
+pub struct BpuDokumen {
+    pub id: Option<i64>,
+    pub kwitansi_id: i64,
+    pub dok_bast: bool,
+    pub dok_surat_pesanan: bool,
+    pub dok_invoice: bool,
+    pub dok_bap: bool,
+    pub updated_at: Option<String>,
+}
+
+// ============ BKU PERIOD ============
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[cfg_attr(not(feature = "full"), allow(dead_code))]
+pub struct BkuPeriodItem {
+    pub bulan: String,
+    pub tahun: String,
+    pub transactions: Vec<BkuTransaction>,
 }

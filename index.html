@@ -24,6 +24,9 @@
         <button class="nav-btn" data-page="import" onclick="showPage('import')">
           <span class="nav-icon">&#8593;</span> Import Data
         </button>
+        <button class="nav-btn" data-page="import-period" data-require="full" onclick="showPage('import-period')">
+          <span class="nav-icon">&#9200;</span> Import BKU Per Bulan
+        </button>
         <button class="nav-btn" data-page="sekolah" onclick="showPage('sekolah')">
           <span class="nav-icon">&#9881;</span> Data Sekolah
         </button>
@@ -33,7 +36,7 @@
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v1.1.0</p>
+        <p class="version">v2.0.0</p>
       </div>
     </aside>
 
@@ -49,7 +52,7 @@
           <div class="form-grid">
             <div class="form-group">
               <label for="nomor_kwitansi">Nomor Kwitansi</label>
-              <input type="text" id="nomor_kwitansi" required placeholder="001/KWT/2026" />
+              <input type="text" id="nomor_kwitansi" required placeholder="001/KWT/2026" oninput="updateBpuDocsVisibility()" />
             </div>
             <div class="form-group">
               <label for="tanggal">Tanggal</label>
@@ -100,11 +103,121 @@
               <input type="text" id="nip_bendahara" placeholder="NIP" />
             </div>
           </div>
+
+          <!-- BPU Dokumen Checklist (hidden by default, shown via JS) -->
+          <div id="bpu-docs-section" data-require="full" class="hidden" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
+            <h3 style="margin-bottom:10px;color:var(--accent);">Dokumen Wajib BPU &gt; Rp1.000.000</h3>
+            <p class="hint" style="margin-bottom:10px;">Lengkapi data toko dan centang status dokumen sebelum cetak nota POS.</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="doc_nama_toko">Nama Toko/Tempat Belanja</label>
+                <input type="text" id="doc_nama_toko" placeholder="Toko ABC" />
+              </div>
+              <div class="form-group">
+                <label for="doc_alamat_toko">Alamat Toko</label>
+                <input type="text" id="doc_alamat_toko" placeholder="Jl. ..." />
+              </div>
+              <div class="form-group">
+                <label for="doc_pimpinan_toko">Pimpinan Toko</label>
+                <input type="text" id="doc_pimpinan_toko" placeholder="Nama Pimpinan" />
+              </div>
+            </div>
+            <div style="display:flex;gap:15px;flex-wrap:wrap;margin-top:10px;">
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                <input type="checkbox" id="doc_cb_bast" onchange="updateBpuDocBadge()" /> BAST
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                <input type="checkbox" id="doc_cb_surat_pesanan" onchange="updateBpuDocBadge()" /> Surat Pesanan
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                <input type="checkbox" id="doc_cb_invoice" onchange="updateBpuDocBadge()" /> Invoice
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                <input type="checkbox" id="doc_cb_bap" onchange="updateBpuDocBadge()" /> BAP
+              </label>
+              <span id="doc-status-badge" class="badge badge-warn">0/4 dokumen</span>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button type="button" class="btn btn-sm btn-secondary" onclick="cetakDokumen('bast')">Preview BAST</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="cetakDokumen('surat_pesanan')">Preview Surat Pesanan</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="cetakDokumen('invoice')">Preview Invoice</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="cetakDokumen('bap')">Preview BAP</button>
+            </div>
+          </div>
+
           <div class="form-actions">
             <button type="submit" class="btn btn-primary">Simpan & Preview</button>
             <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
           </div>
         </form>
+      </section>
+
+      <!-- PAGE: IMPORT BKU PER BULAN -->
+      <section id="page-import-period" data-require="full" class="page">
+        <div class="page-header">
+          <h2>Import BKU Per Bulan</h2>
+        </div>
+        <div class="import-area">
+          <div class="import-info">
+            <h3>Import dari Multiple PDF BKU</h3>
+            <p class="hint">Pilih beberapa file PDF BKU sekaligus (per bulan). Data akan dikelompokkan berdasarkan bulan/tahun.</p>
+          </div>
+          <div class="upload-area" onclick="openBkuPeriodDialog()">
+            <p class="upload-text">Klik untuk pilih file PDF BKU (bisa banyak sekaligus)</p>
+            <p class="upload-hint">Format: .pdf (dari ARKAS) — Pilih beberapa file</p>
+          </div>
+
+          <div id="bku-period-loading" class="hidden">
+            <div class="loading-spinner"></div>
+            <p>Sedang memproses PDF...</p>
+          </div>
+
+          <div id="bku-period-settings" class="hidden">
+            <h3>Pengaturan Import Per Bulan</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="bku-period-mengetahui">Mengetahui (Kepala Sekolah)</label>
+                <input type="text" id="bku-period-mengetahui" />
+              </div>
+              <div class="form-group">
+                <label for="bku-period-nip-mengetahui">NIP Mengetahui</label>
+                <input type="text" id="bku-period-nip-mengetahui" />
+              </div>
+              <div class="form-group">
+                <label for="bku-period-bendahara">Bendahara</label>
+                <input type="text" id="bku-period-bendahara" />
+              </div>
+              <div class="form-group">
+                <label for="bku-period-nip-bendahara">NIP Bendahara</label>
+                <input type="text" id="bku-period-nip-bendahara" />
+              </div>
+            </div>
+          </div>
+
+          <div id="bku-period-preview" class="hidden">
+            <h3>Preview Data (<span id="bku-period-count">0</span> transaksi)</h3>
+            <div class="table-container" style="max-height:400px;overflow-y:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" id="period-select-all" onchange="toggleSelectAllPeriod(this)" checked /></th>
+                    <th>No. Bukti</th>
+                    <th>Tanggal</th>
+                    <th>Kode Rekening</th>
+                    <th>Uraian</th>
+                    <th>Jumlah</th>
+                    <th>Penerima</th>
+                  </tr>
+                </thead>
+                <tbody id="bku-period-tbody"></tbody>
+              </table>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="handleImportBkuPeriod()">Import yang Dipilih</button>
+              <button class="btn btn-secondary" onclick="resetBkuPeriod()">Batal</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- PAGE: RIWAYAT -->
@@ -175,12 +288,12 @@
               <h3>Data dari PDF</h3>
               <div class="form-grid">
                 <div class="form-group">
-                  <label for="pdf_tahun">Tahun Anggaran</label>
-                  <input type="text" id="pdf_tahun" />
+                  <label for="pdf_bulan">Bulan</label>
+                  <input type="text" id="pdf_bulan" placeholder="APRIL" />
                 </div>
                 <div class="form-group">
-                  <label for="pdf_sudah_terima_dari">Sudah Terima Dari</label>
-                  <input type="text" id="pdf_sudah_terima_dari" />
+                  <label for="pdf_tahun">Tahun Anggaran</label>
+                  <input type="text" id="pdf_tahun" />
                 </div>
                 <div class="form-group">
                   <label for="pdf_mengetahui">Mengetahui (Kepala Sekolah)</label>
@@ -354,7 +467,7 @@
             <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
               <div class="form-group full-width">
                 <label for="ps_mode">Mode Cetak</label>
-                <select id="ps_mode" onchange="handleModeChange(this.value)">
+                <select id="ps_mode" onchange="handleModeChange(this.value); handleLivePreview();">
                   <option value="values_only">Isi Nilai Saja (Kertas Pre-Print Silver Horse)</option>
                   <option value="full">Kwitansi Lengkap (Kosongan)</option>
                 </select>
@@ -362,35 +475,35 @@
 
               <div class="form-group">
                 <label for="ps_paper_width">Lebar Kertas (mm)</label>
-                <input type="number" id="ps_paper_width" step="0.1" min="50" max="500" value="176" />
+                <input type="number" id="ps_paper_width" step="0.1" min="50" max="500" value="176" oninput="handleLivePreview()" />
               </div>
               <div class="form-group">
                 <label for="ps_paper_height">Tinggi Kertas (mm)</label>
-                <input type="number" id="ps_paper_height" step="0.1" min="50" max="500" value="190" />
+                <input type="number" id="ps_paper_height" step="0.1" min="50" max="500" value="190" oninput="handleLivePreview()" />
               </div>
               <div class="form-group">
                 <label for="ps_margin_top">Margin Atas (mm)</label>
-                <input type="number" id="ps_margin_top" step="0.1" min="0" max="100" value="10" />
+                <input type="number" id="ps_margin_top" step="0.1" min="0" max="100" value="10" oninput="handleLivePreview()" />
               </div>
               <div class="form-group">
                 <label for="ps_margin_bottom">Margin Bawah (mm)</label>
-                <input type="number" id="ps_margin_bottom" step="0.1" min="0" max="100" value="10" />
+                <input type="number" id="ps_margin_bottom" step="0.1" min="0" max="100" value="10" oninput="handleLivePreview()" />
               </div>
               <div class="form-group">
                 <label for="ps_margin_left">Margin Kiri (mm)</label>
-                <input type="number" id="ps_margin_left" step="0.1" min="0" max="100" value="10" />
+                <input type="number" id="ps_margin_left" step="0.1" min="0" max="100" value="10" oninput="handleLivePreview()" />
               </div>
               <div class="form-group">
                 <label for="ps_margin_right">Margin Kanan (mm)</label>
-                <input type="number" id="ps_margin_right" step="0.1" min="0" max="100" value="10" />
+                <input type="number" id="ps_margin_right" step="0.1" min="0" max="100" value="10" oninput="handleLivePreview()" />
               </div>
               <div class="form-group">
                 <label for="ps_font_size">Ukuran Font (pt)</label>
-                <input type="number" id="ps_font_size" step="0.5" min="6" max="24" value="9" />
+                <input type="number" id="ps_font_size" step="0.5" min="6" max="24" value="9" oninput="handleLivePreview()" />
               </div>
               <div class="form-group">
                 <label for="ps_sig_gap">Jarak TTD (mm)</label>
-                <input type="number" id="ps_sig_gap" step="1" min="0" max="50" value="15" title="Jarak kosong antara label tanda tangan (Mengetahui/Bendahara/Yang Menerima) dengan nama di bawahnya" />
+                <input type="number" id="ps_sig_gap" step="1" min="0" max="50" value="15" title="Jarak kosong antara label tanda tangan (Mengetahui/Bendahara/Yang Menerima) dengan nama di bawahnya" oninput="handleLivePreview()" />
               </div>
             </div>
 
@@ -416,7 +529,8 @@
         <div class="page-header">
           <h2>Preview Cetak (<span id="batch-count">0</span> kwitansi)</h2>
           <div>
-            <button class="btn btn-primary" onclick="cetakKwitansi()">Cetak Semua</button>
+            <button class="btn btn-primary" onclick="cetakKwitansi()">Cetak Kwitansi</button>
+            <button class="btn btn-pos" id="btn-cetak-pos-batch" data-require="full" style="display:none;" onclick="handleCetakPosBatch()">Cetak Nota POS</button>
             <button class="btn btn-secondary" onclick="showPage('riwayat')">Kembali</button>
           </div>
         </div>
@@ -428,7 +542,14 @@
         <div class="page-header">
           <h2>Preview Kwitansi</h2>
           <div>
-            <button class="btn btn-primary" onclick="cetakKwitansi()">Cetak</button>
+            <button class="btn btn-primary" onclick="cetakKwitansi()">Cetak Kwitansi</button>
+            <button class="btn btn-pos" id="btn-cetak-pos-preview" data-require="full" style="display:none;" onclick="handleCetakPosFromPreview()">Cetak Nota POS</button>
+            <span id="doc-btn-group" data-require="full" class="hidden" style="display:inline-flex;gap:4px;vertical-align:middle;margin-left:6px;">
+              <button class="btn btn-sm btn-secondary" onclick="typeof cetakDokumen==='function' && cetakDokumen('bast')">BAST</button>
+              <button class="btn btn-sm btn-secondary" onclick="typeof cetakDokumen==='function' && cetakDokumen('surat_pesanan')">Surat Pesanan</button>
+              <button class="btn btn-sm btn-secondary" onclick="typeof cetakDokumen==='function' && cetakDokumen('invoice')">Invoice</button>
+              <button class="btn btn-sm btn-secondary" onclick="typeof cetakDokumen==='function' && cetakDokumen('bap')">BAP</button>
+            </span>
             <button class="btn btn-secondary" onclick="showPage('riwayat')">Kembali</button>
           </div>
         </div>
@@ -436,6 +557,33 @@
       </section>
 
     </main>
+  </div>
+
+  <!-- MODAL: POS SETTINGS -->
+  <div id="modal-pos-settings" data-require="full" class="modal hidden">
+    <div class="modal-content">
+      <h3>Pengaturan Nota POS</h3>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="form-group">
+          <label for="pos_paper_width">Lebar Kertas (mm)</label>
+          <select id="pos_paper_width">
+            <option value="58">58mm</option>
+            <option value="80">80mm</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="pos_connection">Koneksi</label>
+          <select id="pos_connection">
+            <option value="USB">USB</option>
+            <option value="Bluetooth">Bluetooth</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" onclick="handleSimpanPosSettings()">Simpan</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('modal-pos-settings').classList.add('hidden')">Batal</button>
+      </div>
+    </div>
   </div>
 
   <!-- TOAST NOTIFICATION -->

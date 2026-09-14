@@ -1,15 +1,20 @@
+#[cfg(feature = "full")]
+mod bku_period;
+#[cfg(feature = "full")]
+mod bpu_docs;
 mod commands;
 mod csv_import;
 mod db;
 mod models;
 mod pdf_import;
+#[cfg(feature = "full")]
+mod pos_print;
 mod terbilang;
 
 use commands::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize database
     if let Err(e) = db::init_db() {
         eprintln!("Failed to initialize database: {}", e);
     }
@@ -31,6 +36,20 @@ pub fn run() {
             cmd_import_bku,
             cmd_get_print_settings,
             cmd_save_print_settings,
+            #[cfg(feature = "full")]
+            cmd_get_pos_settings,
+            #[cfg(feature = "full")]
+            cmd_save_pos_settings,
+            #[cfg(feature = "full")]
+            cmd_get_doc_status,
+            #[cfg(feature = "full")]
+            cmd_set_doc_lengkap,
+            #[cfg(feature = "full")]
+            cmd_update_toko,
+            #[cfg(feature = "full")]
+            cmd_parse_bku_pdfs,
+            #[cfg(feature = "full")]
+            cmd_import_bku_period,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,47 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
+// ========== VARIANT ==========
+const isFull = __APP_VARIANT__ === "full";
+
+// Full-only modules loaded dynamically
+let posModule = null;
+let bpuDocsModule = null;
+
+// Stubs for lite mode
+function isBpu(nomor) {
+  if (!isFull) return false;
+  return (nomor || "").trim().toUpperCase().includes("BPU");
+}
+function needsDocuments() { return false; }
+async function loadDocStatus() { return { dok_bast: false, dok_surat_pesanan: false, dok_invoice: false, dok_bap: false }; }
+function allDocsComplete() { return false; }
+function getDocStatus() { return null; }
+function getPosSettings() { return null; }
+async function loadPosSettings() { return null; }
+function renderPosNotaTemplate() { return ""; }
+function cetakNotaPos() {}
+
+function updateBpuDocsVisibility() {
+  const nomor = document.getElementById("nomor_kwitansi")?.value || "";
+  const jumlahRaw = (document.getElementById("jumlah")?.value || "0").replace(/[^\d]/g, "");
+  const jumlah = parseFloat(jumlahRaw) || 0;
+  const show = isBpu(nomor) && jumlah > 1000000;
+  const el = document.getElementById("bpu-docs-section");
+  if (el) el.classList.toggle("hidden", !show);
+  if (show) updateBpuDocBadge();
+}
+
+function updateBpuDocBadge() {
+  const items = ["bast", "surat_pesanan", "invoice", "bap"];
+  const done = items.filter(i => document.getElementById(`doc_cb_${i}`)?.checked).length;
+  const badge = document.getElementById("doc-status-badge");
+  if (badge) {
+    badge.textContent = `${done}/4 dokumen`;
+    badge.className = done === 4 ? "badge badge-ok" : "badge badge-warn";
+  }
+}
+
 // ========== STATE ==========
 let currentCsvData = [];
 let currentBkuData = null;
@@ -8,6 +49,16 @@ let sekolahData = null;
 let currentPrintSettings = null;
 let currentRiwayatData = [];
 let selectedKwitansiIds = new Set();
+let lastPreviewData = null;
+let previewAutoRefreshTimer = null;
+
+window._sekolahData = null;
+window._showPage = showPage;
+window._showToast = showToast;
+window._closeModal = function (id) {
+  const m = document.getElementById(id);
+  if (m) m.classList.add("hidden");
+};
 
 // Default field positions (mm) for values_only mode
 // Field gabungan: mengetahui = "Mengetahui,\nNama\nNIP", bendahara = "Bendahara,\nNama\nNIP", penerima = "Yang Menerima,\nNama"
@@ -31,27 +82,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tanggal").value = today;
   document.getElementById("tahun_anggaran").value = new Date().getFullYear().toString();
 
+  // Hide full-only UI in lite mode
+  if (!isFull) {
+    document.querySelectorAll("[data-require=\"full\"]").forEach((el) => el.remove());
+    window.cetakDokumen = function () {};
+  }
+
   await loadSekolah();
   await loadPrintSettings();
+
+  // Dynamic import for full-only modules
+  if (isFull) {
+    posModule = await import("./pos.js");
+    bpuDocsModule = await import("./bpu-docs.js");
+    await import("./bku-period.js");
+    await posModule.loadPosSettings();
+  }
 });
 
 // ========== NAVIGATION ==========
-window.showPage = function (pageName) {
+function showPage(pageName) {
   document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
 
-  document.getElementById(`page-${pageName}`).classList.add("active");
+  document.getElementById(`page-${pageName}`)?.classList.add("active");
   document.querySelector(`.nav-btn[data-page="${pageName}"]`)?.classList.add("active");
 
   if (pageName === "riwayat") loadRiwayat();
   if (pageName === "sekolah") loadSekolahForm();
   if (pageName === "print-settings") loadPrintSettingsForm();
-};
+}
+window.showPage = showPage;
 
 // ========== SEKOLAH ==========
 async function loadSekolah() {
   try {
     sekolahData = await invoke("cmd_get_sekolah");
+    window._sekolahData = sekolahData;
   } catch (e) {
     console.error("Gagal load sekolah:", e);
   }
@@ -109,6 +176,7 @@ window.handleJumlahInput = async function (el) {
   } catch (e) {
     console.error(e);
   }
+  updateBpuDocsVisibility();
 };
 
 window.handleSimpanKwitansi = async function (e) {
@@ -130,16 +198,33 @@ window.handleSimpanKwitansi = async function (e) {
     untuk_pembayaran: document.getElementById("untuk_pembayaran").value,
     kode_rekening: document.getElementById("kode_rekening").value,
     tahun_anggaran: document.getElementById("tahun_anggaran").value,
+    bulan: "",
     mengetahui: mengetahui,
     nip_mengetahui: nipMengetahui,
     bendahara: bendahara,
     nip_bendahara: nipBendahara,
     penerima: document.getElementById("penerima").value,
+    nama_toko: document.getElementById("doc_nama_toko")?.value || "",
+    alamat_toko: document.getElementById("doc_alamat_toko")?.value || "",
+    pimpinan_toko: document.getElementById("doc_pimpinan_toko")?.value || "",
     created_at: null,
   };
 
   try {
     const id = await invoke("cmd_simpan_kwitansi", { kwitansi: kwitansi });
+
+    if (isFull && isBpu(kwitansi.nomor_kwitansi)) {
+      try {
+        await invoke("cmd_set_doc_lengkap", {
+          kwitansiId: id,
+          dokBast: document.getElementById("doc_cb_bast")?.checked || false,
+          dokSuratPesanan: document.getElementById("doc_cb_surat_pesanan")?.checked || false,
+          dokInvoice: document.getElementById("doc_cb_invoice")?.checked || false,
+          dokBap: document.getElementById("doc_cb_bap")?.checked || false,
+        });
+      } catch (_) {}
+    }
+
     showToast("Kwitansi berhasil disimpan", "success");
     const saved = await invoke("cmd_get_kwitansi", { id: id });
     showPrintPreview(saved);
@@ -155,6 +240,7 @@ window.resetForm = function () {
   const today = new Date().toISOString().split("T")[0];
   document.getElementById("tanggal").value = today;
   document.getElementById("tahun_anggaran").value = new Date().getFullYear().toString();
+  updateBpuDocsVisibility();
 };
 
 // ========== RIWAYAT ==========
@@ -174,15 +260,19 @@ async function loadRiwayat() {
 function renderTable(data) {
   const tbody = document.getElementById("tbody-kwitansi");
   if (data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">Belum ada data kwitansi</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">Belum ada data kwitansi</td></tr>';
     return;
   }
 
-  tbody.innerHTML = data.map((k, i) => `
+  tbody.innerHTML = data.map((k, i) => {
+    const bpu = isBpu(k.nomor_kwitansi);
+    const posBtn = bpu ? `<button class="btn btn-sm btn-pos" onclick="handleCetakPosRiwayat(${k.id})">POS</button>` : "";
+    const bulanBadge = k.bulan ? `<span class="badge badge-period">${esc(k.bulan)}</span>` : "";
+    return `
     <tr>
       <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
       <td>${i + 1}</td>
-      <td>${esc(k.nomor_kwitansi)}</td>
+      <td>${esc(k.nomor_kwitansi)} ${bpu ? '<span class="badge badge-bpu">BPU</span>' : ""} ${bulanBadge}</td>
       <td>${formatTanggal(k.tanggal)}</td>
       <td>${esc(k.sudah_terima_dari)}</td>
       <td class="rupiah">Rp ${formatRupiah(k.jumlah)}</td>
@@ -190,11 +280,12 @@ function renderTable(data) {
       <td>
         <div class="actions">
           <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
+          ${posBtn}
           <button class="btn btn-sm btn-danger" onclick="hapusKwitansi(${k.id})">Hapus</button>
         </div>
       </td>
     </tr>
-  `).join("");
+  `}).join("");
 }
 
 window.handleSearch = async function (query) {
@@ -388,9 +479,9 @@ async function processPdfFile(filePath) {
     const result = await invoke("cmd_parse_bku_pdf", { filePath: filePath });
     currentBkuData = result;
 
+    const bulanPdf = result.bulan || deriveBulanFromDate(result.transactions);
+    document.getElementById("pdf_bulan").value = bulanPdf;
     document.getElementById("pdf_tahun").value = result.tahun || new Date().getFullYear().toString();
-    document.getElementById("pdf_sudah_terima_dari").value =
-      (sekolahData ? `Bendahara BOS ${sekolahData.nama_sekolah}` : `Bendahara BOS ${result.nama_sekolah}`) || "";
     document.getElementById("pdf_mengetahui").value = result.kepala_sekolah || (sekolahData ? sekolahData.kepala_sekolah : "");
     document.getElementById("pdf_nip_mengetahui").value = result.nip_kepala || (sekolahData ? sekolahData.nip_kepala : "");
     document.getElementById("pdf_bendahara").value = result.bendahara || (sekolahData ? sekolahData.bendahara : "");
@@ -454,8 +545,9 @@ window.handleImportBku = async function () {
   try {
     const count = await invoke("cmd_import_bku", {
       transactions: selectedTransactions,
+      bulan: document.getElementById("pdf_bulan").value,
       tahunAnggaran: document.getElementById("pdf_tahun").value,
-      sudahTerimaDari: document.getElementById("pdf_sudah_terima_dari").value,
+      sudahTerimaDari: defaultSudahTerimaDari(),
       mengetahui: document.getElementById("pdf_mengetahui").value,
       nipMengetahui: document.getElementById("pdf_nip_mengetahui").value,
       bendahara: document.getElementById("pdf_bendahara").value,
@@ -667,15 +759,30 @@ function initDraggers(container) {
 
 // ========== PRINT PREVIEW & CETAK ==========
 function showPrintPreview(kwitansiList) {
+  lastPreviewData = { type: "single", data: kwitansiList };
   const container = document.getElementById("print-container");
   container.innerHTML = kwitansiList.map((k) => renderKwitansiTemplate(k)).join("");
+
+  const bpu = kwitansiList.length === 1 && isBpu(kwitansiList[0].nomor_kwitansi);
+  const posBtn = document.getElementById("btn-cetak-pos-preview");
+  if (posBtn) posBtn.style.display = bpu ? "inline-block" : "none";
+  const docBtnGroup = document.getElementById("doc-btn-group");
+  if (docBtnGroup) docBtnGroup.classList.toggle("hidden", !bpu);
+  if (bpu && kwitansiList[0].id) window.setKwitansiForDocs(kwitansiList[0]);
+
   showPage("print");
 }
 
 function showBatchPrintPreview(kwitansiList) {
+  lastPreviewData = { type: "batch", data: kwitansiList };
   const container = document.getElementById("batch-print-container");
   document.getElementById("batch-count").textContent = kwitansiList.length;
   container.innerHTML = kwitansiList.map((k) => renderKwitansiTemplate(k)).join("");
+
+  const hasBpu = kwitansiList.some(k => isBpu(k.nomor_kwitansi));
+  const posBtn = document.getElementById("btn-cetak-pos-batch");
+  if (posBtn) posBtn.style.display = hasBpu ? "inline-block" : "none";
+
   showPage("batch-print");
 }
 
@@ -787,7 +894,6 @@ function renderFullTemplate(k) {
 }
 
 window.cetakKwitansi = function () {
-  // Inject dynamic @page rules based on print settings
   if (currentPrintSettings) {
     const s = currentPrintSettings;
     let styleEl = document.getElementById("dynamic-print-style");
@@ -808,7 +914,94 @@ window.cetakKwitansi = function () {
   window.print();
 };
 
+// ========== AUTO-REFRESH PRINT SETTINGS ==========
+window.handleLivePreview = function () {
+  if (previewAutoRefreshTimer) clearTimeout(previewAutoRefreshTimer);
+  previewAutoRefreshTimer = setTimeout(() => {
+    if (currentPrintSettings) {
+      currentPrintSettings.mode = document.getElementById("ps_mode")?.value || currentPrintSettings.mode;
+      currentPrintSettings.paper_width = parseFloat(document.getElementById("ps_paper_width")?.value) || currentPrintSettings.paper_width;
+      currentPrintSettings.paper_height = parseFloat(document.getElementById("ps_paper_height")?.value) || currentPrintSettings.paper_height;
+      currentPrintSettings.margin_top = parseFloat(document.getElementById("ps_margin_top")?.value) || currentPrintSettings.margin_top;
+      currentPrintSettings.margin_bottom = parseFloat(document.getElementById("ps_margin_bottom")?.value) || currentPrintSettings.margin_bottom;
+      currentPrintSettings.margin_left = parseFloat(document.getElementById("ps_margin_left")?.value) || currentPrintSettings.margin_left;
+      currentPrintSettings.margin_right = parseFloat(document.getElementById("ps_margin_right")?.value) || currentPrintSettings.margin_right;
+      currentPrintSettings.font_size = parseFloat(document.getElementById("ps_font_size")?.value) || currentPrintSettings.font_size;
+      currentPrintSettings.sig_gap = parseFloat(document.getElementById("ps_sig_gap")?.value) || currentPrintSettings.sig_gap;
+    }
+    renderPaperPreview();
+    refreshPrintPreview();
+  }, 300);
+};
+
+window.refreshPrintPreview = function () {
+  if (!lastPreviewData) return;
+  const container = lastPreviewData.type === "single"
+    ? document.getElementById("print-container")
+    : document.getElementById("batch-print-container");
+  if (!container) return;
+  container.innerHTML = lastPreviewData.data.map((k) => renderKwitansiTemplate(k)).join("");
+};
+
+// ========== POS CETAK ==========
+window.handleCetakPosRiwayat = async function (id) {
+  if (!posModule) return;
+  try {
+    const k = await invoke("cmd_get_kwitansi", { id });
+    const s = posModule.getPosSettings();
+    const needsDoc = bpuDocsModule && bpuDocsModule.needsDocuments(k);
+
+    if (needsDoc) {
+      const docStatus = await bpuDocsModule.loadDocStatus(k.id);
+      if (!bpuDocsModule.allDocsComplete(docStatus)) {
+        const proceed = confirm("BPU > Rp1.000.000 belum lengkap dokumennya.\nTetap cetak nota POS?");
+        if (!proceed) return;
+      }
+    }
+
+    posModule.cetakNotaPos(k, s);
+  } catch (e) {
+    showToast("Gagal load kwitansi: " + e, "error");
+  }
+};
+
+window.handleCetakPosFromPreview = function () {
+  if (!posModule || !lastPreviewData || !lastPreviewData.data || lastPreviewData.data.length === 0) return;
+  const k = lastPreviewData.data[0];
+  const s = posModule.getPosSettings();
+  posModule.cetakNotaPos(k, s);
+};
+
+window.handleCetakPosBatch = function () {
+  if (!posModule || !lastPreviewData || !lastPreviewData.data) return;
+  const posData = lastPreviewData.data.filter(k => isBpu(k.nomor_kwitansi));
+  if (posData.length === 0) {
+    showToast("Tidak ada kwitansi BPU di batch ini", "warning");
+    return;
+  }
+  const s = posModule.getPosSettings();
+  const container = document.getElementById("print-container");
+  if (!container) return;
+  container.innerHTML = posData.map(k => posModule.renderPosNotaTemplate(k, s)).join("");
+  let styleEl = document.getElementById("dynamic-print-style");
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = "dynamic-print-style";
+    document.head.appendChild(styleEl);
+  }
+  const widthMm = s?.paper_width || 58;
+  styleEl.textContent = `@media print { @page { size: ${widthMm}mm auto; margin: 0; } body * { visibility: hidden; } #print-container, #print-container * { visibility: visible; } }`;
+  showPage("print");
+  setTimeout(() => window.print(), 200);
+};
+
 // ========== UTILITIES ==========
+function defaultSudahTerimaDari() {
+  const nama = sekolahData?.nama_sekolah?.trim() || "";
+  return nama ? `Bendahara BOS ${nama}` : "Bendahara BOS";
+}
+window._defaultSudahTerimaDari = defaultSudahTerimaDari;
+
 function formatRupiah(num) {
   return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
@@ -825,6 +1018,19 @@ function formatTanggalPanjang(dateStr) {
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
   return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+}
+
+const NAMA_BULAN = ["JANUARI","FEBRUARI","MARET","APRIL","MEI","JUNI","JULI","AGUSTUS","SEPTEMBER","OKTOBER","NOVEMBER","DESEMBER"];
+
+function deriveBulanFromDate(transactions) {
+  if (!transactions || transactions.length === 0) return "";
+  const tgl = transactions[0].tanggal || "";
+  const parts = tgl.split("-");
+  if (parts.length >= 2) {
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    if (monthIdx >= 0 && monthIdx < 12) return NAMA_BULAN[monthIdx];
+  }
+  return "";
 }
 
 function capitalize(str) {
