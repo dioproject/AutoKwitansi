@@ -918,3 +918,13 @@ td .actions {
   margin: 0 auto;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
+
+/* ============ FULL-ONLY ELEMENTS ============ */
+/* Hide full-only elements immediately to prevent FOUC.
+   In full mode, JS will un-hide them via .classList.remove('full-mode-hidden'). */
+[data-require="full"] {
+  display: none !important;
+}
+[data-require="full"].full-mode-hidden {
+  display: none !important;
+}

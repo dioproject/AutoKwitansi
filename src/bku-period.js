@@ -36,6 +36,17 @@ async function processBkuPeriodFiles(filePaths) {
 
     if (settings) settings.classList.remove("hidden");
     if (preview) preview.classList.remove("hidden");
+
+    // Bug #10: Auto-fill dari data sekolah (konsisten dengan PDF BKU biasa di main.js)
+    const sekolah = window._sekolahData;
+    if (sekolah) {
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
+      setVal("bku-period-mengetahui", sekolah.kepala_sekolah);
+      setVal("bku-period-nip-mengetahui", sekolah.nip_kepala);
+      setVal("bku-period-bendahara", sekolah.bendahara);
+      setVal("bku-period-nip-bendahara", sekolah.nip_bendahara);
+    }
+
     if (window._showToast) window._showToast(`${result.length} BKU berhasil diproses`, "success");
   } catch (e) {
     if (window._showToast) window._showToast("Gagal memproses PDF: " + e, "error");

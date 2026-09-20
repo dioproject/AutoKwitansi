@@ -9,10 +9,7 @@ let posModule = null;
 let bpuDocsModule = null;
 
 // Stubs for lite mode
-function isBpu(nomor) {
-  if (!isFull) return false;
-  return (nomor || "").trim().toUpperCase().includes("BPU");
-}
+let isBpu = function (nomor) { return false; };
 function needsDocuments() { return false; }
 async function loadDocStatus() { return { dok_bast: false, dok_surat_pesanan: false, dok_invoice: false, dok_bap: false }; }
 function allDocsComplete() { return false; }
@@ -23,6 +20,7 @@ function renderPosNotaTemplate() { return ""; }
 function cetakNotaPos() {}
 
 function updateBpuDocsVisibility() {
+  if (!isFull) return; // Bug #11: Skip di lite mode
   const nomor = document.getElementById("nomor_kwitansi")?.value || "";
   const jumlahRaw = (document.getElementById("jumlah")?.value || "0").replace(/[^\d]/g, "");
   const jumlah = parseFloat(jumlahRaw) || 0;
@@ -82,8 +80,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tanggal").value = today;
   document.getElementById("tahun_anggaran").value = new Date().getFullYear().toString();
 
-  // Hide full-only UI in lite mode
-  if (!isFull) {
+  // Show/hide full-only UI based on variant
+  if (isFull) {
+    document.querySelectorAll("[data-require=\"full\"]").forEach((el) => {
+      el.style.display = "";
+    });
+  } else {
+    // Lite mode: elements already hidden via CSS [data-require="full"],
+    // remove them from DOM to avoid any event handlers or stale references
     document.querySelectorAll("[data-require=\"full\"]").forEach((el) => el.remove());
     window.cetakDokumen = function () {};
   }
@@ -94,6 +98,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Dynamic import for full-only modules
   if (isFull) {
     posModule = await import("./pos.js");
+    isBpu = posModule.isBpu; // Override stub with real implementation from pos.js
     bpuDocsModule = await import("./bpu-docs.js");
     await import("./bku-period.js");
     await posModule.loadPosSettings();
@@ -260,7 +265,7 @@ async function loadRiwayat() {
 function renderTable(data) {
   const tbody = document.getElementById("tbody-kwitansi");
   if (data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">Belum ada data kwitansi</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Belum ada data kwitansi</td></tr>';
     return;
   }
 
@@ -972,15 +977,38 @@ window.handleCetakPosFromPreview = function () {
   posModule.cetakNotaPos(k, s);
 };
 
-window.handleCetakPosBatch = function () {
+window.handleCetakPosBatch = async function () {
   if (!posModule || !lastPreviewData || !lastPreviewData.data) return;
   const posData = lastPreviewData.data.filter(k => isBpu(k.nomor_kwitansi));
   if (posData.length === 0) {
     showToast("Tidak ada kwitansi BPU di batch ini", "warning");
     return;
   }
+
+  // Bug #5: Cek dokumen BPU untuk semua kwitansi BPU di batch
+  if (bpuDocsModule) {
+    let incompleteDocs = [];
+    for (const k of posData) {
+      if (bpuDocsModule.needsDocuments(k)) {
+        const docStatus = await bpuDocsModule.loadDocStatus(k.id);
+        if (!bpuDocsModule.allDocsComplete(docStatus)) {
+          incompleteDocs.push(k.nomor_kwitansi);
+        }
+      }
+    }
+    if (incompleteDocs.length > 0) {
+      const proceed = confirm(
+        `${incompleteDocs.length} kwitansi BPU belum lengkap dokumennya:\n` +
+        incompleteDocs.join(", ") +
+        `\nTetap cetak nota POS?`
+      );
+      if (!proceed) return;
+    }
+  }
+
   const s = posModule.getPosSettings();
-  const container = document.getElementById("print-container");
+  // Bug #4: Gunakan batch-print-container, bukan print-container
+  const container = document.getElementById("batch-print-container");
   if (!container) return;
   container.innerHTML = posData.map(k => posModule.renderPosNotaTemplate(k, s)).join("");
   let styleEl = document.getElementById("dynamic-print-style");
@@ -990,8 +1018,8 @@ window.handleCetakPosBatch = function () {
     document.head.appendChild(styleEl);
   }
   const widthMm = s?.paper_width || 58;
-  styleEl.textContent = `@media print { @page { size: ${widthMm}mm auto; margin: 0; } body * { visibility: hidden; } #print-container, #print-container * { visibility: visible; } }`;
-  showPage("print");
+  styleEl.textContent = `@media print { @page { size: ${widthMm}mm auto; margin: 0; } body * { visibility: hidden; } #batch-print-container, #batch-print-container * { visibility: visible; } }`;
+  // Tetap di halaman batch-print (tidak pindah ke halaman print)
   setTimeout(() => window.print(), 200);
 };
 

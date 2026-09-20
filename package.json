@@ -1,12 +1,17 @@
 {
   "name": "auto-kwitansi",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Aplikasi Desktop Pembuatan Kwitansi SPJ Lembaga Sekolah",
   "scripts": {
     "dev": "bun run --bun vite",
+    "dev:full": "cross-env APP_VARIANT=full bun run --bun vite",
     "build": "bun run --bun vite build",
+    "build:lite": "cross-env APP_VARIANT=lite bun run --bun vite build",
+    "build:full": "cross-env APP_VARIANT=full bun run --bun vite build",
     "preview": "bun run --bun vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:lite": "tauri build -c src-tauri/tauri.lite.json",
+    "tauri:full": "tauri build -c src-tauri/tauri.full.json --features full"
   },
   "dependencies": {
     "@tauri-apps/plugin-dialog": "^2.7.3"
@@ -14,6 +19,7 @@
   "devDependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/cli": "^2",
+    "cross-env": "^7.0.3",
     "vite": "^6"
   }
 }

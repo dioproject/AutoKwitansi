@@ -1,4 +1,6 @@
-use crate::models::{BpuDokumen, Kwitansi, PosSettings, PrintSettings, Sekolah};
+#[cfg(feature = "full")]
+use crate::models::{BpuDokumen, PosSettings};
+use crate::models::{Kwitansi, PrintSettings, Sekolah};
 use rusqlite::{params, Connection, Result};
 use std::path::PathBuf;
 
@@ -93,25 +95,6 @@ pub fn init_db() -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_kwitansi_nomor ON kwitansi(nomor_kwitansi);
         CREATE INDEX IF NOT EXISTS idx_kwitansi_tanggal ON kwitansi(tanggal);
-
-        CREATE TABLE IF NOT EXISTS bpu_dokumen (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kwitansi_id INTEGER NOT NULL,
-            dok_bast INTEGER NOT NULL DEFAULT 0,
-            dok_surat_pesanan INTEGER NOT NULL DEFAULT 0,
-            dok_invoice INTEGER NOT NULL DEFAULT 0,
-            dok_bap INTEGER NOT NULL DEFAULT 0,
-            updated_at TEXT DEFAULT (datetime('now','localtime')),
-            FOREIGN KEY (kwitansi_id) REFERENCES kwitansi(id) ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_bpu_dokumen_kwitansi ON bpu_dokumen(kwitansi_id);
-
-        CREATE TABLE IF NOT EXISTS pos_settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            paper_width INTEGER NOT NULL DEFAULT 58,
-            connection TEXT NOT NULL DEFAULT 'USB'
-        );
 
         CREATE TABLE IF NOT EXISTS print_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -485,7 +468,7 @@ pub fn save_print_settings(s: &PrintSettings) -> Result<()> {
 
 // ============ POS SETTINGS ============
 
-#[cfg_attr(not(feature = "full"), allow(dead_code))]
+#[cfg(feature = "full")]
 pub fn get_pos_settings() -> Result<PosSettings> {
     let conn = get_connection()?;
     let result = conn.query_row(
@@ -522,7 +505,7 @@ pub fn get_pos_settings() -> Result<PosSettings> {
     }
 }
 
-#[cfg_attr(not(feature = "full"), allow(dead_code))]
+#[cfg(feature = "full")]
 pub fn save_pos_settings(s: &PosSettings) -> Result<()> {
     let conn = get_connection()?;
     if let Some(id) = s.id {
@@ -543,7 +526,7 @@ pub fn save_pos_settings(s: &PosSettings) -> Result<()> {
 
 // ============ BPU DOKUMEN ============
 
-#[cfg_attr(not(feature = "full"), allow(dead_code))]
+#[cfg(feature = "full")]
 pub fn get_bpu_dokumen(kwitansi_id: i64) -> Result<BpuDokumen> {
     let conn = get_connection()?;
     let result = conn.query_row(
@@ -577,7 +560,7 @@ pub fn get_bpu_dokumen(kwitansi_id: i64) -> Result<BpuDokumen> {
     }
 }
 
-#[cfg_attr(not(feature = "full"), allow(dead_code))]
+#[cfg(feature = "full")]
 pub fn upsert_bpu_dokumen(
     kwitansi_id: i64,
     dok_bast: bool,
@@ -623,7 +606,7 @@ pub fn upsert_bpu_dokumen(
 
 // ============ TOKO DATA ============
 
-#[cfg_attr(not(feature = "full"), allow(dead_code))]
+#[cfg(feature = "full")]
 pub fn update_kwitansi_toko(
     kwitansi_id: i64,
     nama_toko: &str,
