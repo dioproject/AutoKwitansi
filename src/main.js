@@ -301,6 +301,8 @@ function groupByBku(data) {
 }
 
 let riwayatPeriodeFilter = "";
+let riwayatSortKey = "";
+let riwayatSortDir = "asc";
 
 function groupKeyOf(k) {
   const bulan = k.bulan || "";
@@ -318,6 +320,57 @@ window.handlePeriodeFilterChange = function (value) {
   }
 };
 
+function applyPeriodeFilter(data) {
+  return riwayatPeriodeFilter
+    ? data.filter(k => groupKeyOf(k) === riwayatPeriodeFilter)
+    : data;
+}
+
+/** Klik header kolom → urut naik/turun */
+window.handleRiwayatSort = function (key) {
+  if (riwayatSortKey === key) {
+    riwayatSortDir = riwayatSortDir === "asc" ? "desc" : "asc";
+  } else {
+    riwayatSortKey = key;
+    riwayatSortDir = "asc";
+  }
+  const query = document.getElementById("search-input")?.value || "";
+  if (query.trim() !== "") renderTable(applyPeriodeFilter(currentRiwayatData));
+  else renderGrouped(currentRiwayatData);
+};
+
+function sortArrow(key) {
+  if (riwayatSortKey !== key) return "";
+  return riwayatSortDir === "asc" ? " ▲" : " ▼";
+}
+
+function tanggalSortVal(s) {
+  const p = parseTanggalParts(s);
+  if (p) return p.y * 10000 + p.m * 100 + p.d;
+  return 0;
+}
+
+function sortRiwayatRows(rows) {
+  if (!riwayatSortKey) return rows;
+  const dir = riwayatSortDir === "asc" ? 1 : -1;
+  const val = (k) => {
+    switch (riwayatSortKey) {
+      case "nomor": return (k.nomor_kwitansi || "").toLowerCase();
+      case "tanggal": return tanggalSortVal(k.tanggal);
+      case "diterima": return (k.sudah_terima_dari || "").toLowerCase();
+      case "jumlah": return k.jumlah || 0;
+      case "uraian": return (k.untuk_pembayaran || "").toLowerCase();
+      default: return 0;
+    }
+  };
+  return [...rows].sort((a, b) => {
+    const va = val(a), vb = val(b);
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return 0;
+  });
+}
+
 function renderGrouped(data) {
   const container = document.getElementById("riwayat-container");
 
@@ -332,9 +385,7 @@ function renderGrouped(data) {
       keys.map(k => `<option value="${esc(k)}"${k === riwayatPeriodeFilter ? " selected" : ""}>${esc(k)}</option>`).join("");
   }
 
-  const filtered = riwayatPeriodeFilter
-    ? data.filter(k => groupKeyOf(k) === riwayatPeriodeFilter)
-    : data;
+  const filtered = applyPeriodeFilter(data);
 
   if (filtered.length === 0) {
     container.innerHTML = '<div class="table-container"><table><tbody><tr><td class="empty">Belum ada data kwitansi pada periode ini</td></tr></tbody></table></div>';
@@ -361,16 +412,16 @@ function renderGrouped(data) {
                 <tr>
                   <th><input type="checkbox" class="riwayat-select-all-group" onchange="toggleSelectAllGroup(this)" /></th>
                   <th>No</th>
-                  <th>Nomor Kwitansi</th>
-                  <th>Tanggal</th>
-                  <th>Diterima Dari</th>
-                  <th>Jumlah</th>
-                  <th>Untuk Pembayaran</th>
+                  <th onclick="handleRiwayatSort('nomor')" style="cursor:pointer;user-select:none;" title="Klik untuk urutkan">Nomor Kwitansi${sortArrow('nomor')}</th>
+                  <th onclick="handleRiwayatSort('tanggal')" style="cursor:pointer;user-select:none;" title="Klik untuk urutkan">Tanggal${sortArrow('tanggal')}</th>
+                  <th onclick="handleRiwayatSort('diterima')" style="cursor:pointer;user-select:none;" title="Klik untuk urutkan">Diterima Dari${sortArrow('diterima')}</th>
+                  <th onclick="handleRiwayatSort('jumlah')" style="cursor:pointer;user-select:none;" title="Klik untuk urutkan">Jumlah${sortArrow('jumlah')}</th>
+                  <th onclick="handleRiwayatSort('uraian')" style="cursor:pointer;user-select:none;" title="Klik untuk urutkan">Untuk Pembayaran${sortArrow('uraian')}</th>
                   <th>Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                ${items.map((k, i) => {
+                ${sortRiwayatRows(items).map((k, i) => {
                   const bpu = isBpu(k.nomor_kwitansi);
                   const bnu = isBnu(k.nomor_kwitansi);
                   const posBtn = bpu ? `<button class="btn btn-sm btn-pos" onclick="handleCetakPosRiwayat(${k.id})">POS</button>` : "";
@@ -439,16 +490,16 @@ function renderTable(data) {
           <tr>
             <th><input type="checkbox" id="riwayat-select-all" onchange="toggleSelectAllRiwayat(this)" /></th>
             <th>No</th>
-            <th>Nomor Kwitansi</th>
-            <th>Tanggal</th>
-            <th>Diterima Dari</th>
-            <th>Jumlah</th>
-            <th>Untuk Pembayaran</th>
+            <th onclick="handleRiwayatSort('nomor')" style="cursor:pointer;user-select:none;" title="Klik untuk urutkan">Nomor Kwitansi${sortArrow('nomor')}</th>
+            <th onclick="handleRiwayatSort('tanggal')" style="cursor:pointer;user-select:none;" title="Klik untuk urutkan">Tanggal${sortArrow('tanggal')}</th>
+            <th onclick="handleRiwayatSort('diterima')" style="cursor:pointer;user-select:none;" title="Klik untuk urutkan">Diterima Dari${sortArrow('diterima')}</th>
+            <th onclick="handleRiwayatSort('jumlah')" style="cursor:pointer;user-select:none;" title="Klik untuk urutkan">Jumlah${sortArrow('jumlah')}</th>
+            <th onclick="handleRiwayatSort('uraian')" style="cursor:pointer;user-select:none;" title="Klik untuk urutkan">Untuk Pembayaran${sortArrow('uraian')}</th>
             <th>Aksi</th>
           </tr>
         </thead>
         <tbody>
-          ${data.map((k, i) => {
+          ${sortRiwayatRows(data).map((k, i) => {
             const bpu = isBpu(k.nomor_kwitansi);
             const bnu = isBnu(k.nomor_kwitansi);
             const posBtn = bpu ? `<button class="btn btn-sm btn-pos" onclick="handleCetakPosRiwayat(${k.id})">POS</button>` : "";
@@ -486,10 +537,7 @@ window.handleSearch = async function (query) {
     } else {
       const data = await invoke("cmd_search_kwitansi", { query: query });
       currentRiwayatData = data;
-      const filtered = riwayatPeriodeFilter
-        ? data.filter(k => groupKeyOf(k) === riwayatPeriodeFilter)
-        : data;
-      renderTable(filtered); // flat for search
+      renderTable(applyPeriodeFilter(data)); // flat for search
     }
   } catch (e) {
     console.error(e);
