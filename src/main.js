@@ -71,6 +71,7 @@ function showPage(pageName) {
   if (pageName === "riwayat") loadRiwayat();
   if (pageName === "sekolah") loadSekolahForm();
   if (pageName === "print-settings") loadPrintSettingsForm();
+  if (pageName === "pos-settings") loadPosSetupPage();
 }
 window.showPage = showPage;
 
@@ -1214,6 +1215,59 @@ window.handlePosTestPrint = async function () {
   } catch (e) {
     showToast("Gagal test print: " + e, "error");
   }
+};
+
+// ========== POS SETUP PAGE ==========
+
+async function loadPosSetupPage() {
+  try {
+    const s = await invoke("cmd_get_pos_settings");
+    document.getElementById("pos_setup_port").value = s.port || "";
+    document.getElementById("pos_setup_baud_rate").value = s.baud_rate || 9600;
+    document.getElementById("pos_setup_paper_width").value = s.paper_width || 58;
+    renderPosPaperPreview();
+  } catch (e) {
+    console.error("Gagal load pos settings:", e);
+  }
+}
+
+window.renderPosPaperPreview = function () {
+  const width = parseInt(document.getElementById("pos_setup_paper_width")?.value || "58");
+  const container = document.getElementById("pos-paper-preview");
+  const label = document.getElementById("pos-preview-label");
+  if (container) container.style.width = `${width * 2.5}px`;
+  if (label) label.textContent = `${width}mm`;
+};
+
+window.handleSimpanPosSetupSettings = async function () {
+  const s = getPosSettings() || await loadPosSettingsMod() || {};
+  const settings = {
+    id: s.id || null,
+    paper_width: parseInt(document.getElementById("pos_setup_paper_width")?.value || "58"),
+    port: document.getElementById("pos_setup_port")?.value || "",
+    baud_rate: parseInt(document.getElementById("pos_setup_baud_rate")?.value || "9600"),
+  };
+
+  try {
+    await invoke("cmd_save_pos_settings", { settings });
+    await loadPosSettingsMod();
+    showToast("Pengaturan printer thermal disimpan", "success");
+  } catch (e) {
+    showToast("Gagal simpan: " + e, "error");
+  }
+};
+
+window.handlePosSetupTestPrint = async function () {
+  // Simpan dulu agar port/baud terupdate
+  await handleSimpanPosSetupSettings();
+  await window.handlePosTestPrint();
+};
+
+window.handleResetPosSetup = function () {
+  document.getElementById("pos_setup_port").value = "";
+  document.getElementById("pos_setup_baud_rate").value = "9600";
+  document.getElementById("pos_setup_paper_width").value = "58";
+  renderPosPaperPreview();
 };
 
 // ========== UTILITIES ==========

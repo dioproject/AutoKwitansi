@@ -33,6 +33,9 @@
         <button class="nav-btn" data-page="print-settings" onclick="showPage('print-settings')">
           <span class="nav-icon">&#9998;</span> Pengaturan Cetak
         </button>
+        <button class="nav-btn" data-page="pos-settings" onclick="showPage('pos-settings')">
+          <span class="nav-icon">&#128424;</span> Printer Thermal
+        </button>
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
@@ -543,6 +546,91 @@
             <p class="hint" style="margin-top:8px; font-size:11px; color:var(--text-muted);">
               Geser field ke posisi yang diinginkan pada kertas.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAGE: PENGATURAN PRINTER THERMAL -->
+      <section id="page-pos-settings" class="page">
+        <div class="page-header">
+          <h2>🧾 Pengaturan Printer Thermal</h2>
+        </div>
+
+        <div class="settings-grid">
+          <!-- Left: Settings Form -->
+          <div class="settings-form">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+              <span style="font-size:20px;">🖨️</span>
+              <div>
+                <h3 style="margin:0;font-size:15px;">Koneksi Printer</h3>
+                <p style="font-size:11px;color:var(--text-muted);margin:2px 0 0;">Atur port dan baud rate untuk printer thermal USB</p>
+              </div>
+            </div>
+
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+              <div class="form-group">
+                <label for="pos_setup_port">Port (COM)</label>
+                <input type="text" id="pos_setup_port" placeholder="COM3" style="font-family:monospace;font-size:15px;letter-spacing:1px;" />
+                <span style="font-size:10px;color:var(--text-muted);margin-top:2px;">Contoh: COM3, COM4, /dev/ttyUSB0</span>
+              </div>
+              <div class="form-group">
+                <label for="pos_setup_baud_rate">Baud Rate</label>
+                <select id="pos_setup_baud_rate">
+                  <option value="9600">9600</option>
+                  <option value="19200">19200</option>
+                  <option value="38400">38400</option>
+                  <option value="57600">57600</option>
+                  <option value="115200">115200</option>
+                </select>
+                <span style="font-size:10px;color:var(--text-muted);margin-top:2px;">Kecepatan komunikasi serial (default: 9600)</span>
+              </div>
+            </div>
+
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                <span style="font-size:20px;">📏</span>
+                <div>
+                  <h3 style="margin:0;font-size:15px;">Ukuran Kertas</h3>
+                  <p style="font-size:11px;color:var(--text-muted);margin:2px 0 0;">Pilih lebar kertas thermal roll</p>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="pos_setup_paper_width">Lebar Kertas (mm)</label>
+                <select id="pos_setup_paper_width" onchange="renderPosPaperPreview()">
+                  <option value="58">58mm — Struk kecil (standar)</option>
+                  <option value="80">80mm — Struk besar</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-actions" style="margin-top:20px;gap:8px;">
+              <button class="btn btn-primary" onclick="handleSimpanPosSetupSettings()">💾 Simpan</button>
+              <button class="btn btn-pos" onclick="handlePosSetupTestPrint()">🧪 Test Print</button>
+              <button class="btn btn-secondary" onclick="handleResetPosSetup()">↺ Reset</button>
+            </div>
+          </div>
+
+          <!-- Right: Visual Preview -->
+          <div class="settings-form" style="display:flex;flex-direction:column;align-items:center;">
+            <h3 style="font-size:14px;margin-bottom:16px;">📐 Preview Kertas Thermal</h3>
+            <div id="pos-paper-preview" style="background:#fff;border:2px solid #e2e8f0;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:width 0.3s;">
+              <div style="padding:12px;text-align:center;font-family:'Courier New',monospace;font-size:10px;line-height:1.4;color:#475569;width:90%;">
+                <div style="font-weight:bold;font-size:11px;">KWITANSI</div>
+                <div style="border-top:1px dashed #cbd5e1;margin:6px 0;"></div>
+                <div>No: BPU/001</div>
+                <div>Tgl: 21 Juni 2026</div>
+                <div style="border-top:1px dashed #cbd5e1;margin:6px 0;"></div>
+                <div>Dari: Bendahara BOS</div>
+                <div>Jml: Rp 1.500.000</div>
+                <div style="border-top:1px dashed #cbd5e1;margin:6px 0;"></div>
+                <div>Bendahara: ........</div>
+                <div>Penerima : ........</div>
+                <div style="margin-top:8px;font-size:9px;color:#94a3b8;">••• potong di sini •••</div>
+              </div>
+            </div>
+            <div style="margin-top:10px;font-size:12px;color:var(--text-muted);">
+              Lebar: <strong id="pos-preview-label">58mm</strong>
+            </div>
           </div>
         </div>
       </section>
