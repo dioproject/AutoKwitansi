@@ -39,8 +39,18 @@ pub fn cmd_simpan_kwitansi(mut kwitansi: Kwitansi) -> Result<i64, String> {
         &kwitansi.bulan,
         &kwitansi.tahun_anggaran,
     );
-    kwitansi.terbilang = terbilang(kwitansi.jumlah);
+    // Terbilang mengikuti netto (setelah PPh 21 6%) jika honorarium
+    kwitansi.terbilang = terbilang(netto_pph21(kwitansi.jumlah, kwitansi.kena_pph21));
     db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())
+}
+
+/// Netto setelah PPh 21 6% (bruto jika tidak kena)
+pub(crate) fn netto_pph21(jumlah: f64, kena: bool) -> f64 {
+    if kena {
+        jumlah - (jumlah * 0.06).round()
+    } else {
+        jumlah
+    }
 }
 
 #[command]
@@ -136,7 +146,7 @@ pub fn cmd_import_bku(
             tanggal: tx.tanggal.clone(),
             sudah_terima_dari: sudah_terima_dari.clone(),
             jumlah: tx.pengeluaran,
-            terbilang: terbilang(tx.pengeluaran),
+            terbilang: terbilang(netto_pph21(tx.pengeluaran, pph21)),
             untuk_pembayaran: expand_bnu_description(
                 &tx.no_bukti,
                 &tx.kode_kegiatan,

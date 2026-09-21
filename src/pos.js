@@ -105,7 +105,6 @@ export function renderPosNotaTemplate(k, settings) {
   const sep = "─".repeat(maxChars);
   const doubleSep = "═".repeat(maxChars);
 
-  const label = labelNomorCetak(k.nomor_kwitansi);
   const autoNum = generateRandomNotaNum();
   const lines = [];
   
@@ -126,35 +125,29 @@ export function renderPosNotaTemplate(k, settings) {
   }
   lines.push(doubleSep);
   
-  // No (auto-generated) & Tanggal
-  lines.push(`No   : ${label}/${autoNum}`);
+  // No (auto-generated, tanpa label BPU/BNU) & Tanggal
+  lines.push(`No   : ${autoNum}`);
   lines.push(`Tgl  : ${formatTanggalPanjang(k.tanggal)}`);
   lines.push(sep);
   
-  // ITEM
+  // ITEM — kalimat gabungan uraian + kode rekening + tahun anggaran
   lines.push("  ITEM");
-  const items = (k.untuk_pembayaran || "-").split("\n").filter(l => l.trim());
-  if (items.length > 0) {
-    for (const item of items) {
-      lines.push(`    ${item.trim()}`);
-    }
+  const kalimat = composePaymentSentence(k);
+  for (const wl of wrapText(kalimat, maxChars - 4)) {
+    lines.push(`    ${wl}`);
   }
   lines.push(sep);
   
-  // TOTAL (right-aligned)
-  let totalLine = `TOTAL  : Rp ${formatRupiah(k.jumlah)}`;
+  // TOTAL — netto jika kena PPh 21
+  const pph = k.kena_pph21 ? Math.round(k.jumlah * 0.06) : 0;
+  const netto = k.jumlah - pph;
+  if (k.kena_pph21) {
+    lines.push(`Bruto  : Rp ${formatRupiah(k.jumlah)}`);
+    lines.push(`PPh 6% : Rp ${formatRupiah(pph)}`);
+  }
+  let totalLine = `TOTAL  : Rp ${formatRupiah(netto)}`;
   const pad = Math.max(0, maxChars - totalLine.length);
   lines.push(" ".repeat(pad) + totalLine);
-  
-  // PPh block
-  if (k.kena_pph21) {
-    const bruto = k.jumlah;
-    const pph = Math.round(bruto * 0.06);
-    const netto = bruto - pph;
-    lines.push(`Bruto  : Rp ${formatRupiah(bruto)}`);
-    lines.push(`PPh 6% : Rp ${formatRupiah(pph)}`);
-    lines.push(`NETTO  : Rp ${formatRupiah(netto)}`);
-  }
   lines.push(sep);
   
   // Penerima
@@ -188,6 +181,30 @@ function generateRandomNotaNum() {
   const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
   const rand = Math.floor(1000 + Math.random() * 9000);
   return `${ymd}-${rand}`;
+}
+
+/** Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat */
+function composePaymentSentence(k) {
+  const s = k.untuk_pembayaran || "-";
+  const parts = [];
+  if ((k.kode_rekening || "").trim()) parts.push(`Kode Rekening ${k.kode_rekening.trim()}`);
+  if ((k.tahun_anggaran || "").trim()) parts.push(`Tahun Anggaran ${k.tahun_anggaran.trim()}`);
+  if (parts.length === 0) return s;
+  return `${s} (${parts.join(", ")})`;
+}
+
+/** Word-wrap teks ke lebar maksimum */
+function wrapText(text, width) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const out = [];
+  let cur = "";
+  for (const w of words) {
+    if (!cur) cur = w;
+    else if (cur.length + 1 + w.length <= width) cur += " " + w;
+    else { out.push(cur); cur = w; }
+  }
+  if (cur) out.push(cur);
+  return out.length ? out : ["-"];
 }
 
 function centerText(text, maxChars) {

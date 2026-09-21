@@ -93,6 +93,29 @@ function capturePeriodPenerimaEdits() {
     const row = (periodRowsByGroup[gid] || []).find(r => r.rid === rid);
     if (row) row.tx.penerima = inp.value;
   });
+  document.querySelectorAll(".period-uraian-input").forEach(inp => {
+    const gid = inp.dataset.group;
+    const rid = parseInt(inp.dataset.rid);
+    const row = (periodRowsByGroup[gid] || []).find(r => r.rid === rid);
+    if (row) row.tx.uraian = inp.value;
+  });
+}
+
+const NAMA_BULAN = ["JANUARI","FEBRUARI","MARET","APRIL","MEI","JUNI","JULI","AGUSTUS","SEPTEMBER","OKTOBER","NOVEMBER","DESEMBER"];
+
+/** "JUNI" + "2026" -> "2026-06" (untuk input type=month) */
+function bulanTahunToMonthValue(bulan, tahun) {
+  const idx = NAMA_BULAN.indexOf((bulan || "").toUpperCase());
+  const y = tahun || new Date().getFullYear().toString();
+  const m = idx >= 0 ? idx + 1 : new Date().getMonth() + 1;
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+
+/** "2026-06" -> { bulan: "JUNI", tahun: "2026" } */
+function monthValueToBulanTahun(v) {
+  const [y, m] = (v || "").split("-");
+  if (!y || !m) return { bulan: "", tahun: y || "" };
+  return { bulan: NAMA_BULAN[parseInt(m, 10) - 1] || "", tahun: y };
 }
 
 function mergePeriodByRids(gid, rids) {
@@ -185,8 +208,7 @@ function renderPeriodPreview(grouped) {
         <span style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:16px;">📅</span>
           <span style="color:var(--primary);">BKU</span>
-          <input type="text" class="period-bulan-input" data-group="${group.id}" value="${esc(group.bulan)}" style="width:100px;font-weight:700;font-size:13px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;" placeholder="Bulan" />
-          <input type="text" class="period-tahun-input" data-group="${group.id}" value="${esc(group.tahun)}" style="width:70px;font-weight:700;font-size:13px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;" placeholder="Tahun" />
+          <input type="month" class="period-periode-input" data-group="${group.id}" value="${bulanTahunToMonthValue(group.bulan, group.tahun)}" style="width:150px;font-weight:700;font-size:13px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;" title="Periode BKU (bulan & tahun)" />
           <span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--text-muted);">${rows.length} transaksi</span>
         </span>
       </td>
@@ -203,7 +225,7 @@ function renderPeriodPreview(grouped) {
           <td>${esc(tx.no_bukti)}${gabBadge} ${pph21 ? '<span class="badge badge-warn" style="font-size:10px;">PPh21</span>' : ''}</td>
           <td>${esc(tx.tanggal)}</td>
           <td>${esc(tx.kode_rekening)}</td>
-          <td title="${esc(tx.uraian)}">${esc(tx.uraian.length > 50 ? tx.uraian.substring(0, 50) + "..." : tx.uraian)}</td>
+          <td><input type="text" class="period-uraian-input" data-group="${group.id}" data-rid="${row.rid}" value="${esc(tx.uraian)}" placeholder="Uraian..." style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:100%;min-width:180px;" /></td>
           <td class="rupiah" style="text-align:right;">Rp ${formatRupiah(tx.pengeluaran)}</td>
           <td><input type="text" class="period-penerima-input" data-group="${group.id}" data-rid="${row.rid}" value="${esc(tx.penerima)}" placeholder="Penerima..." style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:130px;" /></td>
         </tr>`;
@@ -227,10 +249,10 @@ window.handleImportBkuPeriod = async function () {
   const groupMap = {};
 
   for (const group of currentGrouped) {
-    const bulanInput = document.querySelector(`.period-bulan-input[data-group="${group.id}"]`);
-    const tahunInput = document.querySelector(`.period-tahun-input[data-group="${group.id}"]`);
-    const bulan = bulanInput ? bulanInput.value.trim() : group.bulan;
-    const tahun = tahunInput ? tahunInput.value.trim() : group.tahun;
+    const periodeInput = document.querySelector(`.period-periode-input[data-group="${group.id}"]`);
+    const periode = monthValueToBulanTahun(periodeInput ? periodeInput.value : "");
+    const bulan = periode.bulan || group.bulan;
+    const tahun = periode.tahun || group.tahun;
 
     const checkedRids = new Set(
       [...document.querySelectorAll(`.period-row-check[data-group="${group.id}"]:checked`)].map(cb => parseInt(cb.dataset.rid))

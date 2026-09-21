@@ -172,7 +172,8 @@ window.handleJumlahInput = async function (el) {
   el.value = formatted;
 
   const kenaPph21 = document.getElementById("cb_kena_pph21")?.checked;
-  const jumlah = kenaPph21 ? Math.round(parseInt(raw) * 0.94) : parseInt(raw);
+  const bruto = parseInt(raw);
+  const jumlah = kenaPph21 ? bruto - Math.round(bruto * 0.06) : bruto;
 
   try {
     const result = await invoke("cmd_terbilang", { jumlah: jumlah });
@@ -674,12 +675,17 @@ function initPdfRows() {
   pdfRows = (currentBkuData?.transactions || []).map(tx => ({ rid: pdfRidCounter++, tx: { ...tx }, orig: null, count: 1 }));
 }
 
-/** Simpan editan input penerima ke state sebelum render ulang */
+/** Simpan editan input penerima & uraian ke state sebelum render ulang */
 function capturePdfPenerimaEdits() {
   document.querySelectorAll(".pdf-penerima-input").forEach(inp => {
     const rid = parseInt(inp.dataset.rid);
     const row = pdfRows.find(r => r.rid === rid);
     if (row) row.tx.penerima = inp.value;
+  });
+  document.querySelectorAll(".pdf-uraian-input").forEach(inp => {
+    const rid = parseInt(inp.dataset.rid);
+    const row = pdfRows.find(r => r.rid === rid);
+    if (row) row.tx.uraian = inp.value;
   });
 }
 
@@ -759,7 +765,7 @@ function renderPdfPreviewTable() {
         <td>${esc(tx.no_bukti)}${gabBadge}</td>
         <td>${esc(tx.tanggal)}</td>
         <td>${esc(tx.kode_rekening)}</td>
-        <td title="${esc(tx.uraian)}">${esc(tx.uraian.length > 60 ? tx.uraian.substring(0, 60) + "..." : tx.uraian)}</td>
+        <td><input type="text" class="pdf-uraian-input" data-rid="${row.rid}" value="${esc(tx.uraian)}" placeholder="Uraian..." style="width:100%;min-width:200px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;" /></td>
         <td class="rupiah">Rp ${formatRupiah(tx.pengeluaran)}</td>
         <td><input type="text" class="pdf-penerima-input" data-rid="${row.rid}" value="${esc(tx.penerima)}" placeholder="Isi penerima..." /></td>
       </tr>
@@ -777,8 +783,8 @@ async function processPdfFile(filePath) {
     currentBkuData = result;
 
     const bulanPdf = result.bulan || deriveBulanFromDate(result.transactions);
-    document.getElementById("pdf_bulan").value = bulanPdf;
-    document.getElementById("pdf_tahun").value = result.tahun || new Date().getFullYear().toString();
+    const tahunPdf = result.tahun || new Date().getFullYear().toString();
+    document.getElementById("pdf_periode").value = bulanTahunToMonthValue(bulanPdf, tahunPdf);
     document.getElementById("pdf_mengetahui").value = result.kepala_sekolah || (sekolahData ? sekolahData.kepala_sekolah : "");
     document.getElementById("pdf_nip_mengetahui").value = result.nip_kepala || (sekolahData ? sekolahData.nip_kepala : "");
     document.getElementById("pdf_bendahara").value = result.bendahara || (sekolahData ? sekolahData.bendahara : "");
@@ -823,10 +829,11 @@ window.handleImportBku = async function () {
   }
 
   try {
+    const periode = monthValueToBulanTahun(document.getElementById("pdf_periode").value);
     const count = await invoke("cmd_import_bku", {
       transactions: selectedTransactions,
-      bulan: document.getElementById("pdf_bulan").value,
-      tahunAnggaran: document.getElementById("pdf_tahun").value,
+      bulan: periode.bulan,
+      tahunAnggaran: periode.tahun || new Date().getFullYear().toString(),
       sudahTerimaDari: defaultSudahTerimaDari(),
       mengetahui: document.getElementById("pdf_mengetahui").value,
       nipMengetahui: document.getElementById("pdf_nip_mengetahui").value,
@@ -1089,13 +1096,13 @@ function renderValuesOnlyTemplate(k) {
 
   return `
     <div class="kwitansi-page values-only" style="width:${s.paper_width}mm; min-height:${s.paper_height}mm; padding:${s.margin_top}mm ${s.margin_right}mm ${s.margin_bottom}mm ${s.margin_left}mm; font-size:${fontSize}pt;">
-      <div class="kv" style="${pos('nomor')}">No: ${esc(k.nomor_kwitansi)}</div>
+      <div class="kv" style="${pos('nomor')}">No: ${esc(labelNomorCetak(k.nomor_kwitansi))}</div>
       <div class="kv" style="${pos('tahun_anggaran')}">Tahun Anggaran: ${esc(k.tahun_anggaran)}</div>
       <div class="kv" style="${pos('kode_rekening')}">Kode Rekening: ${esc(k.kode_rekening)}</div>
       <div class="kv" style="${pos('sudah_terima_dari')}">${esc(k.sudah_terima_dari)}</div>
       <div class="kv" style="${pos('uang_sejumlah')}">${esc(capitalize(k.terbilang))}</div>
       <div class="kv" style="${pos('untuk_pembayaran')}">${esc(k.untuk_pembayaran)}</div>
-      <div class="kv jumlah" style="${pos('jumlah_rp')}">Rp ${formatRupiah(k.jumlah)}</div>
+      <div class="kv jumlah" style="${pos('jumlah_rp')}">Rp ${formatRupiah(nettoJumlah(k))}</div>
       ${mengetahuiBlock}
       ${penerimaBlock}
       ${bendaharaBlock}
@@ -1151,10 +1158,10 @@ function renderFullTemplate(k) {
         <div class="kwitansi-row">
           <span class="kwitansi-label">Untuk pembayaran</span>
           <span class="kwitansi-sep">:</span>
-          <span class="kwitansi-value">${esc(k.untuk_pembayaran)}</span>
+          <span class="kwitansi-value">${esc(composePaymentSentence(k))}</span>
         </div>
         <div style="text-align: right; margin-top: 5mm;">
-          <div class="kwitansi-jumlah-box">Rp ${formatRupiah(k.jumlah)}</div>
+          <div class="kwitansi-jumlah-box">Rp ${formatRupiah(nettoJumlah(k))}</div>
         </div>
         ${pphBlock}
       </div>
@@ -1418,6 +1425,38 @@ window.updatePosStrukPreview = function () {
 };
 
 // ========== UTILITIES ==========
+
+/** Netto setelah PPh 21 6% (bruto jika tidak kena) */
+function nettoJumlah(k) {
+  if (!k.kena_pph21) return k.jumlah;
+  return k.jumlah - Math.round(k.jumlah * 0.06);
+}
+
+/** Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat panjang */
+function composePaymentSentence(k) {
+  const s = k.untuk_pembayaran || "";
+  const parts = [];
+  if ((k.kode_rekening || "").trim()) parts.push(`Kode Rekening ${k.kode_rekening.trim()}`);
+  if ((k.tahun_anggaran || "").trim()) parts.push(`Tahun Anggaran ${k.tahun_anggaran.trim()}`);
+  if (parts.length === 0) return s;
+  return `${s} (${parts.join(", ")})`;
+}
+
+/** "JUNI" + "2026" -> "2026-06" (untuk input type=month) */
+function bulanTahunToMonthValue(bulan, tahun) {
+  const idx = NAMA_BULAN.indexOf((bulan || "").toUpperCase());
+  const y = tahun || new Date().getFullYear().toString();
+  const m = idx >= 0 ? idx + 1 : new Date().getMonth() + 1;
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+
+/** "2026-06" -> { bulan: "JUNI", tahun: "2026" } */
+function monthValueToBulanTahun(v) {
+  const [y, m] = (v || "").split("-");
+  if (!y || !m) return { bulan: "", tahun: y || "" };
+  return { bulan: NAMA_BULAN[parseInt(m, 10) - 1] || "", tahun: y };
+}
+
 function defaultSudahTerimaDari() {
   const nama = sekolahData?.nama_sekolah?.trim() || "";
   return nama ? `Bendahara BOS ${nama}` : "Bendahara BOS";

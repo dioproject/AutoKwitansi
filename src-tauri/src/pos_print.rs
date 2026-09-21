@@ -99,10 +99,9 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) ->
     buf.extend_from_slice(line(&double_sep).as_bytes());
     buf.extend_from_slice(LF);
 
-    // No (auto-generated nota number) & Tanggal
+    // No (auto-generated, tanpa label BPU/BNU) & Tanggal
     buf.extend_from_slice(ESC_ALIGN_LEFT);
-    let label = label_nomor_cetak(&k.nomor_kwitansi);
-    buf.extend_from_slice(line(&format!("No   : {}/{}", label, nota_number)).as_bytes());
+    buf.extend_from_slice(line(&format!("No   : {}", nota_number)).as_bytes());
     buf.extend_from_slice(LF);
     let tgl_fmt = format_tanggal_cetak(&k.tanggal);
     buf.extend_from_slice(line(&format!("Tgl  : {}", tgl_fmt)).as_bytes());
@@ -111,66 +110,43 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) ->
     buf.extend_from_slice(LF);
 
     // ══════════════════════════
-    // ITEMS — dari uraian kwitansi
+    // ITEM — kalimat gabungan uraian + kode rekening + tahun anggaran
     // ══════════════════════════
-    let uraian = &k.untuk_pembayaran;
-    let items: Vec<&str> = uraian.lines().filter(|l| !l.trim().is_empty()).collect();
-    if items.len() > 1 {
-        // Multi-line: show as item list
-        buf.extend_from_slice(ESC_BOLD_ON);
-        buf.extend_from_slice(line("ITEM").as_bytes());
-        buf.extend_from_slice(ESC_BOLD_OFF);
-        buf.extend_from_slice(LF);
-        for item in &items {
-            buf.extend_from_slice(line(&format!("  {}", item.trim())).as_bytes());
-            buf.extend_from_slice(LF);
-        }
-    } else {
-        // Single item
-        buf.extend_from_slice(ESC_BOLD_ON);
-        buf.extend_from_slice(line("ITEM").as_bytes());
-        buf.extend_from_slice(ESC_BOLD_OFF);
-        buf.extend_from_slice(LF);
-        let item_text = if items.is_empty() {
-            "-"
-        } else {
-            items[0].trim()
-        };
-        buf.extend_from_slice(line(&format!("  {}", item_text)).as_bytes());
+    buf.extend_from_slice(ESC_BOLD_ON);
+    buf.extend_from_slice(line("ITEM").as_bytes());
+    buf.extend_from_slice(ESC_BOLD_OFF);
+    buf.extend_from_slice(LF);
+    let kalimat = compose_payment_sentence(k);
+    for wl in wrap_text(&kalimat, max_chars.saturating_sub(4).max(10)) {
+        buf.extend_from_slice(line(&format!("  {}", wl)).as_bytes());
         buf.extend_from_slice(LF);
     }
     buf.extend_from_slice(line(&sep).as_bytes());
     buf.extend_from_slice(LF);
 
     // ══════════════════════════
-    // TOTAL
+    // TOTAL — netto jika kena PPh 21
     // ══════════════════════════
+    let pph: f64 = if k.kena_pph21 {
+        (k.jumlah * 0.06).round()
+    } else {
+        0.0
+    };
+    let netto = k.jumlah - pph;
+    if k.kena_pph21 {
+        buf.extend_from_slice(
+            line(&format!("Bruto  : Rp {}", format_currency(k.jumlah))).as_bytes(),
+        );
+        buf.extend_from_slice(LF);
+        buf.extend_from_slice(line(&format!("PPh 6% : Rp {}", format_currency(pph))).as_bytes());
+        buf.extend_from_slice(LF);
+    }
     buf.extend_from_slice(ESC_BOLD_ON);
-    let total = format_currency(k.jumlah);
-    let total_line = format!("TOTAL  : Rp {}", total);
+    let total_line = format!("TOTAL  : Rp {}", format_currency(netto));
     let pad = max_chars.saturating_sub(total_line.len());
     buf.extend_from_slice(line(&format!("{}{}", " ".repeat(pad), total_line)).as_bytes());
     buf.extend_from_slice(ESC_BOLD_OFF);
     buf.extend_from_slice(LF);
-
-    // PPh 21 block (honorarium only)
-    if k.kena_pph21 {
-        let bruto = k.jumlah;
-        let pph = (bruto * 0.06).round() as i64;
-        let netto = bruto as i64 - pph;
-        buf.extend_from_slice(line(&format!("Bruto  : Rp {}", format_currency(bruto))).as_bytes());
-        buf.extend_from_slice(LF);
-        buf.extend_from_slice(
-            line(&format!("PPh 6% : Rp {}", format_currency(pph as f64))).as_bytes(),
-        );
-        buf.extend_from_slice(LF);
-        buf.extend_from_slice(ESC_BOLD_ON);
-        buf.extend_from_slice(
-            line(&format!("NETTO  : Rp {}", format_currency(netto as f64))).as_bytes(),
-        );
-        buf.extend_from_slice(ESC_BOLD_OFF);
-        buf.extend_from_slice(LF);
-    }
     buf.extend_from_slice(line(&sep).as_bytes());
     buf.extend_from_slice(LF);
 
@@ -287,9 +263,54 @@ pub fn test_print(settings: &PosSettings) -> Result<(), String> {
     }
 }
 
+/// Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat panjang
+fn compose_payment_sentence(k: &Kwitansi) -> String {
+    let s = k.untuk_pembayaran.trim();
+    let mut parts: Vec<String> = Vec::new();
+    let kode = k.kode_rekening.trim();
+    if !kode.is_empty() {
+        parts.push(format!("Kode Rekening {}", kode));
+    }
+    let tahun = k.tahun_anggaran.trim();
+    if !tahun.is_empty() {
+        parts.push(format!("Tahun Anggaran {}", tahun));
+    }
+    if parts.is_empty() {
+        s.to_string()
+    } else {
+        format!("{} ({})", s, parts.join(", "))
+    }
+}
+
+/// Word-wrap teks ke lebar maksimum (per kata)
+fn wrap_text(s: &str, width: usize) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    for w in s.split_whitespace() {
+        if cur.is_empty() {
+            cur.push_str(w);
+        } else if cur.len() + 1 + w.len() <= width {
+            cur.push(' ');
+            cur.push_str(w);
+        } else {
+            out.push(std::mem::take(&mut cur));
+            cur.push_str(w);
+        }
+    }
+    if !cur.is_empty() {
+        out.push(cur);
+    }
+    if out.is_empty() {
+        out.push("-".to_string());
+    }
+    out
+}
+
 // ============ HELPER: LABEL NOMOR CETAK ============
 
 /// "BPU/07.12.04/001" -> "BPU", "BNU/07.12.04/001" -> "BNU", other -> as-is
+/// Dipakai untuk label No pada cetak kwitansi (bukan nota POS).
+#[allow(dead_code)]
 pub fn label_nomor_cetak(nomor: &str) -> String {
     let upper = nomor.to_uppercase();
     if upper.contains("BNU") {
