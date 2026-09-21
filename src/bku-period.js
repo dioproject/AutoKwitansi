@@ -78,24 +78,28 @@ function renderPeriodPreview(grouped) {
   let html = "";
   for (const group of grouped) {
     html += `<tr class="period-header-row">
-      <td colspan="7" style="background:var(--bg-secondary);font-weight:bold;padding:8px 12px;">
-        <span style="margin-right:6px;">BKU</span>
-        <input type="text" class="period-bulan-input" data-group="${group.id}" value="${esc(group.bulan)}" style="width:90px;font-weight:bold;font-size:13px;" placeholder="Bulan" />
-        <input type="text" class="period-tahun-input" data-group="${group.id}" value="${esc(group.tahun)}" style="width:65px;font-weight:bold;font-size:13px;" placeholder="Tahun" />
-        <span style="margin-left:6px;">(${group.transactions.length} transaksi)</span>
+      <td colspan="7" style="background:linear-gradient(135deg,#e8effc,#dbeafe);font-weight:700;padding:10px 14px;border-bottom:2px solid var(--primary);">
+        <span style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:16px;">📅</span>
+          <span style="color:var(--primary);">BKU</span>
+          <input type="text" class="period-bulan-input" data-group="${group.id}" value="${esc(group.bulan)}" style="width:100px;font-weight:700;font-size:13px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;" placeholder="Bulan" />
+          <input type="text" class="period-tahun-input" data-group="${group.id}" value="${esc(group.tahun)}" style="width:70px;font-weight:700;font-size:13px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;" placeholder="Tahun" />
+          <span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--text-muted);">${group.transactions.length} transaksi</span>
+        </span>
       </td>
     </tr>`;
     for (let i = 0; i < group.transactions.length; i++) {
       const tx = group.transactions[i];
+      const pph21 = (tx.no_bukti||'').toUpperCase().includes('BNU') || (tx.kode_kegiatan||'').includes('07.12.04') || (tx.uraian||'').toLowerCase().match(/honor|instruktur/);
       html += `
         <tr>
           <td><input type="checkbox" class="period-row-check" data-group="${group.id}" data-index="${i}" checked /></td>
-          <td>${esc(tx.no_bukti)}</td>
+          <td>${esc(tx.no_bukti)} ${pph21 ? '<span class="badge badge-warn" style="font-size:10px;">PPh21</span>' : ''}</td>
           <td>${esc(tx.tanggal)}</td>
           <td>${esc(tx.kode_rekening)}</td>
           <td title="${esc(tx.uraian)}">${esc(tx.uraian.length > 50 ? tx.uraian.substring(0, 50) + "..." : tx.uraian)}</td>
-          <td class="rupiah">Rp ${formatRupiah(tx.pengeluaran)}</td>
-          <td><input type="text" class="period-penerima-input" data-group="${group.id}" data-index="${i}" value="${esc(tx.penerima)}" placeholder="Penerima..." /></td>
+          <td class="rupiah" style="text-align:right;">Rp ${formatRupiah(tx.pengeluaran)}</td>
+          <td><input type="text" class="period-penerima-input" data-group="${group.id}" data-index="${i}" value="${esc(tx.penerima)}" placeholder="Penerima..." style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:130px;" /></td>
         </tr>`;
     }
   }

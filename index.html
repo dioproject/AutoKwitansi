@@ -175,62 +175,67 @@
         </div>
         <div class="import-area">
           <div class="import-info">
-            <h3>Import dari Multiple PDF BKU</h3>
-            <p class="hint">Pilih beberapa file PDF BKU sekaligus (per bulan). Data akan dikelompokkan berdasarkan bulan/tahun.</p>
+            <h3>📂 Import dari Multiple PDF BKU</h3>
+            <p class="hint">Pilih beberapa file PDF BKU sekaligus (per bulan). Data akan otomatis dikelompokkan berdasarkan bulan/tahun dari nama file atau isi PDF.</p>
           </div>
           <div class="upload-area" onclick="openBkuPeriodDialog()">
-            <p class="upload-text">Klik untuk pilih file PDF BKU (bisa banyak sekaligus)</p>
-            <p class="upload-hint">Format: .pdf (dari ARKAS) — Pilih beberapa file</p>
+            <div class="upload-icon">📁</div>
+            <p class="upload-text">Klik untuk pilih file PDF BKU</p>
+            <p class="upload-hint">Format: .pdf (dari ARKAS) — Bisa pilih beberapa file sekaligus</p>
           </div>
 
-          <div id="bku-period-loading" class="hidden">
+          <div id="bku-period-loading" class="hidden" style="text-align:center;padding:40px;background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow);">
             <div class="loading-spinner"></div>
-            <p>Sedang memproses PDF...</p>
+            <p style="margin-top:16px;color:var(--text-muted);font-weight:500;">Sedang memproses PDF...</p>
+            <p style="font-size:12px;color:var(--text-muted);">Mengekstrak data transaksi dari file BKU</p>
           </div>
 
-          <div id="bku-period-settings" class="hidden">
-            <h3>Pengaturan Import Per Bulan</h3>
+          <div id="bku-period-settings" class="hidden" style="background:var(--bg-card);padding:24px;border-radius:var(--radius);box-shadow:var(--shadow);border-left:4px solid var(--primary);">
+            <h3 style="margin-bottom:16px;color:var(--primary);">⚙️ Pengaturan Import Per Bulan</h3>
             <div class="form-grid">
               <div class="form-group">
                 <label for="bku-period-mengetahui">Mengetahui (Kepala Sekolah)</label>
-                <input type="text" id="bku-period-mengetahui" />
+                <input type="text" id="bku-period-mengetahui" placeholder="Nama Kepala Sekolah" />
               </div>
               <div class="form-group">
                 <label for="bku-period-nip-mengetahui">NIP Mengetahui</label>
-                <input type="text" id="bku-period-nip-mengetahui" />
+                <input type="text" id="bku-period-nip-mengetahui" placeholder="NIP Kepala Sekolah" />
               </div>
               <div class="form-group">
                 <label for="bku-period-bendahara">Bendahara</label>
-                <input type="text" id="bku-period-bendahara" />
+                <input type="text" id="bku-period-bendahara" placeholder="Nama Bendahara" />
               </div>
               <div class="form-group">
                 <label for="bku-period-nip-bendahara">NIP Bendahara</label>
-                <input type="text" id="bku-period-nip-bendahara" />
+                <input type="text" id="bku-period-nip-bendahara" placeholder="NIP Bendahara" />
               </div>
             </div>
           </div>
 
-          <div id="bku-period-preview" class="hidden">
-            <h3>Preview Data (<span id="bku-period-count">0</span> transaksi)</h3>
-            <div class="table-container" style="max-height:400px;overflow-y:auto;">
+          <div id="bku-period-preview" class="hidden" style="background:var(--bg-card);padding:24px;border-radius:var(--radius);box-shadow:var(--shadow);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+              <h3 style="margin:0;">📋 Preview Data (<span id="bku-period-count">0</span> transaksi)</h3>
+              <span style="font-size:12px;color:var(--text-muted);">✏️ Edit bulan/tahun & penerima sebelum import</span>
+            </div>
+            <div class="table-container" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);">
               <table>
                 <thead>
                   <tr>
-                    <th><input type="checkbox" id="period-select-all" onchange="toggleSelectAllPeriod(this)" checked /></th>
+                    <th style="width:40px;"><input type="checkbox" id="period-select-all" onchange="toggleSelectAllPeriod(this)" checked /></th>
                     <th>No. Bukti</th>
                     <th>Tanggal</th>
                     <th>Kode Rekening</th>
                     <th>Uraian</th>
-                    <th>Jumlah</th>
+                    <th style="text-align:right;">Jumlah</th>
                     <th>Penerima</th>
                   </tr>
                 </thead>
                 <tbody id="bku-period-tbody"></tbody>
               </table>
             </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="handleImportBkuPeriod()">Import yang Dipilih</button>
-              <button class="btn btn-secondary" onclick="resetBkuPeriod()">Batal</button>
+            <div class="form-actions" style="margin-top:16px;">
+              <button class="btn btn-primary" onclick="handleImportBkuPeriod()">📥 Import yang Dipilih</button>
+              <button class="btn btn-secondary" onclick="resetBkuPeriod()">✖ Batal</button>
             </div>
           </div>
         </div>
@@ -546,10 +551,18 @@
       <section id="page-batch-print" class="page">
         <div class="page-header">
           <h2>Preview Cetak (<span id="batch-count">0</span> kwitansi)</h2>
-          <div>
-            <button class="btn btn-primary" onclick="cetakKwitansi()">Cetak Kwitansi</button>
-            <button class="btn btn-pos" id="btn-cetak-pos-batch" style="display:none;" onclick="handleCetakPosBatch()">Cetak Nota POS</button>
-            <button class="btn btn-secondary" onclick="showPage('riwayat')">Kembali</button>
+          <div style="display:flex;gap:16px;align-items:center;">
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:#e8effc;border-radius:6px;border:1px solid #bfdbfe;">
+              <span style="font-size:14px;">🖨️</span>
+              <span style="font-size:11px;font-weight:600;color:var(--primary);margin-right:4px;">PRINTER</span>
+              <button class="btn btn-primary btn-sm" onclick="cetakKwitansi()">Cetak Kwitansi</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:#ecfdf5;border-radius:6px;border:1px solid #a7f3d0;">
+              <span style="font-size:14px;">🧾</span>
+              <span style="font-size:11px;font-weight:600;color:#059669;margin-right:4px;">POS THERMAL</span>
+              <button class="btn btn-pos btn-sm" id="btn-cetak-pos-batch" style="display:none;" onclick="handleCetakPosBatch()">Cetak Nota POS</button>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="showPage('riwayat')">Kembali</button>
           </div>
         </div>
         <div id="batch-print-container"></div>
@@ -559,16 +572,24 @@
       <section id="page-print" class="page">
         <div class="page-header">
           <h2>Preview Kwitansi</h2>
-          <div>
-            <button class="btn btn-primary" onclick="cetakKwitansi()">Cetak Kwitansi</button>
-            <button class="btn btn-pos" id="btn-cetak-pos-preview" style="display:none;" onclick="handleCetakPosFromPreview()">Cetak Nota POS</button>
-            <span id="doc-btn-group" class="hidden" style="display:inline-flex;gap:4px;vertical-align:middle;margin-left:6px;">
+          <div style="display:flex;gap:16px;align-items:center;">
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:#e8effc;border-radius:6px;border:1px solid #bfdbfe;">
+              <span style="font-size:14px;">🖨️</span>
+              <span style="font-size:11px;font-weight:600;color:var(--primary);margin-right:4px;">PRINTER</span>
+              <button class="btn btn-primary btn-sm" onclick="cetakKwitansi()">Cetak Kwitansi</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:#ecfdf5;border-radius:6px;border:1px solid #a7f3d0;">
+              <span style="font-size:14px;">🧾</span>
+              <span style="font-size:11px;font-weight:600;color:#059669;margin-right:4px;">POS THERMAL</span>
+              <button class="btn btn-pos btn-sm" id="btn-cetak-pos-preview" style="display:none;" onclick="handleCetakPosFromPreview()">Cetak Nota POS</button>
+            </div>
+            <span id="doc-btn-group" class="hidden" style="display:inline-flex;gap:4px;vertical-align:middle;">
               <button class="btn btn-sm btn-secondary" onclick="typeof cetakDokumen==='function' && cetakDokumen('bast')">BAST</button>
               <button class="btn btn-sm btn-secondary" onclick="typeof cetakDokumen==='function' && cetakDokumen('surat_pesanan')">Surat Pesanan</button>
               <button class="btn btn-sm btn-secondary" onclick="typeof cetakDokumen==='function' && cetakDokumen('invoice')">Invoice</button>
               <button class="btn btn-sm btn-secondary" onclick="typeof cetakDokumen==='function' && cetakDokumen('bap')">BAP</button>
             </span>
-            <button class="btn btn-secondary" onclick="showPage('riwayat')">Kembali</button>
+            <button class="btn btn-secondary btn-sm" onclick="showPage('riwayat')">Kembali</button>
           </div>
         </div>
         <div id="print-container"></div>

@@ -977,3 +977,9 @@ td .actions {
   background: #fce7f3;
   color: #be185d;
 }
+
+/* ============ UPLOAD ICON ============ */
+.upload-icon {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
