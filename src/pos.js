@@ -19,48 +19,82 @@ export function getPosSettings() {
   return currentPosSettings;
 }
 
+// Store for modal actions
+let _posModalKwitansi = null;
+let _posModalSettings = null;
+
 /**
- * Cetak nota POS langsung ke printer thermal via ESC/POS backend.
- * Fallback ke browser print jika backend gagal.
+ * Tampilkan modal preview nota POS, lalu user pilih cetak thermal atau browser.
  */
 export async function cetakNotaPos(kwitansi) {
+  _posModalKwitansi = kwitansi;
+  _posModalSettings = currentPosSettings || { paper_width: 58, header_text: "", footer_text: "" };
+
+  // Render nota template inside modal
+  const contentEl = document.getElementById("modal-pos-content");
+  if (contentEl) {
+    contentEl.innerHTML = renderPosNotaTemplate(kwitansi, _posModalSettings);
+  }
+
+  // Reset status
+  const statusEl = document.getElementById("modal-pos-status");
+  if (statusEl) statusEl.textContent = "";
+
+  // Show modal
+  const modal = document.getElementById("modal-pos-preview");
+  if (modal) modal.classList.remove("hidden");
+}
+
+/** Called from modal: print to thermal */
+export async function cetakPosThermal() {
+  if (!_posModalKwitansi) return;
+  const btn = document.getElementById("btn-pos-thermal");
+  const status = document.getElementById("modal-pos-status");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ Mengirim..."; }
+  if (status) status.textContent = "";
+
   try {
-    await invoke("cmd_print_pos_nota", { kwitansiId: kwitansi.id });
+    await invoke("cmd_print_pos_nota", { kwitansiId: _posModalKwitansi.id });
+    if (status) { status.textContent = "✅ Berhasil dikirim ke printer thermal!"; status.style.color = "var(--success)"; }
     if (window._showToast) window._showToast("Nota POS berhasil dikirim ke printer", "success");
   } catch (e) {
-    // Fallback: tampilkan di browser print
-    const proceed = confirm(`Gagal kirim ke printer POS:\n${e}\n\nGunakan browser print sebagai fallback?`);
-    if (!proceed) return;
-
-    const s = currentPosSettings || { paper_width: 58 };
-    const widthMm = s.paper_width || 58;
-    const container = document.getElementById("print-container");
-    if (!container) return;
-
-    container.innerHTML = renderPosNotaTemplate(kwitansi, s);
-    const page = document.getElementById("page-print");
-    if (page) {
-      page.querySelector(".page-header h2").textContent = `Nota POS (${widthMm}mm)`;
-    }
-
-    let styleEl = document.getElementById("dynamic-print-style");
-    if (!styleEl) {
-      styleEl = document.createElement("style");
-      styleEl.id = "dynamic-print-style";
-      document.head.appendChild(styleEl);
-    }
-    styleEl.textContent = `
-      @media print {
-        @page { size: ${widthMm}mm auto; margin: 0; }
-        body * { visibility: hidden; }
-        #print-container, #print-container * { visibility: visible; }
-        .pos-nota { margin: 0; padding: 2mm; border: none; }
-      }
-    `;
-
-    if (window._showPage) window._showPage("print");
-    setTimeout(() => window.print(), 200);
+    if (status) { status.textContent = "❌ Gagal: " + e; status.style.color = "var(--danger)"; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "🖨️ Cetak ke Printer Thermal"; }
   }
+}
+
+/** Called from modal: print via browser */
+export function cetakPosBrowser() {
+  if (!_posModalKwitansi) return;
+  const s = _posModalSettings || { paper_width: 58 };
+  const widthMm = s.paper_width || 58;
+
+  // Close modal first so it doesn't appear in print
+  const modal = document.getElementById("modal-pos-preview");
+  if (modal) modal.classList.add("hidden");
+
+  // Render to print container
+  const container = document.getElementById("print-container");
+  if (!container) return;
+  container.innerHTML = renderPosNotaTemplate(_posModalKwitansi, s);
+
+  let styleEl = document.getElementById("dynamic-print-style");
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = "dynamic-print-style";
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = `
+    @media print {
+      @page { size: ${widthMm}mm auto; margin: 0; }
+      body * { visibility: hidden; }
+      #print-container, #print-container * { visibility: visible; }
+      .pos-nota { margin: 0; padding: 2mm; border: none; }
+    }
+  `;
+
+  setTimeout(() => window.print(), 300);
 }
 
 export function renderPosNotaTemplate(k, settings) {

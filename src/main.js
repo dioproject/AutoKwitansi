@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { isBpu, loadPosSettings as loadPosSettingsMod, getPosSettings, cetakNotaPos } from "./pos.js";
+import { isBpu, loadPosSettings as loadPosSettingsMod, getPosSettings, cetakNotaPos, cetakPosThermal, cetakPosBrowser } from "./pos.js";
 import { needsDocuments, loadDocStatus, allDocsComplete } from "./bpu-docs.js";
 import "./bku-period.js";
 
@@ -50,6 +50,10 @@ const DEFAULT_FIELD_POSITIONS = {
 };
 
 // ========== INIT ==========
+// Wire POS modal buttons
+window._posPrintThermal = () => cetakPosThermal();
+window._posPrintBrowser = () => cetakPosBrowser();
+
 document.addEventListener("DOMContentLoaded", async () => {
   const today = new Date().toISOString().split("T")[0];
   document.getElementById("tanggal").value = today;
