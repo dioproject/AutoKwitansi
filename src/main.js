@@ -283,7 +283,8 @@ async function loadRiwayat() {
     const data = await invoke("cmd_get_all_kwitansi");
     currentRiwayatData = data;
     selectedKwitansiIds.clear();
-    document.getElementById("riwayat-select-all").checked = false;
+    const selectAll = document.getElementById("riwayat-select-all");
+    if (selectAll) selectAll.checked = false;
     updateBatchButton();
     renderGrouped(data);
   } catch (e) {
