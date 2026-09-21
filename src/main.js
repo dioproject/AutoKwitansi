@@ -300,14 +300,48 @@ function groupByBku(data) {
   return groups;
 }
 
+let riwayatPeriodeFilter = "";
+
+function groupKeyOf(k) {
+  const bulan = k.bulan || "";
+  const tahun = k.tahun_anggaran || "";
+  return bulan ? `BKU ${bulan} ${tahun}`.trim() : "Tanpa BKU";
+}
+
+window.handlePeriodeFilterChange = function (value) {
+  riwayatPeriodeFilter = value || "";
+  const query = document.getElementById("search-input")?.value || "";
+  if (query.trim() !== "") {
+    handleSearch(query);
+  } else {
+    renderGrouped(currentRiwayatData);
+  }
+};
+
 function renderGrouped(data) {
   const container = document.getElementById("riwayat-container");
-  if (data.length === 0) {
-    container.innerHTML = '<div class="table-container"><table><tbody><tr><td class="empty">Belum ada data kwitansi</td></tr></tbody></table></div>';
+
+  // Isi dropdown periode dari data yang ada (sekali per render)
+  const sel = document.getElementById("riwayat-periode-filter");
+  if (sel) {
+    const keys = Object.keys(groupByBku(data));
+    if (riwayatPeriodeFilter && !keys.includes(riwayatPeriodeFilter)) {
+      riwayatPeriodeFilter = "";
+    }
+    sel.innerHTML = `<option value="">Semua periode (${data.length})</option>` +
+      keys.map(k => `<option value="${esc(k)}"${k === riwayatPeriodeFilter ? " selected" : ""}>${esc(k)}</option>`).join("");
+  }
+
+  const filtered = riwayatPeriodeFilter
+    ? data.filter(k => groupKeyOf(k) === riwayatPeriodeFilter)
+    : data;
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="table-container"><table><tbody><tr><td class="empty">Belum ada data kwitansi pada periode ini</td></tr></tbody></table></div>';
     return;
   }
 
-  const groups = groupByBku(data);
+  const groups = groupByBku(filtered);
   let html = "";
   let firstOpen = true;
 
@@ -452,7 +486,10 @@ window.handleSearch = async function (query) {
     } else {
       const data = await invoke("cmd_search_kwitansi", { query: query });
       currentRiwayatData = data;
-      renderTable(data); // flat for search
+      const filtered = riwayatPeriodeFilter
+        ? data.filter(k => groupKeyOf(k) === riwayatPeriodeFilter)
+        : data;
+      renderTable(filtered); // flat for search
     }
   } catch (e) {
     console.error(e);

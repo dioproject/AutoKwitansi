@@ -254,7 +254,10 @@
       <section id="page-riwayat" class="page">
         <div class="page-header">
           <h2>Riwayat Kwitansi</h2>
-          <div style="display:flex; gap:10px; align-items:center;">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <select id="riwayat-periode-filter" onchange="handlePeriodeFilterChange(this.value)" title="Filter periode BKU" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;">
+              <option value="">Semua periode</option>
+            </select>
             <div class="search-bar">
               <input type="text" id="search-input" placeholder="Cari nomor, nama, keterangan..." oninput="handleSearch(this.value)" />
             </div>
