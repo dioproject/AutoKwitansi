@@ -9,9 +9,7 @@ Aplikasi desktop pembuatan kwitansi SPJ (Surat Pertanggungjawaban) untuk lembaga
 - **Cetak Nota POS Thermal (ESC/POS)** — cetak langsung ke printer thermal USB via COM port **tanpa dialog print**. Format struk kasir dengan header/footer kustom. Preview modal sebelum cetak, fallback ke printer biasa.
 - **Halaman Printer Thermal** — setup port, baud rate, lebar kertas (58/80mm), header & footer struk kustom, test print, preview kertas live.
 - **No Nota Auto-Generate** — setiap cetak POS mendapat nomor acak unik (`YYYYMMDD-NNNN`), bukan nomor kwitansi.
-- **Import PDF BKU** — ekstrak data dari BKU ARKAS. **Gabung transaksi manual**: centang 2+ baris → jadikan 1 kwitansi (bebas, tidak harus kode rekening sama), bisa diuraikan lagi.
 - **Import BKU Per Bulan** — multi-PDF sekaligus, dikelompokkan per bulan/tahun, merge manual per bulan.
-- **Import CSV** — bulk import dari spreadsheet.
 - **Riwayat Group per Bulan** — accordion "BKU {Bulan} {Tahun}", terbaru terbuka; badge BPU/BNU/PPh21; pencarian flat.
 - **Dokumen BPU >Rp1jt** — BAST, Surat Pesanan, Invoice, BAP otomatis.
 - **Pengaturan Cetak** — mode "Isi Nilai Saja" (kertas pre-print) atau "Kwitansi Lengkap", ukuran kertas custom, margin, font, jarak TTD, **visual drag & drop editor**.
@@ -68,10 +66,9 @@ AutoKwitansi/
 │   │   ├── lib.rs             # Module registration (9 mod) + 23 command
 │   │   ├── commands.rs        # 23 Tauri commands + deteksi PPh 21 + expand BNU
 │   │   ├── db.rs              # SQLite CRUD + migrations + generate_pos_number()
-│   │   ├── models.rs          # Data models (9 structs)
+│   │   ├── models.rs          # Data models (8 structs)
 │   │   ├── pos_print.rs       # ESC/POS builder + serialport printing
 │   │   ├── terbilang.rs       # Angka → terbilang Indonesia
-│   │   ├── csv_import.rs      # CSV parser
 │   │   ├── pdf_import.rs      # PDF BKU parser (pdf-extract)
 │   │   ├── bku_period.rs      # Multi-PDF parse + import per bulan
 │   │   └── bpu_docs.rs        # BPU dokumen + toko CRUD

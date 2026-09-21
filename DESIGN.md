@@ -6,7 +6,7 @@ Aplikasi desktop pembuatan kwitansi SPJ sekolah — **satu aplikasi utuh** (tanp
 
 1. **Kwitansi SPJ** — buat, cetak kwitansi (pre-print / kosong), layout sederhana 8 field.
 2. **PPh 21 6% Honorarium** — BNU / tenaga ahli (07.12.04) / instruktur pelatih: bruto → PPh → netto, terbilang mengikuti netto.
-3. **Import Data** — PDF BKU ARKAS, multi-PDF per bulan, CSV. **Merge transaksi manual** (pilih baris → gabung jadi 1 kwitansi).
+3. **Import BKU Per Bulan** — multi-PDF BKU ARKAS sekaligus, group per bulan/tahun. **Merge transaksi manual** (pilih baris → gabung jadi 1 kwitansi).
 4. **Cetak Nota POS Thermal** — ESC/POS langsung ke printer USB via COM port; format struk kasir; header/footer kustom; no nota auto-generate; modal preview sebelum cetak.
 5. **Riwayat Group per Bulan** — accordion "BKU {Bulan} {Tahun}".
 6. **Dokumen BPU >1jt** — auto-generate BAST, Surat Pesanan, Invoice, BAP.
@@ -68,8 +68,7 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 ### Navigation (sidebar)
 - **Buat Kwitansi** — form + checkbox PPh 21 + section dokumen BPU (kondisional)
 - **Riwayat** — accordion per BKU bulan; badge BPU (biru) / BNU (pink) / PPh21 (kuning); tombol Cetak/POS/Hapus
-- **Import Data** — tab PDF BKU / CSV; toolbar merge (Gabungkan yang Dicentang / Gabung Otomatis per Kode / Uraikan Semua)
-- **Import BKU Per Bulan** — multi-PDF, grouped preview, toolbar merge per bulan
+- **Import BKU Per Bulan** — multi-PDF, grouped preview, toolbar merge per bulan (Gabungkan yang Dicentang / Gabung Otomatis per Kode / Uraikan Semua)
 - **Data Sekolah** — form identitas
 - **Pengaturan Cetak** — kwitansi: mode, kertas, margin, font, drag-drop editor
 - **Printer Thermal** — POS: port COM, baud rate, lebar kertas, header/footer struk kustom, test print, preview struk live

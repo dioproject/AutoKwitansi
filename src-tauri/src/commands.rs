@@ -1,10 +1,7 @@
-use crate::csv_import::parse_csv;
 use crate::db;
 use crate::models::{
-    BkuData, BkuPeriodItem, BkuTransaction, BpuDokumen, CsvRow, Kwitansi, PosSettings,
-    PrintSettings, Sekolah,
+    BkuData, BkuPeriodItem, BpuDokumen, Kwitansi, PosSettings, PrintSettings, Sekolah,
 };
-use crate::pdf_import::parse_bku_pdf;
 use crate::terbilang::terbilang;
 use tauri::command;
 
@@ -71,107 +68,6 @@ pub fn cmd_delete_kwitansi(id: i64) -> Result<(), String> {
 #[command]
 pub fn cmd_search_kwitansi(query: String) -> Result<Vec<Kwitansi>, String> {
     db::search_kwitansi(&query).map_err(|e| e.to_string())
-}
-
-// ============ CSV IMPORT ============
-
-#[command]
-pub fn cmd_parse_csv(content: String) -> Result<Vec<CsvRow>, String> {
-    parse_csv(&content)
-}
-
-#[command]
-pub fn cmd_import_csv(
-    rows: Vec<CsvRow>,
-    tahun_anggaran: String,
-    mengetahui: String,
-    nip_mengetahui: String,
-    bendahara: String,
-    nip_bendahara: String,
-) -> Result<usize, String> {
-    let mut count = 0;
-    for row in &rows {
-        let kwitansi = Kwitansi {
-            id: None,
-            nomor_kwitansi: row.nomor_kwitansi.clone(),
-            tanggal: row.tanggal.clone(),
-            sudah_terima_dari: row.sudah_terima_dari.clone(),
-            jumlah: row.jumlah,
-            terbilang: terbilang(row.jumlah),
-            untuk_pembayaran: row.untuk_pembayaran.clone(),
-            kode_rekening: row.kode_rekening.clone(),
-            tahun_anggaran: tahun_anggaran.clone(),
-            bulan: String::new(),
-            mengetahui: mengetahui.clone(),
-            nip_mengetahui: nip_mengetahui.clone(),
-            bendahara: bendahara.clone(),
-            nip_bendahara: nip_bendahara.clone(),
-            penerima: row.penerima.clone(),
-            nama_toko: String::new(),
-            alamat_toko: String::new(),
-            pimpinan_toko: String::new(),
-            created_at: None,
-            kena_pph21: false,
-        };
-        db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())?;
-        count += 1;
-    }
-    Ok(count)
-}
-
-// ============ PDF BKU IMPORT ============
-
-#[command]
-pub fn cmd_parse_bku_pdf(file_path: String) -> Result<BkuData, String> {
-    parse_bku_pdf(&file_path)
-}
-
-#[command]
-pub fn cmd_import_bku(
-    transactions: Vec<BkuTransaction>,
-    bulan: String,
-    tahun_anggaran: String,
-    sudah_terima_dari: String,
-    mengetahui: String,
-    nip_mengetahui: String,
-    bendahara: String,
-    nip_bendahara: String,
-) -> Result<usize, String> {
-    let mut count = 0;
-    for tx in &transactions {
-        let pph21 = is_honor_pph21(&tx.no_bukti, &tx.kode_kegiatan, &tx.uraian);
-        let kwitansi = Kwitansi {
-            id: None,
-            nomor_kwitansi: tx.no_bukti.clone(),
-            tanggal: tx.tanggal.clone(),
-            sudah_terima_dari: sudah_terima_dari.clone(),
-            jumlah: tx.pengeluaran,
-            terbilang: terbilang(netto_pph21(tx.pengeluaran, pph21)),
-            untuk_pembayaran: expand_bnu_description(
-                &tx.no_bukti,
-                &tx.kode_kegiatan,
-                &tx.uraian,
-                &bulan,
-                &tahun_anggaran,
-            ),
-            kode_rekening: tx.kode_rekening.clone(),
-            tahun_anggaran: tahun_anggaran.clone(),
-            bulan: bulan.clone(),
-            mengetahui: mengetahui.clone(),
-            nip_mengetahui: nip_mengetahui.clone(),
-            bendahara: bendahara.clone(),
-            nip_bendahara: nip_bendahara.clone(),
-            penerima: tx.penerima.clone(),
-            nama_toko: String::new(),
-            alamat_toko: String::new(),
-            pimpinan_toko: String::new(),
-            created_at: None,
-            kena_pph21: pph21,
-        };
-        db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())?;
-        count += 1;
-    }
-    Ok(count)
 }
 
 /// Deteksi otomatis apakah transaksi kena PPh 21 6%

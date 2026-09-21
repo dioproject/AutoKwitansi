@@ -1,7 +1,6 @@
 mod bku_period;
 mod bpu_docs;
 mod commands;
-mod csv_import;
 mod db;
 mod models;
 mod pdf_import;
@@ -27,10 +26,6 @@ pub fn run() {
             cmd_get_kwitansi,
             cmd_delete_kwitansi,
             cmd_search_kwitansi,
-            cmd_parse_csv,
-            cmd_import_csv,
-            cmd_parse_bku_pdf,
-            cmd_import_bku,
             cmd_get_print_settings,
             cmd_save_print_settings,
             cmd_get_pos_settings,

@@ -86,6 +86,31 @@ function getPeriodRows(group) {
   return periodRowsByGroup[group.id] || [];
 }
 
+/** Gabung nilai unik dengan pemisah (mendukung re-merge: split dulu) */
+function uniqueJoin(values, sep) {
+  const parts = [];
+  for (const v of values) {
+    for (const p of String(v || "").split(sep)) {
+      const t = p.trim();
+      if (t && !parts.includes(t)) parts.push(t);
+    }
+  }
+  return parts.join(sep);
+}
+
+/** Buat tx gabungan dari beberapa baris */
+function mergeDisplayRows(rowsList) {
+  return {
+    no_bukti: uniqueJoin(rowsList.map(r => r.tx.no_bukti), ", "),
+    tanggal: rowsList.map(r => r.tx.tanggal).filter(Boolean).sort()[0] || "",
+    kode_kegiatan: rowsList[0].tx.kode_kegiatan || "",
+    kode_rekening: uniqueJoin(rowsList.map(r => r.tx.kode_rekening), " + "),
+    uraian: uniqueJoin(rowsList.map(r => r.tx.uraian), "; "),
+    pengeluaran: rowsList.reduce((s, r) => s + (r.tx.pengeluaran || 0), 0),
+    penerima: uniqueJoin(rowsList.map(r => r.tx.penerima), ", "),
+  };
+}
+
 function capturePeriodPenerimaEdits() {
   document.querySelectorAll(".period-penerima-input").forEach(inp => {
     const gid = inp.dataset.group;
@@ -126,7 +151,7 @@ function mergePeriodByRids(gid, rids) {
   const firstIdx = rows.findIndex(r => ridSet.has(r.rid));
   const mergedRow = {
     rid: periodRidCounter++,
-    tx: window._mergeDisplayRows(rowsToMerge),
+    tx: mergeDisplayRows(rowsToMerge),
     orig: rowsToMerge.map(r => ({ rid: r.rid, tx: r.tx, orig: r.orig, count: r.count })),
     count: rowsToMerge.reduce((s, r) => s + (r.count || 1), 0),
   };

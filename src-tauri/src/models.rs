@@ -41,17 +41,6 @@ pub struct Kwitansi {
     pub kena_pph21: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CsvRow {
-    pub nomor_kwitansi: String,
-    pub tanggal: String,
-    pub sudah_terima_dari: String,
-    pub jumlah: f64,
-    pub untuk_pembayaran: String,
-    pub kode_rekening: String,
-    pub penerima: String,
-}
-
 // ============ BKU PDF MODELS ============
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

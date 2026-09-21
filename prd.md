@@ -26,7 +26,7 @@
 - DB v2.0 lama otomatis dimigrasikan (ALTER TABLE aman).
 
 ### F2: Kwitansi SPJ (Enhanced)
-- Buat kwitansi manual atau import dari BKU/CSV.
+- Buat kwitansi manual atau import dari BKU.
 - Layout cetak full **disederhanakan**: No. (label BPU/BNU saja), Sudah Terima Dari, Sejumlah (terbilang), Untuk Pembayaran, box Rp, Mengetahui, Bendahara, Penerima + Tgl (format "21 Juni 2026"). Tanpa merk/materai/tahun anggaran/kode rekening.
 - Mode `values_only` (kertas pre-print) dengan drag-drop editor tetap ada.
 - Batch print multi-select.
@@ -46,10 +46,8 @@
 - **Modal preview** muncul sebelum cetak: user pilih 🖨️ Thermal (ESC/POS, status inline ✅/❌) atau 🖨️ Printer (fallback browser print).
 - Tombol POS hanya untuk kwitansi BPU.
 
-### F5: Import Data + Merge Manual
-- **PDF BKU**: parse 1 file PDF BKU dari ARKAS.
+### F5: Import BKU Per Bulan + Merge Manual
 - **Import BKU Per Bulan**: multi-PDF sekaligus, group per bulan/tahun, bulan/tahun bisa diedit inline.
-- **CSV**: format template yang disediakan.
 - **Merge transaksi (baru)**:
   - Centang 2+ baris (bebas, tidak harus kode rekening sama) → **Gabungkan yang Dicentang** → jadi 1 kwitansi.
   - **Gabung Otomatis per Kode Rekening** — shortcut sekali klik.

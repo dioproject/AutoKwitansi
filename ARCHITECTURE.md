@@ -12,7 +12,6 @@
 | Thermal printing | serialport (ESC/POS raw bytes) | 4 |
 | Random generator | rand (no nota POS) | 0.8 |
 | PDF parsing | pdf-extract | 0.12 |
-| CSV parsing | csv (Rust crate) | 1.3 |
 | Dialog | @tauri-apps/plugin-dialog | 2.7.3 |
 | Package manager | Bun | — |
 | Installer | NSIS + WiX (MSI) | — |
@@ -41,9 +40,8 @@ AutoKwitansi/
 │       ├── lib.rs                # Module registration (9 mod) + 23 command
 │       ├── commands.rs           # 23 #[tauri::command] + is_honor_pph21 + expand_bnu_description
 │       ├── db.rs                 # SQLite init, migrations, CRUD (5 tabel) + generate_pos_number
-│       ├── models.rs             # 9 structs (serde)
+│       ├── models.rs             # 8 structs (serde)
 │       ├── terbilang.rs          # Number → Indonesian words
-│       ├── csv_import.rs         # CSV parser → Vec<CsvRow>
 │       ├── pdf_import.rs         # PDF BKU parser → BkuData
 │       ├── bku_period.rs         # Multi-PDF BKU parse + import per bulan (+ PPh21 & expand BNU)
 │       ├── pos_print.rs          # ESC/POS builder + serialport print + test print
@@ -83,8 +81,7 @@ AutoKwitansi/
 │  ├── cmd_get_sekolah / cmd_update_sekolah                        │
 │  ├── cmd_simpan_kwitansi (terbilang netto + expand BNU)          │
 │  ├── cmd_get_all / cmd_get / cmd_delete / cmd_search             │
-│  ├── cmd_parse_csv / cmd_import_csv                              │
-│  ├── cmd_parse_bku_pdf / cmd_import_bku (PPh21 + expand BNU)     │
+│  ├── cmd_parse_bku_pdfs / cmd_import_bku_period (PPh21 + expand BNU)    │
 │  ├── cmd_get_print_settings / cmd_save_print_settings            │
 │  ├── cmd_get_pos_settings / cmd_save_pos_settings                │
 │  ├── cmd_print_pos_nota / cmd_pos_test_print          [ESC/POS]  │
@@ -95,7 +92,6 @@ AutoKwitansi/
 │  db.rs         → SQLite CRUD + migrations (5 tabel)              │
 │                  + generate_pos_number() (rand, YYYYMMDD-NNNN)   │
 │  terbilang.rs  → angka → huruf Indonesia                         │
-│  csv_import.rs → CSV text → Vec<CsvRow>                          │
 │  pdf_import.rs → pdf-extract text → grouping → BkuData           │
 │  bku_period.rs → multi-PDF parse + import per bulan              │
 │  pos_print.rs  → build_escpos_nota() (struk kasir)               │
