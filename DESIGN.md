@@ -84,7 +84,7 @@ Di preview cetak, tombol dikelompokkan dengan label:
 2. **Modal POS Settings** — quick access (paper width, port, baud) dari halaman lain.
 
 ### Print Templates
-1. **Kwitansi Full** (v3.0 sederhana) — KWITANSI, No: BPU/BNU saja, Sudah terima dari, Uang sejumlah (terbilang netto), Untuk pembayaran, box Rp, blok bruto/PPh/netto (honorarium), TTD 3 kolom: Mengetahui / Bendahara / {Tgl "21 Juni 2026"} + Yang Menerima.
+1. **Kwitansi Full** (v3.0 sederhana) — KWITANSI, nomor lengkap (mis. BPU12, tanpa awalan "No:"), Sudah terima dari, Uang sejumlah (terbilang netto), Untuk pembayaran (kalimat gabungan uraian + kode + tahun), box Rp (netto), blok bruto/PPh/netto (honorarium), TTD 3 kolom: Mengetahui / Bendahara / {Tgl "21 Juni 2026"} + Yang Menerima.
 2. **Kwitansi Values Only** — pre-print, field absolute position (drag-drop).
 3. **Nota POS (struk kasir)** — header kustom/toko, No label+random, Tgl, ITEM, TOTAL (bold), PPh block, Penerima, footer kustom. 32 char (58mm) / 48 char (80mm).
 4. **BAST / Surat Pesanan / Invoice / BAP** — A4.

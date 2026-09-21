@@ -29,7 +29,7 @@
 1. Field wajib: `nomor_kwitansi`, `tanggal`, `sudah_terima_dari`, `jumlah`, `untuk_pembayaran`, `penerima`.
 2. `terbilang` auto-generate via Rust — dari **netto** jika `kena_pph21`, selain itu dari bruto.
 3. `bulan` diisi dari import BKU; kosong untuk input manual (masuk group "Tanpa BKU" di riwayat).
-4. Label cetak: nomor yang mengandung "BPU" dicetak **"BPU"**, mengandung "BNU" dicetak **"BNU"** (DB tetap menyimpan nomor lengkap).
+4. Nomor kwitansi dicetak **lengkap apa adanya** (mis. `BPU12`, `BNU16`) **tanpa awalan "No:"** — kertas pre-print / layout sudah menyediakan posisinya.
 
 ### PPh 21 6% (Honorarium)
 1. Kategori BNU = honorarium saja: tenaga ahli kode **07.12.04** dan instruktur/pelatih.

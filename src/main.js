@@ -4,14 +4,6 @@ import { isBpu, loadPosSettings as loadPosSettingsMod, getPosSettings, cetakNota
 import { needsDocuments, loadDocStatus, allDocsComplete } from "./bpu-docs.js";
 import "./bku-period.js";
 
-// ========== HELPER: LABEL NOMOR CETAK ==========
-function labelNomorCetak(nomor) {
-  const upper = (nomor || "").toUpperCase();
-  if (upper.includes("BNU")) return "BNU";
-  if (upper.includes("BPU")) return "BPU";
-  return nomor || "";
-}
-
 function isBnu(nomor) {
   return (nomor || "").trim().toUpperCase().includes("BNU");
 }
@@ -1096,7 +1088,7 @@ function renderValuesOnlyTemplate(k) {
 
   return `
     <div class="kwitansi-page values-only" style="width:${s.paper_width}mm; min-height:${s.paper_height}mm; padding:${s.margin_top}mm ${s.margin_right}mm ${s.margin_bottom}mm ${s.margin_left}mm; font-size:${fontSize}pt;">
-      <div class="kv" style="${pos('nomor')}">No: ${esc(labelNomorCetak(k.nomor_kwitansi))}</div>
+      <div class="kv" style="${pos('nomor')}">${esc(k.nomor_kwitansi)}</div>
       <div class="kv" style="${pos('tahun_anggaran')}">Tahun Anggaran: ${esc(k.tahun_anggaran)}</div>
       <div class="kv" style="${pos('kode_rekening')}">Kode Rekening: ${esc(k.kode_rekening)}</div>
       <div class="kv" style="${pos('sudah_terima_dari')}">${esc(k.sudah_terima_dari)}</div>
@@ -1141,7 +1133,7 @@ function renderFullTemplate(k) {
     <div class="kwitansi-page" style="width:${pw}mm; min-height:${ph}mm; padding:${mt}mm ${mr}mm ${mb}mm ${ml}mm; font-size:${fs}pt;">
       <div class="kwitansi-header">
         <h2>KWITANSI</h2>
-        <div class="nomor">No: ${esc(labelNomorCetak(k.nomor_kwitansi))}</div>
+        <div class="nomor">${esc(k.nomor_kwitansi)}</div>
       </div>
 
       <div class="kwitansi-body">
