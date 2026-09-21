@@ -263,22 +263,42 @@ pub fn test_print(settings: &PosSettings) -> Result<(), String> {
     }
 }
 
-/// Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat panjang
+/// Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat panjang yang natural
 fn compose_payment_sentence(k: &Kwitansi) -> String {
-    let s = k.untuk_pembayaran.trim();
-    let mut parts: Vec<String> = Vec::new();
+    let raw = k
+        .untuk_pembayaran
+        .trim()
+        .replace(|c: char| c == '\n' || c == '\r' || c == '\t', " ");
+    let raw: String = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    let raw = raw.trim_end_matches('.').trim().to_string();
     let kode = k.kode_rekening.trim();
-    if !kode.is_empty() {
-        parts.push(format!("Kode Rekening {}", kode));
-    }
     let tahun = k.tahun_anggaran.trim();
-    if !tahun.is_empty() {
-        parts.push(format!("Tahun Anggaran {}", tahun));
+    let has_kode = !kode.is_empty() && !raw.contains(kode);
+    let has_tahun = !tahun.is_empty() && !raw.contains(tahun);
+    if raw.is_empty() {
+        if has_kode && has_tahun {
+            return format!(
+                "Dengan Kode Rekening {} pada Tahun Anggaran {}",
+                kode, tahun
+            );
+        } else if has_kode {
+            return format!("Dengan Kode Rekening {}", kode);
+        } else if has_tahun {
+            return format!("Pada Tahun Anggaran {}", tahun);
+        }
+        return "-".to_string();
     }
-    if parts.is_empty() {
-        s.to_string()
+    if has_kode && has_tahun {
+        format!(
+            "{} dengan Kode Rekening {} pada Tahun Anggaran {}",
+            raw, kode, tahun
+        )
+    } else if has_kode {
+        format!("{} dengan Kode Rekening {}", raw, kode)
+    } else if has_tahun {
+        format!("{} pada Tahun Anggaran {}", raw, tahun)
     } else {
-        format!("{} ({})", s, parts.join(", "))
+        raw
     }
 }
 
@@ -324,7 +344,8 @@ pub fn label_nomor_cetak(nomor: &str) -> String {
 
 // ============ HELPER: FORMAT TANGGAL ============
 
-/// "2026-06-21" -> "21 Juni 2026"
+/// "2026-06-21" atau "21-06-2026" (juga / dan .) -> "21 Juni 2026"
+/// Hari tanpa nol depan ("01" -> "1"). Format tak dikenal dikembalikan apa adanya.
 fn format_tanggal_cetak(tanggal: &str) -> String {
     let months = [
         "",
@@ -341,20 +362,37 @@ fn format_tanggal_cetak(tanggal: &str) -> String {
         "November",
         "Desember",
     ];
-    let parts: Vec<&str> = tanggal.split('-').collect();
-    if parts.len() == 3 {
-        let year = parts[0];
-        let month: u32 = parts[1].parse().unwrap_or(1);
-        let day: u32 = parts[2].parse().unwrap_or(1);
-        let month_name = if (month as usize) < months.len() {
-            months[month as usize]
+    let month_name = |m: u32| {
+        if (m as usize) < months.len() && m >= 1 {
+            months[m as usize].to_string()
         } else {
-            parts[1]
-        };
-        format!("{} {} {}", day, month_name, year)
-    } else {
-        tanggal.to_string()
+            m.to_string()
+        }
+    };
+    let s = tanggal.trim();
+    // Coba YYYY-MM-DD dulu (tahun 4 digit di depan)
+    let norm = s.replace('/', "-").replace('.', "-");
+    let parts: Vec<&str> = norm.split('-').collect();
+    if parts.len() >= 3 {
+        if parts[0].len() == 4 {
+            // YYYY-MM-DD
+            let year = parts[0];
+            let month: u32 = parts[1].parse().unwrap_or(0);
+            let day: u32 = parts[2].parse().unwrap_or(0);
+            if month >= 1 && month <= 12 && day >= 1 {
+                return format!("{} {} {}", day, month_name(month), year);
+            }
+        } else if parts[2].len() == 4 {
+            // DD-MM-YYYY (format BKU/ARKAS)
+            let day: u32 = parts[0].parse().unwrap_or(0);
+            let month: u32 = parts[1].parse().unwrap_or(0);
+            let year = parts[2];
+            if month >= 1 && month <= 12 && day >= 1 {
+                return format!("{} {} {}", day, month_name(month), year);
+            }
+        }
     }
+    s.to_string()
 }
 
 #[cfg(test)]
@@ -381,6 +419,41 @@ mod tests {
         assert_eq!(format_tanggal_cetak("2026-06-21"), "21 Juni 2026");
         assert_eq!(format_tanggal_cetak("2026-01-01"), "1 Januari 2026");
         assert_eq!(format_tanggal_cetak("2026-12-31"), "31 Desember 2026");
+        // Format BKU/ARKAS: DD-MM-YYYY
+        assert_eq!(format_tanggal_cetak("21-06-2026"), "21 Juni 2026");
+        assert_eq!(format_tanggal_cetak("01-01-2026"), "1 Januari 2026");
+        assert_eq!(format_tanggal_cetak("05/02/2026"), "5 Februari 2026");
+    }
+
+    #[test]
+    fn test_compose_payment_sentence() {
+        use crate::models::Kwitansi;
+        let k = Kwitansi {
+            id: None,
+            nomor_kwitansi: "BPU001".into(),
+            tanggal: "2026-06-21".into(),
+            sudah_terima_dari: "Bendahara".into(),
+            jumlah: 1500000.0,
+            terbilang: "".into(),
+            untuk_pembayaran: "Pembelian ATK untuk kegiatan belajar".into(),
+            kode_rekening: "5.1.02.01.01.0001".into(),
+            tahun_anggaran: "2026".into(),
+            bulan: "".into(),
+            mengetahui: "".into(),
+            nip_mengetahui: "".into(),
+            bendahara: "".into(),
+            nip_bendahara: "".into(),
+            penerima: "".into(),
+            nama_toko: "".into(),
+            alamat_toko: "".into(),
+            pimpinan_toko: "".into(),
+            created_at: None,
+            kena_pph21: false,
+        };
+        assert_eq!(
+            compose_payment_sentence(&k),
+            "Pembelian ATK untuk kegiatan belajar dengan Kode Rekening 5.1.02.01.01.0001 pada Tahun Anggaran 2026"
+        );
     }
 
     #[test]

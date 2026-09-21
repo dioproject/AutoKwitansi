@@ -63,11 +63,11 @@
             </div>
             <div class="form-group">
               <label for="tahun_anggaran">Tahun Anggaran</label>
-              <input type="text" id="tahun_anggaran" required placeholder="2026" />
+              <input type="text" id="tahun_anggaran" required placeholder="2026" oninput="refreshPaymentPreview()" />
             </div>
             <div class="form-group">
               <label for="kode_rekening">Kode Rekening</label>
-              <input type="text" id="kode_rekening" placeholder="5.1.02.01.01.0001" />
+              <input type="text" id="kode_rekening" placeholder="5.1.02.01.01.0001" oninput="refreshPaymentPreview()" />
             </div>
             <div class="form-group full-width">
               <label for="sudah_terima_dari">Sudah Terima Dari</label>
@@ -83,7 +83,10 @@
             </div>
             <div class="form-group full-width">
               <label for="untuk_pembayaran">Untuk Pembayaran</label>
-              <textarea id="untuk_pembayaran" required rows="2" placeholder="Pembelian ATK untuk kegiatan..."></textarea>
+              <textarea id="untuk_pembayaran" required rows="2" placeholder="Pembelian ATK untuk kegiatan..." oninput="refreshPaymentPreview()"></textarea>
+              <div style="margin-top:6px;padding:8px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:12px;color:#166534;">
+                <strong>Kalimat cetak:</strong> <span id="payment_sentence_preview" style="font-style:italic;">—</span>
+              </div>
             </div>
             <div class="form-group">
               <label for="penerima">Yang Menerima</label>

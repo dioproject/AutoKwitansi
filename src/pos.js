@@ -183,14 +183,17 @@ function generateRandomNotaNum() {
   return `${ymd}-${rand}`;
 }
 
-/** Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat */
+/** Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat yang natural */
 function composePaymentSentence(k) {
-  const s = k.untuk_pembayaran || "-";
-  const parts = [];
-  if ((k.kode_rekening || "").trim()) parts.push(`Kode Rekening ${k.kode_rekening.trim()}`);
-  if ((k.tahun_anggaran || "").trim()) parts.push(`Tahun Anggaran ${k.tahun_anggaran.trim()}`);
-  if (parts.length === 0) return s;
-  return `${s} (${parts.join(", ")})`;
+  const raw = (k.untuk_pembayaran || "-").trim().replace(/\s+/g, " ").replace(/[.]+$/, "");
+  const kode = (k.kode_rekening || "").trim();
+  const tahun = (k.tahun_anggaran || "").trim();
+  const hasKode = kode && !raw.includes(kode);
+  const hasTahun = tahun && !raw.includes(tahun);
+  if (hasKode && hasTahun) return `${raw} dengan Kode Rekening ${kode} pada Tahun Anggaran ${tahun}`;
+  if (hasKode) return `${raw} dengan Kode Rekening ${kode}`;
+  if (hasTahun) return `${raw} pada Tahun Anggaran ${tahun}`;
+  return raw;
 }
 
 /** Word-wrap teks ke lebar maksimum */
@@ -216,18 +219,38 @@ function formatRupiah(num) {
   return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
+const NAMA_BULAN_PANJANG_POS = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+
+function parseTanggalPartsPos(dateStr) {
+  if (!dateStr) return null;
+  const s = String(dateStr).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return { d: parseInt(m[3], 10), m: parseInt(m[2], 10), y: parseInt(m[1], 10) };
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+  if (m) return { d: parseInt(m[1], 10), m: parseInt(m[2], 10), y: parseInt(m[3], 10) };
+  return null;
+}
+
 function formatTanggal(dateStr) {
   if (!dateStr) return "-";
+  const p = parseTanggalPartsPos(dateStr);
+  if (p && p.m >= 1 && p.m <= 12) {
+    return `${String(p.d).padStart(2, "0")}/${String(p.m).padStart(2, "0")}/${p.y}`;
+  }
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
 function formatTanggalPanjang(dateStr) {
   if (!dateStr) return "-";
+  const p = parseTanggalPartsPos(dateStr);
+  if (p && p.m >= 1 && p.m <= 12) {
+    return `${p.d} ${NAMA_BULAN_PANJANG_POS[p.m - 1]} ${p.y}`;
+  }
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  return `${d.getDate()} ${NAMA_BULAN_PANJANG_POS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 function escHtml(str) {

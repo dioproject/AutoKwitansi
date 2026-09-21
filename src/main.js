@@ -54,6 +54,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadSekolah();
   await loadPrintSettings();
   await loadPosSettingsMod();
+  refreshPaymentPreview();
 });
 
 // ========== NAVIGATION ==========
@@ -241,6 +242,7 @@ window.resetForm = function () {
   document.getElementById("tanggal").value = today;
   document.getElementById("tahun_anggaran").value = new Date().getFullYear().toString();
   document.getElementById("pph21-detail")?.classList.add("hidden");
+  refreshPaymentPreview();
   updateBpuDocsVisibility();
 };
 
@@ -354,7 +356,7 @@ function renderGrouped(data) {
                     <td>${formatTanggal(k.tanggal)}</td>
                     <td>${esc(k.sudah_terima_dari)}</td>
                     <td class="rupiah">Rp ${formatRupiah(k.jumlah)}</td>
-                    <td>${esc(k.untuk_pembayaran.substring(0, 50))}${k.untuk_pembayaran.length > 50 ? "..." : ""}</td>
+                    <td title="${esc(composePaymentSentence(k))}">${esc(truncatePayment(composePaymentSentence(k)))}</td>
                     <td>
                       <div class="actions">
                         <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
@@ -432,7 +434,7 @@ function renderTable(data) {
               <td>${formatTanggal(k.tanggal)}</td>
               <td>${esc(k.sudah_terima_dari)}</td>
               <td class="rupiah">Rp ${formatRupiah(k.jumlah)}</td>
-              <td>${esc(k.untuk_pembayaran.substring(0, 50))}${k.untuk_pembayaran.length > 50 ? "..." : ""}</td>
+              <td title="${esc(composePaymentSentence(k))}">${esc(truncatePayment(composePaymentSentence(k)))}</td>
               <td>
                 <div class="actions">
                   <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
@@ -1093,7 +1095,7 @@ function renderValuesOnlyTemplate(k) {
       <div class="kv" style="${pos('kode_rekening')}">Kode Rekening: ${esc(k.kode_rekening)}</div>
       <div class="kv" style="${pos('sudah_terima_dari')}">${esc(k.sudah_terima_dari)}</div>
       <div class="kv" style="${pos('uang_sejumlah')}">${esc(capitalize(k.terbilang))}</div>
-      <div class="kv" style="${pos('untuk_pembayaran')}">${esc(k.untuk_pembayaran)}</div>
+      <div class="kv" style="${pos('untuk_pembayaran')}">${esc(composePaymentSentence(k))}</div>
       <div class="kv jumlah" style="${pos('jumlah_rp')}">Rp ${formatRupiah(nettoJumlah(k))}</div>
       ${mengetahuiBlock}
       ${penerimaBlock}
@@ -1424,15 +1426,39 @@ function nettoJumlah(k) {
   return k.jumlah - Math.round(k.jumlah * 0.06);
 }
 
-/** Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat panjang */
+/** Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat panjang yang natural */
 function composePaymentSentence(k) {
-  const s = k.untuk_pembayaran || "";
-  const parts = [];
-  if ((k.kode_rekening || "").trim()) parts.push(`Kode Rekening ${k.kode_rekening.trim()}`);
-  if ((k.tahun_anggaran || "").trim()) parts.push(`Tahun Anggaran ${k.tahun_anggaran.trim()}`);
-  if (parts.length === 0) return s;
-  return `${s} (${parts.join(", ")})`;
+  const raw = (k.untuk_pembayaran || "").trim().replace(/\s+/g, " ").replace(/[.]+$/, "");
+  const kode = (k.kode_rekening || "").trim();
+  const tahun = (k.tahun_anggaran || "").trim();
+  const hasKode = kode && !raw.includes(kode);
+  const hasTahun = tahun && !raw.includes(tahun);
+  if (!raw && !hasKode && !hasTahun) return "";
+  if (!raw) {
+    if (hasKode && hasTahun) return `Dengan Kode Rekening ${kode} pada Tahun Anggaran ${tahun}`;
+    if (hasKode) return `Dengan Kode Rekening ${kode}`;
+    return `Pada Tahun Anggaran ${tahun}`;
+  }
+  if (hasKode && hasTahun) return `${raw} dengan Kode Rekening ${kode} pada Tahun Anggaran ${tahun}`;
+  if (hasKode) return `${raw} dengan Kode Rekening ${kode}`;
+  if (hasTahun) return `${raw} pada Tahun Anggaran ${tahun}`;
+  return raw;
 }
+
+/** Preview kalimat gabungan dari form input (live) */
+function composePaymentSentenceFromForm() {
+  return composePaymentSentence({
+    untuk_pembayaran: document.getElementById("untuk_pembayaran")?.value || "",
+    kode_rekening: document.getElementById("kode_rekening")?.value || "",
+    tahun_anggaran: document.getElementById("tahun_anggaran")?.value || "",
+  });
+}
+
+function refreshPaymentPreview() {
+  const el = document.getElementById("payment_sentence_preview");
+  if (el) el.textContent = composePaymentSentenceFromForm();
+}
+window.refreshPaymentPreview = refreshPaymentPreview;
 
 /** "JUNI" + "2026" -> "2026-06" (untuk input type=month) */
 function bulanTahunToMonthValue(bulan, tahun) {
@@ -1459,18 +1485,44 @@ function formatRupiah(num) {
   return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
+const NAMA_BULAN_PANJANG = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+
+/** Parse YYYY-MM-DD atau DD-MM-YYYY (juga / dan .) -> {d,m,y} */
+function parseTanggalParts(dateStr) {
+  if (!dateStr) return null;
+  const s = String(dateStr).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return { d: parseInt(m[3], 10), m: parseInt(m[2], 10), y: parseInt(m[1], 10) };
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+  if (m) return { d: parseInt(m[1], 10), m: parseInt(m[2], 10), y: parseInt(m[3], 10) };
+  return null;
+}
+
 function formatTanggal(dateStr) {
   if (!dateStr) return "-";
+  const p = parseTanggalParts(dateStr);
+  if (p && p.m >= 1 && p.m <= 12) {
+    return `${String(p.d).padStart(2, "0")}/${String(p.m).padStart(2, "0")}/${p.y}`;
+  }
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
 function formatTanggalPanjang(dateStr) {
   if (!dateStr) return "-";
+  const p = parseTanggalParts(dateStr);
+  if (p && p.m >= 1 && p.m <= 12) {
+    return `${p.d} ${NAMA_BULAN_PANJANG[p.m - 1]} ${p.y}`;
+  }
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  return `${d.getDate()} ${NAMA_BULAN_PANJANG[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function truncatePayment(s) {
+  const t = s || "";
+  return t.length > 60 ? t.substring(0, 60) + "..." : t;
 }
 
 const NAMA_BULAN = ["JANUARI","FEBRUARI","MARET","APRIL","MEI","JUNI","JULI","AGUSTUS","SEPTEMBER","OKTOBER","NOVEMBER","DESEMBER"];
