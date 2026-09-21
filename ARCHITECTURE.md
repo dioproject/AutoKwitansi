@@ -1,4 +1,4 @@
-# Architecture Document — AutoKwitansi v2.0
+# Architecture Document — AutoKwitansi v3.0
 
 ## Tech Stack
 
@@ -9,41 +9,46 @@
 | Frontend | Vanilla JavaScript (ES modules) | ES2022 |
 | Backend | Rust | edition 2021 |
 | Database | SQLite (rusqlite bundled) | 0.31 |
+| Thermal printing | serialport (ESC/POS raw bytes) | 4 |
+| Random generator | rand (no nota POS) | 0.8 |
 | PDF parsing | pdf-extract | 0.12 |
 | CSV parsing | csv (Rust crate) | 1.3 |
 | Dialog | @tauri-apps/plugin-dialog | 2.7.3 |
 | Package manager | Bun | — |
 | Installer | NSIS + WiX (MSI) | — |
 
+> **v3.0: satu aplikasi utuh** — tidak ada lagi varian lite/full, tidak ada feature flag. Semua fitur selalu aktif.
+
 ## Struktur Repo
 
 ```
 AutoKwitansi/
-├── index.html                    # Single-page app (8 section.page)
-├── package.json                  # Bun/npm deps, v2.0.0
-├── vite.config.js                # Dev server :1420
+├── index.html                    # Single-page app (9 section.page + 2 modal)
+├── package.json                  # Bun/npm deps, v3.0.0
+├── vite.config.js                # Dev server :1420, outDir dist/
 ├── src/
-│   ├── main.js                   # Inti frontend + import modules
-│   ├── pos.js                    # POS print (nota BPU, 58/80mm)
+│   ├── main.js                   # Inti frontend: state, form, riwayat accordion, merge, PPh 21
+│   ├── pos.js                    # Nota POS: modal preview, template struk, ESC/POS invoke
 │   ├── bpu-docs.js               # Dokumen BPU >1jt (BAST, SP, Invoice, BAP)
-│   ├── bku-period.js             # Import BKU per bulan (multi-PDF)
-│   └── styles.css                # CSS + print media + POS/doc styles
+│   ├── bku-period.js             # Import BKU per bulan (multi-PDF) + merge manual
+│   └── styles.css                # CSS + accordion + print media + POS styles
 ├── src-tauri/
-│   ├── Cargo.toml                # Rust dependencies + features
-│   ├── tauri.conf.json           # Window, bundle, build config v2.0.0
+│   ├── Cargo.toml                # Rust dependencies (tanpa [features])
+│   ├── tauri.conf.json           # Window, bundle, build config v3.0.0 (frontendDist ../dist)
 │   ├── capabilities/default.json # Permissions (core, dialog)
 │   └── src/
 │       ├── main.rs               # Entry point → lib::run()
-│       ├── lib.rs                # Module registration (7 mod) + 21 command
-│       ├── commands.rs           # 21 #[tauri::command] functions
-│       ├── db.rs                 # SQLite init, migrations, CRUD (5 tabel)
+│       ├── lib.rs                # Module registration (9 mod) + 23 command
+│       ├── commands.rs           # 23 #[tauri::command] + is_honor_pph21 + expand_bnu_description
+│       ├── db.rs                 # SQLite init, migrations, CRUD (5 tabel) + generate_pos_number
 │       ├── models.rs             # 9 structs (serde)
 │       ├── terbilang.rs          # Number → Indonesian words
 │       ├── csv_import.rs         # CSV parser → Vec<CsvRow>
 │       ├── pdf_import.rs         # PDF BKU parser → BkuData
-│       ├── bku_period.rs         # Multi-PDF BKU parse + import per bulan
-│       ├── pos_print.rs          # POS print settings CRUD
+│       ├── bku_period.rs         # Multi-PDF BKU parse + import per bulan (+ PPh21 & expand BNU)
+│       ├── pos_print.rs          # ESC/POS builder + serialport print + test print
 │       └── bpu_docs.rs           # BPU dokumen + toko CRUD
+├── README.md
 ├── ARCHITECTURE.md
 ├── DESIGN.md
 ├── rules.md
@@ -56,76 +61,100 @@ AutoKwitansi/
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                       Frontend (JS)                              │
-│  main.js + pos.js + bpu-docs.js + bku-period.js + styles.css    │
+│  main.js + pos.js + bpu-docs.js + bku-period.js + styles.css     │
 │                                                                  │
-│  showPage() → form → invoke("cmd_*") → render                   │
-│  PDF dialog → invoke("cmd_parse_bku_pdf")                       │
-│  Multi-PDF → invoke("cmd_parse_bku_pdfs")                       │
-│  Print → renderKwitansiTemplate() → window.print()               │
-│  POS → renderPosNotaTemplate() → @page 58/80mm                  │
-│  Docs → renderBAST/SuratPesanan/Invoice/BAP() → @page A4        │
+│  showPage() → form → invoke("cmd_*") → render                    │
+│  PDF dialog → invoke("cmd_parse_bku_pdf")                        │
+│  Multi-PDF → invoke("cmd_parse_bku_pdfs")                        │
+│  Merge manual → pdfRows/periodRowsByGroup (state lokal, rid)     │
+│  Kwitansi print → renderKwitansiTemplate() → window.print()      │
+│  POS → cetakNotaPos() → MODAL PREVIEW                            │
+│        ├─ Thermal → invoke("cmd_print_pos_nota")                 │
+│        └─ Printer → renderPosNotaTemplate() → window.print()     │
+│  Docs → renderBAST/SuratPesanan/Invoice/BAP() → @page A4         │
 └──────────────────┬───────────────────────────────────────────────┘
                    │ invoke() (Tauri IPC)
                    ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                  Backend (Rust / Tauri)                           │
+│                  Backend (Rust / Tauri)                          │
 │                                                                  │
-│  commands.rs   → 21 #[command] functions                         │
+│  commands.rs   → 23 #[command] functions                         │
 │  ├── cmd_terbilang                                               │
 │  ├── cmd_get_sekolah / cmd_update_sekolah                        │
-│  ├── cmd_simpan_kwitansi / cmd_get_all / cmd_get/                │
-│  │   cmd_delete / cmd_search                                     │
+│  ├── cmd_simpan_kwitansi (terbilang netto + expand BNU)          │
+│  ├── cmd_get_all / cmd_get / cmd_delete / cmd_search             │
 │  ├── cmd_parse_csv / cmd_import_csv                              │
-│  ├── cmd_parse_bku_pdf / cmd_import_bku                          │
+│  ├── cmd_parse_bku_pdf / cmd_import_bku (PPh21 + expand BNU)     │
 │  ├── cmd_get_print_settings / cmd_save_print_settings            │
-│  ├── cmd_get_pos_settings / cmd_save_pos_settings    [POS]       │
-│  ├── cmd_get_doc_status / cmd_set_doc_lengkap          [DOCS]    │
-│  ├── cmd_update_toko                                   [DOCS]    │
+│  ├── cmd_get_pos_settings / cmd_save_pos_settings                │
+│  ├── cmd_print_pos_nota / cmd_pos_test_print          [ESC/POS]  │
+│  ├── cmd_get_doc_status / cmd_set_doc_lengkap         [DOCS]     │
+│  ├── cmd_update_toko                                  [DOCS]     │
 │  └── cmd_parse_bku_pdfs / cmd_import_bku_period       [PERIOD]   │
 │                                                                  │
 │  db.rs         → SQLite CRUD + migrations (5 tabel)              │
+│                  + generate_pos_number() (rand, YYYYMMDD-NNNN)   │
 │  terbilang.rs  → angka → huruf Indonesia                         │
 │  csv_import.rs → CSV text → Vec<CsvRow>                          │
 │  pdf_import.rs → pdf-extract text → grouping → BkuData           │
 │  bku_period.rs → multi-PDF parse + import per bulan              │
-│  pos_print.rs  → POS settings CRUD                               │
+│  pos_print.rs  → build_escpos_nota() (struk kasir)               │
+│                  → serialport COM write → GS V cut               │
 │  bpu_docs.rs   → BPU dokumen + toko CRUD                         │
 └──────────────────┬───────────────────────────────────────────────┘
-                   │ rusqlite
-                   ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                SQLite Database                                    │
-│  %APPDATA%/AutoKwitansi/auto_kwitansi.db                        │
-│                                                                  │
-│  sekolah        → 1 row (nama, alamat, kepsek, etc.)            │
-│  kwitansi       → N rows (no_kwitansi, jumlah, bulan, toko)     │
-│  print_settings → 1 row (mode, paper, margins, field_positions)  │
-│  pos_settings   → 1 row (paper_width: 58|80, connection)        │
-│  bpu_dokumen    → N rows (kwitansi_id, 4 dokumen booleans)      │
-└──────────────────────────────────────────────────────────────────┘
+                   │ rusqlite                          │ serialport
+                   ▼                                   ▼
+┌────────────────────────────────┐   ┌─────────────────────────────┐
+│      SQLite Database           │   │  Printer Thermal USB (COM)  │
+│  %APPDATA%/AutoKwitansi/       │   │  ESC/POS 58mm (32 char)     │
+│    auto_kwitansi.db            │   │  ESC/POS 80mm (48 char)     │
+│                                │   └─────────────────────────────┘
+│  sekolah        → 1 row        │
+│  kwitansi       → N rows       │
+│    (+kena_pph21 v3.0)          │
+│  print_settings → 1 row        │
+│  pos_settings   → 1 row        │
+│    (+port, baud_rate,          │
+│     header_text, footer_text,  │
+│     last_pos_number v3.0)      │
+│  bpu_dokumen    → N rows       │
+└────────────────────────────────┘
 ```
 
-## Build Variants
+## Build
 
-| Variant | Feature Flag | Deskripsi |
-|---------|-------------|-----------|
-| Default | (no flag) | Kwitansi SPJ dasar + Import PDF/CSV |
-| Full | `--features full` | Semua fitur: POS, Dokumen BPU, BKU Per Bulan |
+Satu build untuk semua fitur (tidak ada varian):
 
-Build command:
 ```bash
-# Default (kwitansi saja)
-bun run build && cd src-tauri && cargo build --release
-
-# Full (semua fitur)
-bun run build && cd src-tauri && cargo build --release --features full
+bun install
+bun run build                 # frontend → dist/
+cd src-tauri && cargo build --release
+# atau langsung:
+bun run tauri build           # installer NSIS + MSI
 ```
+
+## ESC/POS Printing (v3.0)
+
+Alur cetak nota thermal:
+
+1. Frontend: `cetakNotaPos(k)` → tampilkan **modal preview** (struk dirender HTML monospace).
+2. User klik **Thermal** → `invoke("cmd_print_pos_nota", { kwitansiId })`.
+3. Backend `pos_print.rs`:
+   - `db::generate_pos_number()` → nomor acak `YYYYMMDD-NNNN`.
+   - `build_escpos_nota(k, settings, nota_number)` → byte array ESC/POS:
+     - Header: `header_text` kustom → fallback `nama_toko`/`alamat_toko` (BPU) → fallback "NOTA PEMBAYARAN" (center, bold).
+     - Body: No (label BPU/BNU + nota number), Tgl, ITEM (uraian), TOTAL (bold, right), blok PPh 21 (bruto/pph/netto) jika `kena_pph21`, Penerima.
+     - Footer: `footer_text` kustom → fallback "Terima kasih" (center).
+     - Sanitasi ASCII, truncation per lebar kertas (32/48 char), feed 3 baris, `GS V` (cut).
+   - `serialport::new(port, baud).open()` → `write_all(bytes)` → `flush()`.
+4. Gagal (port kosong/tidak ada) → error ditampilkan di modal; user bisa pilih **Printer** (fallback `window.print()` dengan `@page 58/80mm`).
 
 ## Unit Testing
 
-### Rust
+### Rust (8 tests)
 - `terbilang.rs::test_terbilang` — 10 kasus angka → terbilang.
 - `pdf_import.rs::test_parse_bku_pdf` — parse file sample, assert transaksi.
+- `pos_print.rs` — `test_label_nomor_cetak_bpu/bnu/other`, `test_format_tanggal`, `test_format_currency`, `test_sanitize_ascii`.
 
 ### JavaScript
 Testing manual melalui UI (`bun run tauri dev`).
@@ -133,8 +162,9 @@ Testing manual melalui UI (`bun run tauri dev`).
 ## Print System
 
 1. `renderKwitansiTemplate(k)` — pilih `renderValuesOnlyTemplate` atau `renderFullTemplate` berdasarkan `currentPrintSettings.mode`.
-2. Auto-refresh: `handleLivePreview()` debounce 300ms → update `currentPrintSettings` → render ulang.
-3. `refreshPrintPreview()` — render ulang dari `lastPreviewData` tanpa query DB.
-4. `cetakKwitansi()` — inject `<style> @page { size: WxH mm }` → `window.print()`.
-5. POS: `renderPosNotaTemplate(k)` — struk monospace 58/80mm → `@page size:58mm auto`.
-6. Dokumen: `renderBAST/SuratPesanan/Invoice/BAP()` — A4 layout → `@page A4`.
+2. `renderFullTemplate` (v3.0, disederhanakan): header KWITANSI + No (label BPU/BNU saja), Sudah terima dari, Uang sejumlah (terbilang netto), Untuk pembayaran, box Rp, blok PPh 21 (jika honorarium), 3 kolom TTD (Mengetahui / Bendahara / Penerima+Tgl format "21 Juni 2026"). Tanpa merk, tanpa materai, tanpa tahun anggaran/kode rekening.
+3. Auto-refresh: `handleLivePreview()` debounce 300ms → update `currentPrintSettings` → render ulang.
+4. `refreshPrintPreview()` — render ulang dari `lastPreviewData` tanpa query DB.
+5. `cetakKwitansi()` — inject `<style> @page { size: WxH mm }` → `window.print()`.
+6. POS: modal preview → Thermal (ESC/POS backend) atau Printer (`renderPosNotaTemplate` → `window.print()` `@page 58/80mm auto`).
+7. Dokumen: `renderBAST/SuratPesanan/Invoice/BAP()` — A4 layout → `@page A4`.

@@ -1,8 +1,8 @@
-# PRD — AutoKwitansi v2.0
+# PRD — AutoKwitansi v3.0
 
 ## Product Overview
 
-**AutoKwitansi** adalah aplikasi desktop untuk pembuatan kwitansi SPJ sekolah yang terintegrasi dengan data BKU dari ARKAS. Versi 2.0 menambahkan kemampuan cetak nota POS thermal dan dokumen otomatis untuk belanja BPU.
+**AutoKwitansi** adalah aplikasi desktop untuk pembuatan kwitansi SPJ sekolah yang terintegrasi dengan data BKU dari ARKAS. Versi 3.0 menyatukan aplikasi menjadi **satu varian utuh**, menambahkan **cetak langsung ke printer thermal (ESC/POS)**, **PPh 21 6% untuk honorarium**, **riwayat group per bulan**, dan **merge transaksi manual saat import**.
 
 ## Target Users
 
@@ -13,88 +13,119 @@
 ## Goals
 
 1. Percepatan pembuatan kwitansi dari BKU ARKAS (dari 30 menit → 2 menit per transaksi).
-2. Cetak nota POS langsung dari aplikasi tanpa perlu ketik manual.
-3. Otomasi dokumen pendukung belanja BPU >Rp1jt (BAST, Surat Pesanan, Invoice, BAP).
-4. Organisasi data per bulan untuk kemudahan pelaporan.
+2. Cetak nota POS **langsung ke printer thermal USB tanpa dialog print**.
+3. Kepatuhan pajak: honorarium (BNU, tenaga ahli 07.12.04, instruktur pelatih) otomatis terpotong PPh 21 6% dengan rincian bruto/netto.
+4. Fleibilitas import: gabungkan beberapa transaksi BKU menjadi 1 kwitansi sesuai keinginan user.
+5. Organisasi data per bulan (accordion) untuk kemudahan pelaporan.
 
 ## Features
 
-### F1: Kwitansi SPJ (Existing, Enhanced)
+### F1: Satu Aplikasi Utuh (Unifikasi)
+- Tidak ada lagi varian lite/full — semua fitur selalu aktif.
+- Satu installer, satu `tauri.conf.json`, satu build.
+- DB v2.0 lama otomatis dimigrasikan (ALTER TABLE aman).
+
+### F2: Kwitansi SPJ (Enhanced)
 - Buat kwitansi manual atau import dari BKU/CSV.
-- Cetak kwitansi mode `values_only` (pre-print Silver Horse) atau `full` (kosongan).
-- Batch print untuk beberapa kwitansi sekaligus.
-- Auto-refresh preview saat ubah pengaturan cetak.
+- Layout cetak full **disederhanakan**: No. (label BPU/BNU saja), Sudah Terima Dari, Sejumlah (terbilang), Untuk Pembayaran, box Rp, Mengetahui, Bendahara, Penerima + Tgl (format "21 Juni 2026"). Tanpa merk/materai/tahun anggaran/kode rekening.
+- Mode `values_only` (kertas pre-print) dengan drag-drop editor tetap ada.
+- Batch print multi-select.
 
-### F2: Import Data
-- **PDF BKU**: Parse 1 file PDF BKU dari ARKAS → ekstrak transaksi BPU/BNU.
-- **CSV**: Import dari file CSV dengan format yang ditentukan.
-- **Import BKU Per Bulan**: Parse beberapa file PDF BKU sekaligus → kelompokkan per bulan/tahun → import.
+### F3: PPh 21 6% Honorarium
+- **Kategori BNU** = honorarium saja: tenaga ahli (kode 07.12.04) dan instruktur/pelatih.
+- Checkbox "Honorarium — potong PPh 21 6%" **auto-tercentang** jika: nomor mengandung BNU, atau kode rekening 07.12.04, atau uraian mengandung honor/honorarium/instruktur.
+- Rincian bruto → PPh 21 6% → netto tampil di form, kwitansi cetak, dan struk POS.
+- **Terbilang mengikuti netto**; `jumlah` di DB tetap bruto.
+- BNU tidak punya tombol POS dan tidak wajib dokumen toko.
 
-### F3: Cetak Nota POS [NEW]
-- Hanya untuk kwitansi jenis BPU (`nomor_kwitansi` mengandung "BPU").
-- Pilihan kertas: 58mm atau 80mm.
-- Pilihan koneksi: USB atau Bluetooth (dipakai sebagai referensi printer).
-- Cetak via `window.print()` → driver printer sistem (USB/Bluetooth pairing).
-- Nota POS: struk monospace — kop sekolah, No BPU, tanggal, toko, uraian, jumlah, terbilang, footer.
+### F4: Cetak Nota POS Thermal (ESC/POS)
+- Cetak **langsung ke printer thermal USB** via COM port (serialport crate) — tanpa dialog print browser.
+- Setup di halaman **Printer Thermal**: port (COM3 dll), baud rate (9600–115200), lebar kertas 58/80mm, **header & footer struk kustom**, Test Print.
+- **Format struk kasir** (bukan duplikat kwitansi): header (kustom → nama toko BPU → "NOTA PEMBAYARAN"), No (label + nomor acak), Tgl, ITEM, TOTAL, blok PPh, Penerima, footer (kustom → "Terima kasih").
+- **No nota auto-generate random** per cetak (`YYYYMMDD-NNNN`) — bukan nomor kwitansi.
+- **Modal preview** muncul sebelum cetak: user pilih 🖨️ Thermal (ESC/POS, status inline ✅/❌) atau 🖨️ Printer (fallback browser print).
+- Tombol POS hanya untuk kwitansi BPU.
 
-### F4: Dokumen BPU >Rp1jt [NEW]
-- **Pemicu**: Kwitansi BPU dengan jumlah > Rp1.000.000.
-- **Input wajib**: Nama toko, alamat toko, pimpinan toko.
-- **4 dokumen wajib** (centang status):
-  1. **BAST** (Berita Acara Serah Terima) — antara penjual ↔ sekolah.
-  2. **Surat Pesanan** — dari sekolah ke toko.
-  3. **Invoice** — dari toko ke sekolah.
-  4. **BAP** (Berita Acara Pemeriksaan Barang) — pemeriksaan oleh panitia.
-- **Validasi**: Cetak Nota POS terkunci jika dokumen belum 4/4. Simpan kwitansi tetap boleh (draft).
-- **Preview**: User bisa preview 4 dokumen tanpa harus centang dulu.
+### F5: Import Data + Merge Manual
+- **PDF BKU**: parse 1 file PDF BKU dari ARKAS.
+- **Import BKU Per Bulan**: multi-PDF sekaligus, group per bulan/tahun, bulan/tahun bisa diedit inline.
+- **CSV**: format template yang disediakan.
+- **Merge transaksi (baru)**:
+  - Centang 2+ baris (bebas, tidak harus kode rekening sama) → **Gabungkan yang Dicentang** → jadi 1 kwitansi.
+  - **Gabung Otomatis per Kode Rekening** — shortcut sekali klik.
+  - **Uraikan Semua** / tombol ✖ per baris gabungan untuk membatalkan.
+  - Baris gabungan: jumlah dijumlahkan, uraian digabung (`;`), penerima digabung (`,`), tanggal terlama, badge `Nx` + highlight kuning.
+  - Import BKU per bulan: merge hanya dalam bulan yang sama.
 
-### F5: Auto-Refresh Pengaturan Cetak
-- Setiap perubahan pada input pengaturan (lebar, tinggi, margin, font, mode) langsung memperbarui preview secara otomatis.
-- Debounce 300ms agar tidak lag.
-- Tombol `Refresh Preview` tersedia sebagai fallback manual.
+### F6: Riwayat Group per Bulan
+- Group accordion **"BKU {Bulan} {Tahun}"** (dari data import), group "Tanpa BKU" untuk input manual.
+- Grup terbaru terbuka default; search = tampilan flat.
+- Badge: BPU (biru), BNU (pink), PPh21 (kuning).
+- Select-all per group, batch print, POS per baris.
 
-## Non-Goals (v2.0)
+### F7: Dokumen BPU >Rp1jt
+- **Pemicu**: kwitansi BPU dengan jumlah > Rp1.000.000.
+- **Input wajib**: nama toko, alamat toko, pimpinan toko.
+- **4 dokumen wajib** (checklist): BAST, Surat Pesanan, Invoice, BAP.
+- Cetak POS memberi peringatan jika dokumen belum 4/4 (boleh lanjut dengan konfirmasi).
+- Preview 4 dokumen (A4) tanpa harus centang dulu.
 
-- ESC/POS raw printing (tanpa driver) — rencanakan di v3.0.
-- Upload file/scan dokumen — cukup checklist manual.
-- Multi-user / networking — tetap desktop single-user.
-- Export PDF dari dokumen — cukup cetak langsung.
+### F8: Auto-Refresh Pengaturan Cetak
+- Perubahan input pengaturan langsung memperbarui preview (debounce 300ms).
+
+## Non-Goals (v3.0)
+
+- Bluetooth printing — hanya serial/COM (USB virtual COM).
+- Printer USB murni non-virtual-COM — ditangani fallback browser print.
+- Perubahan layout mode values-only — mengikuti form pre-print fisik.
+- Penomoran kwitansi otomatis — nomor tetap input user.
+- Export PDF dokumen — cukup cetak langsung.
+- Multi-user / networking — desktop single-user.
+- Upload file/scan dokumen — checklist manual.
 
 ## Success Metrics
 
 | Metric | Target |
 |--------|--------|
 | Waktu cetak 1 kwitansi | < 30 detik |
+| Waktu cetak nota POS (thermal) | < 5 detik tanpa dialog |
 | Waktu import 10 transaksi BKU | < 1 menit |
 | Waktu generate 4 dokumen BPU | < 2 menit |
-| User satisfaction ( survey) | > 4/5 |
+| User satisfaction (survey) | > 4/5 |
 
 ## Technical Constraints
 
 - Tauri v2 + SQLite (bundled) — tidak perlu install DB terpisah.
-- Printer POS harus sudah pairing/install driver di Windows.
+- Printer thermal harus muncul sebagai COM port di Windows (driver USB/virtual COM).
+- ESC/POS: sanitasi ASCII (karakter non-ASCII → `?`), truncation 32 char (58mm) / 48 char (80mm), `GS V` cut.
 - Tidak ada backend server — semua data lokal di `%APPDATA%/AutoKwitansi/`.
-- DB lama harus tetap bisa dibuka (migrasi ALTER TABLE yang aman).
-
-## Build Variants
-
-| Variant | Contents | Installer Name |
-|---------|----------|---------------|
-| Default | Kwitansi + Import | AutoKwitansi-Setup.exe |
-| Full | Semua fitur | AutoKwitansi-Full-Setup.exe |
+- DB lama harus tetap bisa dibuka (migrasi `add_column_if_missing` yang aman).
 
 ## Changelog
 
-### v2.0.0 (Current)
-- [NEW] Cetak Nota POS 58/80mm via USB/Bluetooth
+### v3.0.0 (Current)
+- [NEW] Satu aplikasi utuh — varian lite/full dihapus
+- [NEW] Cetak POS langsung ESC/POS via serialport (COM, baud rate)
+- [NEW] Halaman Printer Thermal: port, baud, lebar kertas, header/footer kustom, test print, preview struk live
+- [NEW] Modal preview nota POS (pilih Thermal / Printer, status inline)
+- [NEW] No nota POS auto-generate random (YYYYMMDD-NNNN)
+- [NEW] Format struk kasir (header toko untuk BPU, ITEM, TOTAL, footer)
+- [NEW] PPh 21 6% honorarium: auto-detect BNU/07.12.04/honor/instruktur, bruto→netto, terbilang netto
+- [NEW] Deskripsi BNU auto-expand (tidak pendek/monoton)
+- [NEW] Riwayat accordion group "BKU {Bulan} {Tahun}" + badge BNU/PPh21
+- [NEW] Merge transaksi manual saat import BKU (pilih baris → gabung → 1 kwitansi, bisa urai)
+- [NEW] Gabung otomatis per kode rekening (shortcut)
+- [IMPROVED] Layout cetak kwitansi disederhanakan (8 field, label BPU/BNU saja, tanpa merk/materai)
+- [IMPROVED] UI Import BKU Per Bulan (card, gradient header row, input styled)
+- [IMPROVED] Diferensiasi visual tombol PRINTER vs POS THERMAL
+- [REMOVED] Feature flag `full`, tauri.lite.json, tauri.full.json, dist-lite/dist-full
+
+### v2.0.0
+- [NEW] Cetak Nota POS 58/80mm via browser print
 - [NEW] Dokumen BPU >1jt: BAST, Surat Pesanan, Invoice, BAP
 - [NEW] Import BKU Per Bulan (multi-PDF)
-- [NEW] Auto-refresh preview saat ubah pengaturan cetak
-- [NEW] Badge BPU di riwayat
-- [NEW] Filter bulan di riwayat
-- [NEW] Data toko untuk dokumen
-- [IMPROVED] Database schema: tambah kolom bulan, toko
-- [IMPROVED] Build variants: default vs full
+- [NEW] Auto-refresh preview pengaturan cetak
+- [NEW] Badge BPU di riwayat, filter bulan, data toko
 
 ### v1.1.0
 - Import PDF BKU dari ARKAS

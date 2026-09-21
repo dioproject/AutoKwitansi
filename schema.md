@@ -1,6 +1,8 @@
-# Database Schema — AutoKwitansi v2.0
+# Database Schema — AutoKwitansi v3.0
 
-Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite)
+Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite, WAL mode, foreign_keys ON)
+
+> **Migrasi v2.0 → v3.0**: semua kolom baru ditambahkan otomatis via `add_column_if_missing()` (ALTER TABLE aman, tidak menghapus data).
 
 ## Tabel: `sekolah`
 
@@ -25,11 +27,11 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite)
 |-------|------|---------|------------|
 | id | INTEGER PK | AUTO | — |
 | nomor_kwitansi | TEXT | — | No bukti (BPU11, BNU16, 001/KWT/2026) |
-| tanggal | TEXT | — | DD-MM-YYYY atau YYYY-MM-DD |
+| tanggal | TEXT | — | YYYY-MM-DD (dari input date) |
 | sudah_terima_dari | TEXT | — | Pengirim dana |
-| jumlah | REAL | 0 | Jumlah rupiah |
-| terbilang | TEXT | "" | Auto dari Rust `terbilang()` |
-| untuk_pembayaran | TEXT | "" | Keterangan barang/jasa |
+| jumlah | REAL | 0 | Jumlah bruto rupiah |
+| terbilang | TEXT | "" | Auto dari Rust `terbilang()` — **mengikuti netto jika kena PPh 21** |
+| untuk_pembayaran | TEXT | "" | Keterangan barang/jasa — **auto-expand untuk BNU** |
 | kode_rekening | TEXT | "" | Kode rekening ARKAS |
 | tahun_anggaran | TEXT | "" | 2026 |
 | bulan | TEXT | "" | Bulan BKU (APRIL, MEI, dst) — kosong jika input manual |
@@ -38,10 +40,11 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite)
 | bendahara | TEXT | "" | Bendahara |
 | nip_bendahara | TEXT | "" | NIP |
 | penerima | TEXT | "" | Penerima uang |
-| nama_toko | TEXT | "" | Nama toko (BPU >1jt) |
+| nama_toko | TEXT | "" | Nama toko (BPU >1jt) — juga dipakai header nota POS |
 | alamat_toko | TEXT | "" | Alamat toko (BPU >1jt) |
 | pimpinan_toko | TEXT | "" | Pimpinan toko (BPU >1jt) |
 | created_at | TEXT | datetime('now','localtime') | Auto timestamp |
+| kena_pph21 | INTEGER | 0 | **[v3.0]** 1 = honorarium kena PPh 21 6% |
 
 **Index:**
 - `idx_kwitansi_nomor` ON `nomor_kwitansi`
@@ -50,6 +53,11 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite)
 
 **Relasi:**
 - 1 kwitansi → 0..1 bpu_dokumen (via `kwitansi_id`)
+
+**Catatan PPh 21 (kena_pph21=1):**
+- `jumlah` tetap menyimpan **bruto**.
+- PPh = 6% × bruto; netto = bruto − PPh (dihitung saat render/print, tidak disimpan).
+- `terbilang` digenerate dari **netto**.
 
 ---
 
@@ -78,10 +86,15 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite)
 | Kolom | Tipe | Default | Keterangan |
 |-------|------|---------|------------|
 | id | INTEGER PK | AUTO | — |
-| paper_width | INTEGER | 58 | Lebar kertas POS: 58 atau 80 (mm) |
-| connection | TEXT | "USB" | `USB` atau `Bluetooth` |
+| paper_width | INTEGER | 58 | Lebar kertas thermal: 58 atau 80 (mm) |
+| port | TEXT | "" | **[v3.0]** COM port printer (COM3, /dev/ttyUSB0) |
+| baud_rate | INTEGER | 9600 | **[v3.0]** 9600–115200 |
+| header_text | TEXT | "" | **[v3.0]** Header struk kustom (multi-baris, rata tengah). Kosong = auto dari nama_toko (BPU) atau "NOTA PEMBAYARAN" |
+| footer_text | TEXT | "" | **[v3.0]** Footer struk kustom. Kosong = "Terima kasih" |
+| last_pos_number | INTEGER | 0 | **[v3.0]** (dicadangkan) — no nota saat ini digenerate random per cetak |
 
 > Seed: 1 row default saat pertama kali init DB.
+> Kolom `connection` (v2.0) tidak dipakai lagi — koneksi selalu via serial/COM port.
 
 ---
 
@@ -120,6 +133,7 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite)
 └──────────┘       │ nama_toko    │
                    │ alamat_toko  │
                    │ pimpinan_toko│
+                   │ kena_pph21 ★ │
                    └──────┬───────┘
                           │ 1
                           │
@@ -134,14 +148,16 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite)
                    │ dok_bap      │
                    └──────────────┘
 
-┌────────────────┐   ┌────────────────┐
-│ print_settings │   │ pos_settings   │
-├────────────────┤   ├────────────────┤
-│ id (PK)        │   │ id (PK)        │
-│ mode           │   │ paper_width    │
-│ paper_width    │   │ connection     │
-│ paper_height   │   └────────────────┘
-│ margins...     │
-│ field_positions│
-└────────────────┘
+┌────────────────┐   ┌────────────────────┐
+│ print_settings │   │   pos_settings     │
+├────────────────┤   ├────────────────────┤
+│ id (PK)        │   │ id (PK)            │
+│ mode           │   │ paper_width        │
+│ paper_width    │   │ port ★             │
+│ paper_height   │   │ baud_rate ★        │
+│ margins...     │   │ header_text ★      │
+│ field_positions│   │ footer_text ★      │
+└────────────────┘   │ last_pos_number ★  │
+                     └────────────────────┘
+★ = kolom baru v3.0
 ```
