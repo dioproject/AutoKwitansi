@@ -1,84 +1,96 @@
-# Design Document — AutoKwitansi
+# Design Document — AutoKwitansi v2.0
 
-## Tujuan
+## Overview
 
-Aplikasi desktop untuk bendahara sekolah dasar negeri di Indonesia yang membutuhkan cetak kwitansi SPJ (Surat Pertanggungjawaban) secara cepat dan konsisten di atas kertas pre-print **Silver Horse**.
+Aplikasi desktop pembuatan kwitansi SPJ sekolah dengan fitur:
+1. **Kwitansi SPJ** — Buat, edit, cetak kwitansi (A4/Pre-print).
+2. **Import Data** — Import dari PDF BKU ARKAS atau CSV.
+3. **Import BKU Per Bulan** — Multi-PDF BKU, dikelompokkan per bulan/tahun.
+4. **Cetak Nota POS** — Nota POS thermal 58/80mm via USB/Bluetooth untuk BPU.
+5. **Dokumen BPU >1jt** — Auto-generate BAST, Surat Pesanan, Invoice, BAP.
 
-## Pengguna Target
+## User Flow
 
-- **Bendahara BOS** sekolah dasar — input manual atau import dari BKU ARKAS.
-- **Operator sekolah** — hanya mengecek/preview sebelum cetak.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        MAIN FLOW                            │
+│                                                             │
+│  1. Data Sekolah → Isi nama, alamat, kepsek, bendahara     │
+│  2. Buat Kwitansi → Isi form → Simpan & Preview            │
+│     ├─ Non-BPU → Cetak kwitansi A4                          │
+│     └─ BPU → Cetak Nota POS (58/80mm)                      │
+│        └─ BPU >1jt → Wajib lengkapi 4 dokumen dulu         │
+│  3. Import PDF BKU → Parse 1 file → Import transaksi        │
+│  4. Import BKU Per Bulan → Parse N file → Group per bulan   │
+│  5. Riwayat → Cari, filter bulan, cetak, hapus              │
+│  6. Pengaturan Cetak → Atur kertas, margin, mode            │
+│     └─ Auto-refresh preview saat ubah pengaturan            │
+└─────────────────────────────────────────────────────────────┘
+```
 
-## Halaman UI
+## Modul Frontend
 
-| # | Nama | Fungsi |
-|---|------|--------|
-| 1 | **Buat Kwitansi** | Form input: nomor, tanggal, tahun anggaran, kode rekening, sudah terima dari, jumlah (auto-terbilang), untuk pembayaran, penerima, mengetahui/bendahara (auto dari data sekolah). Simpan → preview langsung. |
-| 2 | **Riwayat** | Tabel semua kwitansi, pencarian, edit/hapus, checkbox multi-select → **Cetak yang Dipilih** (batch print). |
-| 3 | **Import Data** | Dua tab: **PDF BKU** (parser Rust, grouping by No. Bukti) dan **CSV**. Preview + checkbox sebelum import. |
-| 4 | **Data Sekolah** | Nama sekolah, alamat, kota, kepala sekolah + NIP, bendahara + NIP. Menjadi auto-fill untuk kwitansi baru. |
-| 5 | **Pengaturan Cetak** | Mode (values_only / full), ukuran kertas, margin, font size, **Jarak TTD** (mm). Visual drag-and-drop editor untuk posisi field pada kertas preview. |
-| 6 | **Preview Kwitansi** | Satu kwitansi, tombol Cetak. |
-| 7 | **Batch Print** | Beberapa kwitansi sekaligus, `page-break-after: always`. |
+| Module | Fungsi | Export |
+|--------|--------|--------|
+| `main.js` | Inti: state, navigation, form, print, search, refresh | `window.*` handlers |
+| `pos.js` | POS print: template 58/80mm, `isBpu()`, settings | `isBpu()`, `cetakNotaPos()`, `renderPosNotaTemplate()` |
+| `bpu-docs.js` | Dokumen BPU: 4 template A4, checklist status | `needsDocuments()`, `loadDocStatus()`, `cetakDokumen()` |
+| `bku-period.js` | Import multi-PDF BKU per bulan | `openBkuPeriodDialog()`, `handleImportBkuPeriod()` |
 
-## Mode Cetak
+## Modul Backend (Rust)
 
-### Values Only (Kertas Pre-Print Silver Horse)
+| Module | Fungsi | Commands |
+|--------|--------|----------|
+| `commands.rs` | 21 command dispatcher | Semua `cmd_*` |
+| `db.rs` | SQLite CRUD + migrations | — |
+| `pdf_import.rs` | Parse 1 PDF BKU → BkuData | `cmd_parse_bku_pdf` |
+| `bku_period.rs` | Parse N PDF BKU + import per bulan | `cmd_parse_bku_pdfs`, `cmd_import_bku_period` |
+| `pos_print.rs` | POS settings CRUD | `cmd_get_pos_settings`, `cmd_save_pos_settings` |
+| `bpu_docs.rs` | BPU dokumen + toko CRUD | `cmd_get_doc_status`, `cmd_set_doc_lengkap`, `cmd_update_toko` |
 
-- Kwitansi sudah dicetak pabrik: border, "KWITANSI", "Silver Horse", kolom label tetap.
-- Aplikasi **hanya mencetak nilai**: nomor, tahun anggaran, nama, jumlah, terbilang, tanda tangan.
-- Semua field di-posisi **absolute** dalam satuan **mm**.
-- **11 field draggable** di visual editor:
+## Feature Flags
 
-| Field | Default posisi (mm) | Isi |
-|-------|---------------------|-----|
-| No Kwitansi | 110, 18 | `No: 001/KWT/2026` |
-| Tahun Anggaran | 15, 28 | `Tahun Anggaran: 2026` |
-| Kode Rekening | 100, 28 | `Kode Rekening: 5.1.02...` |
-| Sudah Terima Dari | 60, 40 | Nama bendahara BOS |
-| Uang Sejumlah | 60, 52 | Terbilang (huruf) |
-| Untuk Pembayaran | 60, 64 | Keterangan |
-| Jumlah Rp | 120, 80 | `Rp 1.500.000` |
-| **Mengetahui** | 15, 120 | Label + nama Kepsek + NIP (1 blok) |
-| **Yang Menerima** | 100, 120 | Tanggal + label + nama penerima (1 blok) |
-| **Bendahara** | 155, 120 | Label + nama Bendahara + NIP (1 blok) |
-| Tanggal | 100, 120 | Tanggal panjang |
+```toml
+[features]
+default = []        # Kwitansi SPJ dasar
+full = []           # Semua fitur: POS + Docs + BKU Period
+```
 
-- Tiga blok tanda tangan (Mengetahui, Yang Menerima, Bendahara) masing-masing berisi **label + spacer jarak + nama + NIP** sebagai 1 field gabungan, bisa digeser bersama.
+Semua modul baru (`pos_print.rs`, `bpu_docs.rs`, `bku_period.rs`) selalu dikompilasi.
+Feature flag `full` dimaksudkan untuk build installer yang menyertakan semua fitur.
+Default build menghasilkan kwitansi + import dasar saja.
 
-### Full (Kwitansi Lengkap / Kosongan)
+## UI Components
 
-- Mencetak seluruh kwitansi dari nol: header "KWITANSI", body label + nilai, footer tanda tangan.
-- Cocok untuk kertas kosong (A5 / custom).
-- Urutan footer: **Mengetahui (kiri) — Bendahara (tengah) — Yang Menerima (kanan)**.
+### Navigation
+- **Buat Kwitansi** — Form input + dokumen checklist ( kondisional untuk BPU >1jt )
+- **Riwayat** — Tabel dengan badge BPU, filter bulan, tombol Cetak/POS/Hapus
+- **Import Data** — Tab PDF BKU / CSV
+- **Import BKU Per Bulan** — Multi-PDF upload, grouped preview
+- **Data Sekolah** — Form nama, alamat, kepsek, bendahara
+- **Pengaturan Cetak** — Mode, kertas, margin, font, drag-drop editor
 
-## Pengaturan Cetak
+### Print Templates
+1. **Kwitansi Full** — Header KWITANSI + body + footer 3 kolom tanda tangan
+2. **Kwitansi Values Only** — Pre-print kertas, field absolute position (drag-drop)
+3. **Nota POS** — Struk monospace 58/80mm, kop + data + footer
+4. **BAST** — Berita Acara Serah Terima A4
+5. **Surat Pesanan** — Surat pesanan A4
+6. **Invoice** — Tagihan A4
+7. **BAP** — Berita Acara Pemeriksaan Barang A4
 
-| Field | Default | Keterangan |
-|-------|---------|------------|
-| Mode Cetak | values_only | Isi Nilai Saja / Kwitansi Lengkap |
-| Lebar Kertas | 176 mm | Silver Horse ukuran standar |
-| Tinggi Kertas | 190 mm | Silver Horse ukuran standar |
-| Margin Atas | 10 mm | |
-| Margin Bawah | 10 mm | |
-| Margin Kiri | 10 mm | |
-| Margin Kanan | 10 mm | |
-| Ukuran Font | 9 pt | |
-| **Jarak TTD** | **15 mm** | Jarak kosong antara label tanda tangan → nama (fleksibel 0–50 mm) |
+## Auto-Refresh System
 
-## Alur BKU ARKAS → Kwitansi
+```
+User ubah input di Pengaturan Cetak
+  ↓
+handleLivePreview() [debounce 300ms]
+  ↓
+Update currentPrintSettings in-memory
+  ↓
+renderPaperPreview() — update visual editor
+  ↓
+refreshPrintPreview() — render ulang #print-container dari lastPreviewData
+```
 
-1. Export BKU dari ARKAS ke PDF.
-2. Klik **Import PDF BKU** → pilih file → parser Rust ekstrak transaksi.
-3. Transaksi di-grouping per **No. Bukti** (BPU11, BNU16, dst.) → 1 BPU = 1 kwitansi.
-4. Preview tabel → edit penerima per baris → centang yang mau di-import.
-5. Isi field otomatis dari PDF: tahun anggaran, nama kepala/bendahara + NIP, sudah terima dari.
-6. Import → masuk ke Riwayat → cetak individual atau batch.
-
-## Keputusan Desain
-
-1. **Mengetahui — Bendahara — Yang Menerima** (bukan Mengetahui — Yang Menerima — Bendahara) — mengikuti format kwitansi SPJ sekolah Indonesia.
-2. **Spacing tanda tangan dikontrol user** via "Jarak TTD" global — fleksibel untuk ukuran tangan tanda tangan yang berbeda-beda.
-3. **Visual editor drag-and-drop** — user tidak perlu hitung koordinat manual; cukup geser label ke posisi pada preview kertas.
-4. **Dynamic `@page` CSS inject** saat cetak — `window.print()` otomatis pakai ukuran kertas dari pengaturan.
-5. **PDF parser berbasis text extraction** (`pdf-extract` crate) — tidak pakai Python/pdfplumber, tetap pure Rust.
+`lastPreviewData` di-cache saat `showPrintPreview()` / `showBatchPrintPreview()` agar refresh tidak perlu query DB ulang.

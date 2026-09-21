@@ -37,6 +37,8 @@ pub struct Kwitansi {
     #[serde(default)]
     pub pimpinan_toko: String,
     pub created_at: Option<String>,
+    #[serde(default)]
+    pub kena_pph21: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -98,17 +100,16 @@ pub struct PrintSettings {
 // ============ POS SETTINGS ============
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[cfg_attr(not(feature = "full"), allow(dead_code))]
 pub struct PosSettings {
     pub id: Option<i64>,
     pub paper_width: i32,
-    pub connection: String,
+    pub port: String,
+    pub baud_rate: i32,
 }
 
 // ============ BPU DOKUMEN ============
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[cfg_attr(not(feature = "full"), allow(dead_code))]
 pub struct BpuDokumen {
     pub id: Option<i64>,
     pub kwitansi_id: i64,
@@ -122,7 +123,6 @@ pub struct BpuDokumen {
 // ============ BKU PERIOD ============
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[cfg_attr(not(feature = "full"), allow(dead_code))]
 pub struct BkuPeriodItem {
     pub bulan: String,
     pub tahun: String,

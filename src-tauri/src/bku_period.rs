@@ -50,6 +50,11 @@ pub fn import_bku_period(
                 alamat_toko: String::new(),
                 pimpinan_toko: String::new(),
                 created_at: None,
+                kena_pph21: crate::commands::is_honor_pph21(
+                    &tx.no_bukti,
+                    &tx.kode_kegiatan,
+                    &tx.uraian,
+                ),
             };
             db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())?;
             count += 1;

@@ -1,8 +1,9 @@
 use crate::csv_import::parse_csv;
 use crate::db;
-use crate::models::{BkuData, BkuTransaction, CsvRow, Kwitansi, PrintSettings, Sekolah};
-#[cfg(feature = "full")]
-use crate::models::{BkuPeriodItem, BpuDokumen, PosSettings};
+use crate::models::{
+    BkuData, BkuPeriodItem, BkuTransaction, BpuDokumen, CsvRow, Kwitansi, PosSettings,
+    PrintSettings, Sekolah,
+};
 use crate::pdf_import::parse_bku_pdf;
 use crate::terbilang::terbilang;
 use tauri::command;
@@ -92,6 +93,7 @@ pub fn cmd_import_csv(
             alamat_toko: String::new(),
             pimpinan_toko: String::new(),
             created_at: None,
+            kena_pph21: false,
         };
         db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())?;
         count += 1;
@@ -119,6 +121,7 @@ pub fn cmd_import_bku(
 ) -> Result<usize, String> {
     let mut count = 0;
     for tx in &transactions {
+        let pph21 = is_honor_pph21(&tx.no_bukti, &tx.kode_kegiatan, &tx.uraian);
         let kwitansi = Kwitansi {
             id: None,
             nomor_kwitansi: tx.no_bukti.clone(),
@@ -139,11 +142,24 @@ pub fn cmd_import_bku(
             alamat_toko: String::new(),
             pimpinan_toko: String::new(),
             created_at: None,
+            kena_pph21: pph21,
         };
         db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())?;
         count += 1;
     }
     Ok(count)
+}
+
+/// Deteksi otomatis apakah transaksi kena PPh 21 6%
+pub(crate) fn is_honor_pph21(no_bukti: &str, kode_kegiatan: &str, uraian: &str) -> bool {
+    let nomor = no_bukti.to_uppercase();
+    let kode = kode_kegiatan.to_uppercase();
+    let u = uraian.to_lowercase();
+    nomor.contains("BNU")
+        || kode.contains("07.12.04")
+        || u.contains("honor")
+        || u.contains("honorarium")
+        || u.contains("instruktur")
 }
 
 // ============ PRINT SETTINGS ============
@@ -158,29 +174,25 @@ pub fn cmd_save_print_settings(settings: PrintSettings) -> Result<(), String> {
     db::save_print_settings(&settings).map_err(|e| e.to_string())
 }
 
-// ============ POS SETTINGS (full only) ============
+// ============ POS SETTINGS ============
 
-#[cfg(feature = "full")]
 #[command]
 pub fn cmd_get_pos_settings() -> Result<PosSettings, String> {
     crate::pos_print::get_pos_settings()
 }
 
-#[cfg(feature = "full")]
 #[command]
 pub fn cmd_save_pos_settings(settings: PosSettings) -> Result<(), String> {
     crate::pos_print::save_pos_settings(&settings)
 }
 
-// ============ BPU DOKUMEN (full only) ============
+// ============ BPU DOKUMEN ============
 
-#[cfg(feature = "full")]
 #[command]
 pub fn cmd_get_doc_status(kwitansi_id: i64) -> Result<BpuDokumen, String> {
     crate::bpu_docs::get_doc_status(kwitansi_id)
 }
 
-#[cfg(feature = "full")]
 #[command]
 pub fn cmd_set_doc_lengkap(
     kwitansi_id: i64,
@@ -198,7 +210,6 @@ pub fn cmd_set_doc_lengkap(
     )
 }
 
-#[cfg(feature = "full")]
 #[command]
 pub fn cmd_update_toko(
     kwitansi_id: i64,
@@ -209,15 +220,13 @@ pub fn cmd_update_toko(
     crate::bpu_docs::update_toko(kwitansi_id, &nama_toko, &alamat_toko, &pimpinan_toko)
 }
 
-// ============ BKU PERIOD (full only) ============
+// ============ BKU PERIOD ============
 
-#[cfg(feature = "full")]
 #[command]
 pub fn cmd_parse_bku_pdfs(file_paths: Vec<String>) -> Result<Vec<BkuData>, String> {
     crate::bku_period::parse_bku_pdfs(file_paths)
 }
 
-#[cfg(feature = "full")]
 #[command]
 pub fn cmd_import_bku_period(
     items: Vec<BkuPeriodItem>,
@@ -237,4 +246,19 @@ pub fn cmd_import_bku_period(
         &bendahara,
         &nip_bendahara,
     )
+}
+
+// ============ POS DIRECT PRINT ============
+
+#[command]
+pub fn cmd_print_pos_nota(kwitansi_id: i64) -> Result<(), String> {
+    let k = db::get_kwitansi_by_id(kwitansi_id).map_err(|e| e.to_string())?;
+    let s = db::get_pos_settings().map_err(|e| e.to_string())?;
+    crate::pos_print::print_nota(&k, &s).map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_pos_test_print() -> Result<(), String> {
+    let s = db::get_pos_settings().map_err(|e| e.to_string())?;
+    crate::pos_print::test_print(&s).map_err(|e| e.to_string())
 }

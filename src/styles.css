@@ -919,12 +919,61 @@ td .actions {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* ============ FULL-ONLY ELEMENTS ============ */
-/* Hide full-only elements immediately to prevent FOUC.
-   In full mode, JS will un-hide them via .classList.remove('full-mode-hidden'). */
-[data-require="full"] {
-  display: none !important;
+/* ============ ACCORDION RIWAYAT ============ */
+.accordion-group {
+  margin-bottom: 16px;
 }
-[data-require="full"].full-mode-hidden {
-  display: none !important;
+.accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  transition: background 0.15s;
+  user-select: none;
+}
+.accordion-header:hover {
+  background: #f1f5f9;
+}
+.accordion-header .chevron {
+  transition: transform 0.2s;
+  font-size: 12px;
+}
+.accordion-header.open .chevron {
+  transform: rotate(90deg);
+}
+.accordion-header .count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.accordion-body {
+  display: none;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--bg-card);
+}
+.accordion-body.open {
+  display: block;
+}
+.accordion-body .table-container {
+  box-shadow: none;
+  border-radius: 0;
+}
+.accordion-body table {
+  margin: 0;
+}
+
+/* ============ BADGE BNU ============ */
+.badge-bnu {
+  background: #fce7f3;
+  color: #be185d;
 }

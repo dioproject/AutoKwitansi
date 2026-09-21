@@ -1,6 +1,4 @@
-#[cfg(feature = "full")]
-use crate::models::{BpuDokumen, PosSettings};
-use crate::models::{Kwitansi, PrintSettings, Sekolah};
+use crate::models::{BpuDokumen, Kwitansi, PosSettings, PrintSettings, Sekolah};
 use rusqlite::{params, Connection, Result};
 use std::path::PathBuf;
 
@@ -90,7 +88,8 @@ pub fn init_db() -> Result<()> {
             nama_toko TEXT NOT NULL DEFAULT '',
             alamat_toko TEXT NOT NULL DEFAULT '',
             pimpinan_toko TEXT NOT NULL DEFAULT '',
-            created_at TEXT DEFAULT (datetime('now','localtime'))
+            created_at TEXT DEFAULT (datetime('now','localtime')),
+            kena_pph21 INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE INDEX IF NOT EXISTS idx_kwitansi_nomor ON kwitansi(nomor_kwitansi);
@@ -109,28 +108,8 @@ pub fn init_db() -> Result<()> {
             sig_gap REAL NOT NULL DEFAULT 15.0,
             field_positions TEXT NOT NULL DEFAULT '{}'
         );
-        ",
-    )?;
 
-    // Migration: add new columns if missing (for existing DBs)
-    let column_migrations: [(&str, &str, &str); 5] = [
-        ("print_settings", "sig_gap", "REAL NOT NULL DEFAULT 15.0"),
-        ("kwitansi", "bulan", "TEXT NOT NULL DEFAULT ''"),
-        ("kwitansi", "nama_toko", "TEXT NOT NULL DEFAULT ''"),
-        ("kwitansi", "alamat_toko", "TEXT NOT NULL DEFAULT ''"),
-        ("kwitansi", "pimpinan_toko", "TEXT NOT NULL DEFAULT ''"),
-    ];
-    for (table, column, typedef) in &column_migrations {
-        match add_column_if_missing(&conn, table, column, typedef) {
-            Ok(true) => eprintln!("Migrasi: kolom {}.{} berhasil ditambahkan", table, column),
-            Ok(false) => {}
-            Err(e) => eprintln!("Migrasi gagal {}.{} : {}", table, column, e),
-        }
-    }
-
-    // Migration: create bpu_dokumen + pos_settings tables if missing
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS bpu_dokumen (
+        CREATE TABLE IF NOT EXISTS bpu_dokumen (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             kwitansi_id INTEGER NOT NULL,
             dok_bast INTEGER NOT NULL DEFAULT 0,
@@ -145,11 +124,31 @@ pub fn init_db() -> Result<()> {
         CREATE TABLE IF NOT EXISTS pos_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             paper_width INTEGER NOT NULL DEFAULT 58,
-            connection TEXT NOT NULL DEFAULT 'USB'
+            port TEXT NOT NULL DEFAULT '',
+            baud_rate INTEGER NOT NULL DEFAULT 9600
         );
         CREATE INDEX IF NOT EXISTS idx_kwitansi_bulan_tahun ON kwitansi(bulan, tahun_anggaran);
         ",
     )?;
+
+    // Migration: add new columns if missing (for existing DBs)
+    let column_migrations: [(&str, &str, &str); 8] = [
+        ("print_settings", "sig_gap", "REAL NOT NULL DEFAULT 15.0"),
+        ("kwitansi", "bulan", "TEXT NOT NULL DEFAULT ''"),
+        ("kwitansi", "nama_toko", "TEXT NOT NULL DEFAULT ''"),
+        ("kwitansi", "alamat_toko", "TEXT NOT NULL DEFAULT ''"),
+        ("kwitansi", "pimpinan_toko", "TEXT NOT NULL DEFAULT ''"),
+        ("kwitansi", "kena_pph21", "INTEGER NOT NULL DEFAULT 0"),
+        ("pos_settings", "port", "TEXT NOT NULL DEFAULT ''"),
+        ("pos_settings", "baud_rate", "INTEGER NOT NULL DEFAULT 9600"),
+    ];
+    for (table, column, typedef) in &column_migrations {
+        match add_column_if_missing(&conn, table, column, typedef) {
+            Ok(true) => eprintln!("Migrasi: kolom {}.{} berhasil ditambahkan", table, column),
+            Ok(false) => {}
+            Err(e) => eprintln!("Migrasi gagal {}.{} : {}", table, column, e),
+        }
+    }
 
     // Insert default sekolah if empty
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM sekolah", [], |row| row.get(0))?;
@@ -214,11 +213,38 @@ pub fn update_sekolah(sekolah: &Sekolah) -> Result<()> {
 
 // ============ KWITANSI ============
 
+const KWITANSI_COLUMNS: &str = "id, nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, nama_toko, alamat_toko, pimpinan_toko, created_at, kena_pph21";
+
+fn row_to_kwitansi(row: &rusqlite::Row) -> rusqlite::Result<Kwitansi> {
+    Ok(Kwitansi {
+        id: row.get(0)?,
+        nomor_kwitansi: row.get(1)?,
+        tanggal: row.get(2)?,
+        sudah_terima_dari: row.get(3)?,
+        jumlah: row.get(4)?,
+        terbilang: row.get(5)?,
+        untuk_pembayaran: row.get(6)?,
+        kode_rekening: row.get(7)?,
+        tahun_anggaran: row.get(8)?,
+        bulan: row.get(9)?,
+        mengetahui: row.get(10)?,
+        nip_mengetahui: row.get(11)?,
+        bendahara: row.get(12)?,
+        nip_bendahara: row.get(13)?,
+        penerima: row.get(14)?,
+        nama_toko: row.get(15)?,
+        alamat_toko: row.get(16)?,
+        pimpinan_toko: row.get(17)?,
+        created_at: row.get(18)?,
+        kena_pph21: row.get::<_, i32>(19)? != 0,
+    })
+}
+
 pub fn insert_kwitansi(k: &Kwitansi) -> Result<i64> {
     let conn = get_connection()?;
     conn.execute(
-        "INSERT INTO kwitansi (nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, nama_toko, alamat_toko, pimpinan_toko)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
+        "INSERT INTO kwitansi (nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, nama_toko, alamat_toko, pimpinan_toko, kena_pph21)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18)",
         params![
             k.nomor_kwitansi,
             k.tanggal,
@@ -237,6 +263,7 @@ pub fn insert_kwitansi(k: &Kwitansi) -> Result<i64> {
             k.nama_toko,
             k.alamat_toko,
             k.pimpinan_toko,
+            k.kena_pph21 as i32,
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -244,35 +271,11 @@ pub fn insert_kwitansi(k: &Kwitansi) -> Result<i64> {
 
 pub fn get_all_kwitansi() -> Result<Vec<Kwitansi>> {
     let conn = get_connection()?;
-    let mut stmt = conn.prepare(
-        "SELECT id, nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, nama_toko, alamat_toko, pimpinan_toko, created_at
-         FROM kwitansi ORDER BY id DESC"
-    )?;
-
-    let rows = stmt.query_map([], |row| {
-        Ok(Kwitansi {
-            id: row.get(0)?,
-            nomor_kwitansi: row.get(1)?,
-            tanggal: row.get(2)?,
-            sudah_terima_dari: row.get(3)?,
-            jumlah: row.get(4)?,
-            terbilang: row.get(5)?,
-            untuk_pembayaran: row.get(6)?,
-            kode_rekening: row.get(7)?,
-            tahun_anggaran: row.get(8)?,
-            bulan: row.get(9)?,
-            mengetahui: row.get(10)?,
-            nip_mengetahui: row.get(11)?,
-            bendahara: row.get(12)?,
-            nip_bendahara: row.get(13)?,
-            penerima: row.get(14)?,
-            nama_toko: row.get(15)?,
-            alamat_toko: row.get(16)?,
-            pimpinan_toko: row.get(17)?,
-            created_at: row.get(18)?,
-        })
-    })?;
-
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {} FROM kwitansi ORDER BY id DESC",
+        KWITANSI_COLUMNS
+    ))?;
+    let rows = stmt.query_map([], row_to_kwitansi)?;
     let mut result = Vec::new();
     for row in rows {
         result.push(row?);
@@ -283,32 +286,9 @@ pub fn get_all_kwitansi() -> Result<Vec<Kwitansi>> {
 pub fn get_kwitansi_by_id(id: i64) -> Result<Kwitansi> {
     let conn = get_connection()?;
     conn.query_row(
-        "SELECT id, nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, nama_toko, alamat_toko, pimpinan_toko, created_at
-         FROM kwitansi WHERE id=?1",
+        &format!("SELECT {} FROM kwitansi WHERE id=?1", KWITANSI_COLUMNS),
         params![id],
-        |row| {
-            Ok(Kwitansi {
-                id: row.get(0)?,
-                nomor_kwitansi: row.get(1)?,
-                tanggal: row.get(2)?,
-                sudah_terima_dari: row.get(3)?,
-                jumlah: row.get(4)?,
-                terbilang: row.get(5)?,
-                untuk_pembayaran: row.get(6)?,
-                kode_rekening: row.get(7)?,
-                tahun_anggaran: row.get(8)?,
-                bulan: row.get(9)?,
-                mengetahui: row.get(10)?,
-                nip_mengetahui: row.get(11)?,
-                bendahara: row.get(12)?,
-                nip_bendahara: row.get(13)?,
-                penerima: row.get(14)?,
-                nama_toko: row.get(15)?,
-                alamat_toko: row.get(16)?,
-                pimpinan_toko: row.get(17)?,
-                created_at: row.get(18)?,
-            })
-        },
+        row_to_kwitansi,
     )
 }
 
@@ -321,37 +301,13 @@ pub fn delete_kwitansi(id: i64) -> Result<()> {
 pub fn search_kwitansi(query: &str) -> Result<Vec<Kwitansi>> {
     let conn = get_connection()?;
     let pattern = format!("%{}%", query.replace('%', "\\%").replace('_', "\\_"));
-    let mut stmt = conn.prepare(
-        "SELECT id, nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, nama_toko, alamat_toko, pimpinan_toko, created_at
-         FROM kwitansi
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {} FROM kwitansi
          WHERE nomor_kwitansi LIKE ?1 OR sudah_terima_dari LIKE ?1 OR untuk_pembayaran LIKE ?1 OR penerima LIKE ?1 OR bulan LIKE ?1
-         ORDER BY id DESC"
-    )?;
-
-    let rows = stmt.query_map(params![pattern], |row| {
-        Ok(Kwitansi {
-            id: row.get(0)?,
-            nomor_kwitansi: row.get(1)?,
-            tanggal: row.get(2)?,
-            sudah_terima_dari: row.get(3)?,
-            jumlah: row.get(4)?,
-            terbilang: row.get(5)?,
-            untuk_pembayaran: row.get(6)?,
-            kode_rekening: row.get(7)?,
-            tahun_anggaran: row.get(8)?,
-            bulan: row.get(9)?,
-            mengetahui: row.get(10)?,
-            nip_mengetahui: row.get(11)?,
-            bendahara: row.get(12)?,
-            nip_bendahara: row.get(13)?,
-            penerima: row.get(14)?,
-            nama_toko: row.get(15)?,
-            alamat_toko: row.get(16)?,
-            pimpinan_toko: row.get(17)?,
-            created_at: row.get(18)?,
-        })
-    })?;
-
+         ORDER BY id DESC",
+        KWITANSI_COLUMNS
+    ))?;
+    let rows = stmt.query_map(params![pattern], row_to_kwitansi)?;
     let mut result = Vec::new();
     for row in rows {
         result.push(row?);
@@ -444,7 +400,6 @@ pub fn save_print_settings(s: &PrintSettings) -> Result<()> {
             ],
         )?;
     } else {
-        // Delete any existing rows to prevent duplicates (singleton table)
         conn.execute("DELETE FROM print_settings", [])?;
         conn.execute(
             "INSERT INTO print_settings (mode, paper_width, paper_height, margin_top, margin_bottom, margin_left, margin_right, font_size, sig_gap, field_positions)
@@ -468,17 +423,17 @@ pub fn save_print_settings(s: &PrintSettings) -> Result<()> {
 
 // ============ POS SETTINGS ============
 
-#[cfg(feature = "full")]
 pub fn get_pos_settings() -> Result<PosSettings> {
     let conn = get_connection()?;
     let result = conn.query_row(
-        "SELECT id, paper_width, connection FROM pos_settings LIMIT 1",
+        "SELECT id, paper_width, port, baud_rate FROM pos_settings LIMIT 1",
         [],
         |row| {
             Ok(PosSettings {
                 id: row.get(0)?,
                 paper_width: row.get(1)?,
-                connection: row.get(2)?,
+                port: row.get(2)?,
+                baud_rate: row.get(3)?,
             })
         },
     );
@@ -489,12 +444,13 @@ pub fn get_pos_settings() -> Result<PosSettings> {
             let default = PosSettings {
                 id: None,
                 paper_width: 58,
-                connection: "USB".to_string(),
+                port: String::new(),
+                baud_rate: 9600,
             };
             let conn2 = get_connection()?;
             conn2.execute(
-                "INSERT INTO pos_settings (paper_width, connection) VALUES (?1, ?2)",
-                params![default.paper_width, default.connection],
+                "INSERT INTO pos_settings (paper_width, port, baud_rate) VALUES (?1, ?2, ?3)",
+                params![default.paper_width, default.port, default.baud_rate],
             )?;
             let id = conn2.last_insert_rowid();
             Ok(PosSettings {
@@ -505,20 +461,18 @@ pub fn get_pos_settings() -> Result<PosSettings> {
     }
 }
 
-#[cfg(feature = "full")]
 pub fn save_pos_settings(s: &PosSettings) -> Result<()> {
     let conn = get_connection()?;
     if let Some(id) = s.id {
         conn.execute(
-            "UPDATE pos_settings SET paper_width=?1, connection=?2 WHERE id=?3",
-            params![s.paper_width, s.connection, id],
+            "UPDATE pos_settings SET paper_width=?1, port=?2, baud_rate=?3 WHERE id=?4",
+            params![s.paper_width, s.port, s.baud_rate, id],
         )?;
     } else {
-        // Delete any existing rows to prevent duplicates (singleton table)
         conn.execute("DELETE FROM pos_settings", [])?;
         conn.execute(
-            "INSERT INTO pos_settings (paper_width, connection) VALUES (?1, ?2)",
-            params![s.paper_width, s.connection],
+            "INSERT INTO pos_settings (paper_width, port, baud_rate) VALUES (?1, ?2, ?3)",
+            params![s.paper_width, s.port, s.baud_rate],
         )?;
     }
     Ok(())
@@ -526,7 +480,6 @@ pub fn save_pos_settings(s: &PosSettings) -> Result<()> {
 
 // ============ BPU DOKUMEN ============
 
-#[cfg(feature = "full")]
 pub fn get_bpu_dokumen(kwitansi_id: i64) -> Result<BpuDokumen> {
     let conn = get_connection()?;
     let result = conn.query_row(
@@ -560,7 +513,6 @@ pub fn get_bpu_dokumen(kwitansi_id: i64) -> Result<BpuDokumen> {
     }
 }
 
-#[cfg(feature = "full")]
 pub fn upsert_bpu_dokumen(
     kwitansi_id: i64,
     dok_bast: bool,
@@ -606,7 +558,6 @@ pub fn upsert_bpu_dokumen(
 
 // ============ TOKO DATA ============
 
-#[cfg(feature = "full")]
 pub fn update_kwitansi_toko(
     kwitansi_id: i64,
     nama_toko: &str,

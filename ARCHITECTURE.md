@@ -1,4 +1,4 @@
-# Architecture Document — AutoKwitansi
+# Architecture Document — AutoKwitansi v2.0
 
 ## Tech Stack
 
@@ -19,152 +19,122 @@
 
 ```
 AutoKwitansi/
-├── index.html                    # Single-page app (7 section.page)
-├── package.json                  # Bun/npm deps
+├── index.html                    # Single-page app (8 section.page)
+├── package.json                  # Bun/npm deps, v2.0.0
 ├── vite.config.js                # Dev server :1420
 ├── src/
-│   ├── main.js                   # Semua frontend logic (~847 baris)
-│   └── styles.css                # CSS + print media queries
+│   ├── main.js                   # Inti frontend + import modules
+│   ├── pos.js                    # POS print (nota BPU, 58/80mm)
+│   ├── bpu-docs.js               # Dokumen BPU >1jt (BAST, SP, Invoice, BAP)
+│   ├── bku-period.js             # Import BKU per bulan (multi-PDF)
+│   └── styles.css                # CSS + print media + POS/doc styles
 ├── src-tauri/
-│   ├── Cargo.toml                # Rust dependencies
-│   ├── tauri.conf.json           # Window, bundle, build config
+│   ├── Cargo.toml                # Rust dependencies + features
+│   ├── tauri.conf.json           # Window, bundle, build config v2.0.0
 │   ├── capabilities/default.json # Permissions (core, dialog)
-│   ├── src/
-│   │   ├── main.rs               # Entry point → lib::run()
-│   │   ├── lib.rs                # Module registration + 14 command handlers
-│   │   ├── commands.rs           # 14 #[tauri::command] functions
-│   │   ├── db.rs                 # SQLite init, migrations, CRUD
-│   │   ├── models.rs             # 6 structs (serde)
-│   │   ├── terbilang.rs          # Number → Indonesian words
-│   │   ├── csv_import.rs         # CSV parser → Vec<CsvRow>
-│   │   └── pdf_import.rs         # PDF BKU parser → BkuData
-│   └── icons/                    # App icons (50+ sizes)
-├── DESIGN.md
+│   └── src/
+│       ├── main.rs               # Entry point → lib::run()
+│       ├── lib.rs                # Module registration (7 mod) + 21 command
+│       ├── commands.rs           # 21 #[tauri::command] functions
+│       ├── db.rs                 # SQLite init, migrations, CRUD (5 tabel)
+│       ├── models.rs             # 9 structs (serde)
+│       ├── terbilang.rs          # Number → Indonesian words
+│       ├── csv_import.rs         # CSV parser → Vec<CsvRow>
+│       ├── pdf_import.rs         # PDF BKU parser → BkuData
+│       ├── bku_period.rs         # Multi-PDF BKU parse + import per bulan
+│       ├── pos_print.rs          # POS print settings CRUD
+│       └── bpu_docs.rs           # BPU dokumen + toko CRUD
 ├── ARCHITECTURE.md
-└── README.md
+├── DESIGN.md
+├── rules.md
+├── schema.md
+└── prd.md
 ```
 
 ## Data Flow
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Frontend (JS)                     │
-│  index.html + main.js + styles.css                  │
-│                                                     │
-│  showPage() → form → invoke("cmd_*") → render      │
-│  PDF dialog → invoke("cmd_parse_bku_pdf")          │
-│  Print → renderKwitansiTemplate() → window.print()  │
-└──────────────────┬──────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                       Frontend (JS)                              │
+│  main.js + pos.js + bpu-docs.js + bku-period.js + styles.css    │
+│                                                                  │
+│  showPage() → form → invoke("cmd_*") → render                   │
+│  PDF dialog → invoke("cmd_parse_bku_pdf")                       │
+│  Multi-PDF → invoke("cmd_parse_bku_pdfs")                       │
+│  Print → renderKwitansiTemplate() → window.print()               │
+│  POS → renderPosNotaTemplate() → @page 58/80mm                  │
+│  Docs → renderBAST/SuratPesanan/Invoice/BAP() → @page A4        │
+└──────────────────┬───────────────────────────────────────────────┘
                    │ invoke() (Tauri IPC)
                    ▼
-┌─────────────────────────────────────────────────────┐
-│                Backend (Rust / Tauri)                │
-│                                                     │
-│  commands.rs   → 14 #[command] functions            │
-│  ├── cmd_terbilang                                  │
-│  ├── cmd_get_sekolah / cmd_update_sekolah           │
-│  ├── cmd_simpan_kwitansi / cmd_get_all / cmd_get/   │
-│  │   cmd_delete / cmd_search                        │
-│  ├── cmd_parse_csv / cmd_import_csv                 │
-│  ├── cmd_parse_bku_pdf / cmd_import_bku             │
-│  └── cmd_get_print_settings / cmd_save_print_settings│
-│                                                     │
-│  db.rs         → SQLite CRUD + migrations           │
-│  terbilang.rs  → angka → huruf Indonesia            │
-│  csv_import.rs → CSV text → Vec<CsvRow>             │
-│  pdf_import.rs → pdf-extract text → grouping →      │
-│                  BkuData (header + transactions)     │
-└──────────────────┬──────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                  Backend (Rust / Tauri)                           │
+│                                                                  │
+│  commands.rs   → 21 #[command] functions                         │
+│  ├── cmd_terbilang                                               │
+│  ├── cmd_get_sekolah / cmd_update_sekolah                        │
+│  ├── cmd_simpan_kwitansi / cmd_get_all / cmd_get/                │
+│  │   cmd_delete / cmd_search                                     │
+│  ├── cmd_parse_csv / cmd_import_csv                              │
+│  ├── cmd_parse_bku_pdf / cmd_import_bku                          │
+│  ├── cmd_get_print_settings / cmd_save_print_settings            │
+│  ├── cmd_get_pos_settings / cmd_save_pos_settings    [POS]       │
+│  ├── cmd_get_doc_status / cmd_set_doc_lengkap          [DOCS]    │
+│  ├── cmd_update_toko                                   [DOCS]    │
+│  └── cmd_parse_bku_pdfs / cmd_import_bku_period       [PERIOD]   │
+│                                                                  │
+│  db.rs         → SQLite CRUD + migrations (5 tabel)              │
+│  terbilang.rs  → angka → huruf Indonesia                         │
+│  csv_import.rs → CSV text → Vec<CsvRow>                          │
+│  pdf_import.rs → pdf-extract text → grouping → BkuData           │
+│  bku_period.rs → multi-PDF parse + import per bulan              │
+│  pos_print.rs  → POS settings CRUD                               │
+│  bpu_docs.rs   → BPU dokumen + toko CRUD                         │
+└──────────────────┬───────────────────────────────────────────────┘
                    │ rusqlite
                    ▼
-┌─────────────────────────────────────────────────────┐
-│              SQLite Database                         │
-│  %APPDATA%/AutoKwitansi/auto_kwitansi.db            │
-│                                                     │
-│  sekolah       → 1 row (nama, alamat, kepsek, etc.) │
-│  kwitansi      → N rows (no_kwitansi, jumlah, etc.)  │
-│  print_settings → 1 row (mode, paper, margins,      │
-│                   font_size, sig_gap, field_positions)│
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                SQLite Database                                    │
+│  %APPDATA%/AutoKwitansi/auto_kwitansi.db                        │
+│                                                                  │
+│  sekolah        → 1 row (nama, alamat, kepsek, etc.)            │
+│  kwitansi       → N rows (no_kwitansi, jumlah, bulan, toko)     │
+│  print_settings → 1 row (mode, paper, margins, field_positions)  │
+│  pos_settings   → 1 row (paper_width: 58|80, connection)        │
+│  bpu_dokumen    → N rows (kwitansi_id, 4 dokumen booleans)      │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-## Database Schema
+## Build Variants
 
-### `sekolah` (1 row, seeded default)
+| Variant | Feature Flag | Deskripsi |
+|---------|-------------|-----------|
+| Default | (no flag) | Kwitansi SPJ dasar + Import PDF/CSV |
+| Full | `--features full` | Semua fitur: POS, Dokumen BPU, BKU Per Bulan |
 
-| Kolom | Tipe | Default |
-|-------|------|---------|
-| id | INTEGER PK | AUTO |
-| nama_sekolah | TEXT | "Nama Sekolah" |
-| alamat | TEXT | "Alamat Sekolah" |
-| kota | TEXT | "Kota" |
-| kepala_sekolah | TEXT | "Nama Kepala Sekolah" |
-| nip_kepala | TEXT | "NIP Kepala Sekolah" |
-| bendahara | TEXT | "Nama Bendahara" |
-| nip_bendahara | TEXT | "NIP Bendahara" |
+Build command:
+```bash
+# Default (kwitansi saja)
+bun run build && cd src-tauri && cargo build --release
 
-### `kwitansi`
-
-| Kolom | Tipe | Keterangan |
-|-------|------|------------|
-| id | INTEGER PK | AUTO |
-| nomor_kwitansi | TEXT | Nomor unik |
-| tanggal | TEXT | YYYY-MM-DD |
-| sudah_terima_dari | TEXT | Pengirim dana |
-| jumlah | REAL | Jumlah rupiah |
-| terbilang | TEXT | Auto dari Rust |
-| untuk_pembayaran | TEXT | Keterangan |
-| kode_rekening | TEXT | Kode Rekening |
-| tahun_anggaran | TEXT | 2026 |
-| mengetahui / nip_mengetahui | TEXT | Kepsek |
-| bendahara / nip_bendahara | TEXT | Bendahara |
-| penerima | TEXT | Penerima dana |
-| created_at | TEXT | datetime('now','localtime') |
-
-Index: `idx_kwitansi_nomor`, `idx_kwitansi_tanggal`.
-
-### `print_settings` (1 row, seeded default)
-
-| Kolom | Tipe | Default |
-|-------|------|---------|
-| id | INTEGER PK | AUTO |
-| mode | TEXT | "values_only" |
-| paper_width | REAL | 176.0 |
-| paper_height | REAL | 190.0 |
-| margin_top | REAL | 10.0 |
-| margin_bottom | REAL | 10.0 |
-| margin_left | REAL | 10.0 |
-| margin_right | REAL | 10.0 |
-| font_size | REAL | 9.0 |
-| sig_gap | REAL | 15.0 |
-| field_positions | TEXT | '{}' (JSON) |
-
-Migrasi: `ALTER TABLE ADD COLUMN sig_gap` jika kolom belum ada (DB lama).
-
-## PDF Parser (`pdf_import.rs`)
-
-Menggunakan `pdf-extract` (bukan pdfplumber). Format output berbeda:
-
-- Label dan nilai di baris terpisah (misal `Nama Sekolah` baris 4, `: SD Negeri...` baris 11).
-- Transaksi: `DD-MM-YYYY URAIAN 0 AMOUNT SALDOKODE_KEG. KODE_REK_PREFIX`
-- Baris berikutnya: `KODE_REK_SUFFIX NO_BUKTI` (misal `61 BPU11`).
-- Grouping transaksi per `no_bukti` → 1 BPU = 1 kwitansi dengan uraian gabungan dan jumlah total.
+# Full (semua fitur)
+bun run build && cd src-tauri && cargo build --release --features full
+```
 
 ## Unit Testing
 
-### Rust (saat ini)
-
+### Rust
 - `terbilang.rs::test_terbilang` — 10 kasus angka → terbilang.
-- `pdf_import.rs::test_parse_bku_pdf` — parse file sample `4. bku-output.pdf`, assert 21 transaksi, BPU11 = Rp 60.000 (Listrik), BNU16 = Rp 1.980.000.
+- `pdf_import.rs::test_parse_bku_pdf` — parse file sample, assert transaksi.
 
 ### JavaScript
-
-Belum ada unit test. Testing manual melalui UI (`bun run tauri dev`).
+Testing manual melalui UI (`bun run tauri dev`).
 
 ## Print System
 
-1. `renderKwitansiTemplate(k)` memilih `renderValuesOnlyTemplate` atau `renderFullTemplate` berdasarkan `currentPrintSettings.mode`.
-2. `renderValuesOnlyTemplate` — field absolute `position: mm`, blok tanda tangan multi-line dengan `.sig-space` (jarak TTD configurable).
-3. `renderFullTemplate` — flexbox layout, `margin-bottom: {sig_gap}mm` inline pada label.
-4. `cetakKwitansi()` — inject `<style>` dynamic `@page { size: WxH mm; margin: 0; }` → `window.print()`.
-5. CSS `@media print` — hide sidebar/content, show only `#print-container` / `#batch-print-container`.
+1. `renderKwitansiTemplate(k)` — pilih `renderValuesOnlyTemplate` atau `renderFullTemplate` berdasarkan `currentPrintSettings.mode`.
+2. Auto-refresh: `handleLivePreview()` debounce 300ms → update `currentPrintSettings` → render ulang.
+3. `refreshPrintPreview()` — render ulang dari `lastPreviewData` tanpa query DB.
+4. `cetakKwitansi()` — inject `<style> @page { size: WxH mm }` → `window.print()`.
+5. POS: `renderPosNotaTemplate(k)` — struk monospace 58/80mm → `@page size:58mm auto`.
+6. Dokumen: `renderBAST/SuratPesanan/Invoice/BAP()` — A4 layout → `@page A4`.

@@ -1,43 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { isBpu, loadPosSettings as loadPosSettingsMod, getPosSettings, cetakNotaPos } from "./pos.js";
+import { needsDocuments, loadDocStatus, allDocsComplete } from "./bpu-docs.js";
+import "./bku-period.js";
 
-// ========== VARIANT ==========
-const isFull = __APP_VARIANT__ === "full";
-
-// Full-only modules loaded dynamically
-let posModule = null;
-let bpuDocsModule = null;
-
-// Stubs for lite mode
-let isBpu = function (nomor) { return false; };
-function needsDocuments() { return false; }
-async function loadDocStatus() { return { dok_bast: false, dok_surat_pesanan: false, dok_invoice: false, dok_bap: false }; }
-function allDocsComplete() { return false; }
-function getDocStatus() { return null; }
-function getPosSettings() { return null; }
-async function loadPosSettings() { return null; }
-function renderPosNotaTemplate() { return ""; }
-function cetakNotaPos() {}
-
-function updateBpuDocsVisibility() {
-  if (!isFull) return; // Bug #11: Skip di lite mode
-  const nomor = document.getElementById("nomor_kwitansi")?.value || "";
-  const jumlahRaw = (document.getElementById("jumlah")?.value || "0").replace(/[^\d]/g, "");
-  const jumlah = parseFloat(jumlahRaw) || 0;
-  const show = isBpu(nomor) && jumlah > 1000000;
-  const el = document.getElementById("bpu-docs-section");
-  if (el) el.classList.toggle("hidden", !show);
-  if (show) updateBpuDocBadge();
+// ========== HELPER: LABEL NOMOR CETAK ==========
+function labelNomorCetak(nomor) {
+  const upper = (nomor || "").toUpperCase();
+  if (upper.includes("BNU")) return "BNU";
+  if (upper.includes("BPU")) return "BPU";
+  return nomor || "";
 }
 
-function updateBpuDocBadge() {
-  const items = ["bast", "surat_pesanan", "invoice", "bap"];
-  const done = items.filter(i => document.getElementById(`doc_cb_${i}`)?.checked).length;
-  const badge = document.getElementById("doc-status-badge");
-  if (badge) {
-    badge.textContent = `${done}/4 dokumen`;
-    badge.className = done === 4 ? "badge badge-ok" : "badge badge-warn";
-  }
+function isBnu(nomor) {
+  return (nomor || "").trim().toUpperCase().includes("BNU");
 }
 
 // ========== STATE ==========
@@ -59,7 +35,6 @@ window._closeModal = function (id) {
 };
 
 // Default field positions (mm) for values_only mode
-// Field gabungan: mengetahui = "Mengetahui,\nNama\nNIP", bendahara = "Bendahara,\nNama\nNIP", penerima = "Yang Menerima,\nNama"
 const DEFAULT_FIELD_POSITIONS = {
   nomor: { x: 110, y: 18 },
   tahun_anggaran: { x: 15, y: 28 },
@@ -80,29 +55,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("tanggal").value = today;
   document.getElementById("tahun_anggaran").value = new Date().getFullYear().toString();
 
-  // Show/hide full-only UI based on variant
-  if (isFull) {
-    document.querySelectorAll("[data-require=\"full\"]").forEach((el) => {
-      el.style.display = "";
-    });
-  } else {
-    // Lite mode: elements already hidden via CSS [data-require="full"],
-    // remove them from DOM to avoid any event handlers or stale references
-    document.querySelectorAll("[data-require=\"full\"]").forEach((el) => el.remove());
-    window.cetakDokumen = function () {};
-  }
-
   await loadSekolah();
   await loadPrintSettings();
-
-  // Dynamic import for full-only modules
-  if (isFull) {
-    posModule = await import("./pos.js");
-    isBpu = posModule.isBpu; // Override stub with real implementation from pos.js
-    bpuDocsModule = await import("./bpu-docs.js");
-    await import("./bku-period.js");
-    await posModule.loadPosSettings();
-  }
+  await loadPosSettingsMod();
 });
 
 // ========== NAVIGATION ==========
@@ -165,6 +120,42 @@ window.handleSimpanSekolah = async function (e) {
   return false;
 };
 
+// ========== PPh 21 ==========
+function updatePph21Detail() {
+  const checked = document.getElementById("cb_kena_pph21")?.checked;
+  const detail = document.getElementById("pph21-detail");
+  if (detail) detail.classList.toggle("hidden", !checked);
+
+  if (!checked) return;
+
+  const jumlahRaw = (document.getElementById("jumlah")?.value || "0").replace(/[^\d]/g, "");
+  const bruto = parseFloat(jumlahRaw) || 0;
+  const pph = Math.round(bruto * 0.06);
+  const netto = bruto - pph;
+
+  document.getElementById("pph21_bruto").textContent = `Rp ${formatRupiah(bruto)}`;
+  document.getElementById("pph21_pph").textContent = `- Rp ${formatRupiah(pph)}`;
+  document.getElementById("pph21_netto").textContent = `Rp ${formatRupiah(netto)}`;
+}
+
+function autoDetectPPh21() {
+  const nomor = document.getElementById("nomor_kwitansi")?.value || "";
+  const kode = document.getElementById("kode_rekening")?.value || "";
+  const uraian = (document.getElementById("untuk_pembayaran")?.value || "").toLowerCase();
+
+  const shouldCheck = isBnu(nomor) || kode.includes("07.12.04") || uraian.includes("honor") || uraian.includes("honorarium") || uraian.includes("instruktur");
+
+  const cb = document.getElementById("cb_kena_pph21");
+  if (cb && !cb.checked) {
+    cb.checked = shouldCheck;
+  }
+  updatePph21Detail();
+}
+
+window.handlePPh21Toggle = function () {
+  updatePph21Detail();
+};
+
 // ========== KWITANSI INPUT ==========
 window.handleJumlahInput = async function (el) {
   let raw = el.value.replace(/[^\d]/g, "");
@@ -174,14 +165,18 @@ window.handleJumlahInput = async function (el) {
   }
   let formatted = parseInt(raw).toLocaleString("id-ID");
   el.value = formatted;
+
+  const kenaPph21 = document.getElementById("cb_kena_pph21")?.checked;
+  const jumlah = kenaPph21 ? Math.round(parseInt(raw) * 0.94) : parseInt(raw);
+
   try {
-    const jumlah = parseInt(raw);
     const result = await invoke("cmd_terbilang", { jumlah: jumlah });
     document.getElementById("terbilang_preview").value = result;
   } catch (e) {
     console.error(e);
   }
   updateBpuDocsVisibility();
+  updatePph21Detail();
 };
 
 window.handleSimpanKwitansi = async function (e) {
@@ -192,6 +187,7 @@ window.handleSimpanKwitansi = async function (e) {
   const bendahara = document.getElementById("bendahara").value || (sekolahData ? sekolahData.bendahara : "");
   const nipBendahara = document.getElementById("nip_bendahara").value || (sekolahData ? sekolahData.nip_bendahara : "");
   const jumlahRaw = document.getElementById("jumlah").value.replace(/[^\d]/g, "");
+  const kenaPph21 = document.getElementById("cb_kena_pph21")?.checked || false;
 
   const kwitansi = {
     id: null,
@@ -213,12 +209,13 @@ window.handleSimpanKwitansi = async function (e) {
     alamat_toko: document.getElementById("doc_alamat_toko")?.value || "",
     pimpinan_toko: document.getElementById("doc_pimpinan_toko")?.value || "",
     created_at: null,
+    kena_pph21: kenaPph21,
   };
 
   try {
     const id = await invoke("cmd_simpan_kwitansi", { kwitansi: kwitansi });
 
-    if (isFull && isBpu(kwitansi.nomor_kwitansi)) {
+    if (isBpu(kwitansi.nomor_kwitansi)) {
       try {
         await invoke("cmd_set_doc_lengkap", {
           kwitansiId: id,
@@ -245,8 +242,40 @@ window.resetForm = function () {
   const today = new Date().toISOString().split("T")[0];
   document.getElementById("tanggal").value = today;
   document.getElementById("tahun_anggaran").value = new Date().getFullYear().toString();
+  document.getElementById("pph21-detail")?.classList.add("hidden");
   updateBpuDocsVisibility();
 };
+
+// ========== BPU DOCS VISIBILITY ==========
+function updateBpuDocsVisibility() {
+  const nomor = document.getElementById("nomor_kwitansi")?.value || "";
+  const jumlahRaw = (document.getElementById("jumlah")?.value || "0").replace(/[^\d]/g, "");
+  const jumlah = parseFloat(jumlahRaw) || 0;
+  const show = isBpu(nomor) && jumlah > 1000000;
+  const el = document.getElementById("bpu-docs-section");
+  if (el) el.classList.toggle("hidden", !show);
+  if (show) updateBpuDocBadge();
+}
+
+function updateBpuDocBadge() {
+  const items = ["bast", "surat_pesanan", "invoice", "bap"];
+  const done = items.filter(i => document.getElementById(`doc_cb_${i}`)?.checked).length;
+  const badge = document.getElementById("doc-status-badge");
+  if (badge) {
+    badge.textContent = `${done}/4 dokumen`;
+    badge.className = done === 4 ? "badge badge-ok" : "badge badge-warn";
+  }
+}
+
+// Auto-detect PPh 21 on input changes
+document.addEventListener("DOMContentLoaded", () => {
+  const nomorInput = document.getElementById("nomor_kwitansi");
+  const kodeInput = document.getElementById("kode_rekening");
+  const uraianInput = document.getElementById("untuk_pembayaran");
+  if (nomorInput) nomorInput.addEventListener("input", autoDetectPPh21);
+  if (kodeInput) kodeInput.addEventListener("input", autoDetectPPh21);
+  if (uraianInput) uraianInput.addEventListener("input", autoDetectPPh21);
+});
 
 // ========== RIWAYAT ==========
 async function loadRiwayat() {
@@ -256,41 +285,167 @@ async function loadRiwayat() {
     selectedKwitansiIds.clear();
     document.getElementById("riwayat-select-all").checked = false;
     updateBatchButton();
-    renderTable(data);
+    renderGrouped(data);
   } catch (e) {
     showToast("Gagal memuat data: " + e, "error");
   }
 }
 
-function renderTable(data) {
-  const tbody = document.getElementById("tbody-kwitansi");
+function groupByBku(data) {
+  const groups = {};
+  for (const k of data) {
+    const bulan = k.bulan || "";
+    const tahun = k.tahun_anggaran || "";
+    const key = bulan ? `BKU ${bulan} ${tahun}`.trim() : "Tanpa BKU";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(k);
+  }
+  return groups;
+}
+
+function renderGrouped(data) {
+  const container = document.getElementById("riwayat-container");
   if (data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">Belum ada data kwitansi</td></tr>';
+    container.innerHTML = '<div class="table-container"><table><tbody><tr><td class="empty">Belum ada data kwitansi</td></tr></tbody></table></div>';
     return;
   }
 
-  tbody.innerHTML = data.map((k, i) => {
-    const bpu = isBpu(k.nomor_kwitansi);
-    const posBtn = bpu ? `<button class="btn btn-sm btn-pos" onclick="handleCetakPosRiwayat(${k.id})">POS</button>` : "";
-    const bulanBadge = k.bulan ? `<span class="badge badge-period">${esc(k.bulan)}</span>` : "";
-    return `
-    <tr>
-      <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
-      <td>${i + 1}</td>
-      <td>${esc(k.nomor_kwitansi)} ${bpu ? '<span class="badge badge-bpu">BPU</span>' : ""} ${bulanBadge}</td>
-      <td>${formatTanggal(k.tanggal)}</td>
-      <td>${esc(k.sudah_terima_dari)}</td>
-      <td class="rupiah">Rp ${formatRupiah(k.jumlah)}</td>
-      <td>${esc(k.untuk_pembayaran.substring(0, 50))}${k.untuk_pembayaran.length > 50 ? "..." : ""}</td>
-      <td>
-        <div class="actions">
-          <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
-          ${posBtn}
-          <button class="btn btn-sm btn-danger" onclick="hapusKwitansi(${k.id})">Hapus</button>
+  const groups = groupByBku(data);
+  let html = "";
+  let firstOpen = true;
+
+  for (const [groupName, items] of Object.entries(groups)) {
+    const openClass = firstOpen ? " open" : "";
+    html += `
+      <div class="accordion-group">
+        <div class="accordion-header${openClass}" onclick="toggleAccordion(this)">
+          <span class="chevron">&#9654;</span>
+          ${esc(groupName)}
+          <span class="count">${items.length} kwitansi</span>
         </div>
-      </td>
-    </tr>
-  `}).join("");
+        <div class="accordion-body${openClass}">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th><input type="checkbox" class="riwayat-select-all-group" onchange="toggleSelectAllGroup(this)" /></th>
+                  <th>No</th>
+                  <th>Nomor Kwitansi</th>
+                  <th>Tanggal</th>
+                  <th>Diterima Dari</th>
+                  <th>Jumlah</th>
+                  <th>Untuk Pembayaran</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map((k, i) => {
+                  const bpu = isBpu(k.nomor_kwitansi);
+                  const bnu = isBnu(k.nomor_kwitansi);
+                  const posBtn = bpu ? `<button class="btn btn-sm btn-pos" onclick="handleCetakPosRiwayat(${k.id})">POS</button>` : "";
+                  let badge = "";
+                  if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
+                  else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
+                  const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : "";
+                  return `
+                  <tr>
+                    <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
+                    <td>${i + 1}</td>
+                    <td>${esc(k.nomor_kwitansi)} ${badge} ${pphBadge}</td>
+                    <td>${formatTanggal(k.tanggal)}</td>
+                    <td>${esc(k.sudah_terima_dari)}</td>
+                    <td class="rupiah">Rp ${formatRupiah(k.jumlah)}</td>
+                    <td>${esc(k.untuk_pembayaran.substring(0, 50))}${k.untuk_pembayaran.length > 50 ? "..." : ""}</td>
+                    <td>
+                      <div class="actions">
+                        <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
+                        ${posBtn}
+                        <button class="btn btn-sm btn-danger" onclick="hapusKwitansi(${k.id})">Hapus</button>
+                      </div>
+                    </td>
+                  </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>`;
+    firstOpen = false;
+  }
+
+  container.innerHTML = html;
+}
+
+window.toggleAccordion = function (header) {
+  header.classList.toggle("open");
+  const body = header.nextElementSibling;
+  body.classList.toggle("open");
+};
+
+window.toggleSelectAllGroup = function (el) {
+  const tbody = el.closest("table").querySelector("tbody");
+  tbody.querySelectorAll(".riwayat-check").forEach((cb) => {
+    cb.checked = el.checked;
+    const id = parseInt(cb.dataset.id);
+    if (el.checked) selectedKwitansiIds.add(id);
+    else selectedKwitansiIds.delete(id);
+  });
+  updateBatchButton();
+};
+
+// Legacy flat render for search mode
+function renderTable(data) {
+  const container = document.getElementById("riwayat-container");
+  if (data.length === 0) {
+    container.innerHTML = '<div class="table-container"><table><tbody><tr><td class="empty">Belum ada data kwitansi</td></tr></tbody></table></div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="riwayat-select-all" onchange="toggleSelectAllRiwayat(this)" /></th>
+            <th>No</th>
+            <th>Nomor Kwitansi</th>
+            <th>Tanggal</th>
+            <th>Diterima Dari</th>
+            <th>Jumlah</th>
+            <th>Untuk Pembayaran</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map((k, i) => {
+            const bpu = isBpu(k.nomor_kwitansi);
+            const bnu = isBnu(k.nomor_kwitansi);
+            const posBtn = bpu ? `<button class="btn btn-sm btn-pos" onclick="handleCetakPosRiwayat(${k.id})">POS</button>` : "";
+            let badge = "";
+            if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
+            else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
+            const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : "";
+            return `
+            <tr>
+              <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
+              <td>${i + 1}</td>
+              <td>${esc(k.nomor_kwitansi)} ${badge} ${pphBadge}</td>
+              <td>${formatTanggal(k.tanggal)}</td>
+              <td>${esc(k.sudah_terima_dari)}</td>
+              <td class="rupiah">Rp ${formatRupiah(k.jumlah)}</td>
+              <td>${esc(k.untuk_pembayaran.substring(0, 50))}${k.untuk_pembayaran.length > 50 ? "..." : ""}</td>
+              <td>
+                <div class="actions">
+                  <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
+                  ${posBtn}
+                  <button class="btn btn-sm btn-danger" onclick="hapusKwitansi(${k.id})">Hapus</button>
+                </div>
+              </td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 window.handleSearch = async function (query) {
@@ -300,7 +455,7 @@ window.handleSearch = async function (query) {
     } else {
       const data = await invoke("cmd_search_kwitansi", { query: query });
       currentRiwayatData = data;
-      renderTable(data);
+      renderTable(data); // flat for search
     }
   } catch (e) {
     console.error(e);
@@ -693,7 +848,6 @@ function renderPaperPreview() {
         title="${f.label}">${f.label}</div>`;
     }).join("");
   } else {
-    // Full mode: show layout labels
     fieldsHtml = `
       <div class="field-static" style="top:8px; left:50%; transform:translateX(-50%); font-weight:bold; font-size:13px;">KWITANSI</div>
       <div class="field-static" style="top:30px; right:10px; font-size:10px;">No: ...</div>
@@ -841,17 +995,26 @@ function renderFullTemplate(k) {
   const fs = s ? s.font_size : 12;
   const gap = s ? (s.sig_gap || 15) : 15;
 
+  // PPh 21 block (honorarium only)
+  let pphBlock = "";
+  if (k.kena_pph21) {
+    const bruto = k.jumlah;
+    const pph = Math.round(bruto * 0.06);
+    const netto = bruto - pph;
+    pphBlock = `
+      <div style="margin-top:3mm; font-size:10pt; color:#333;">
+        <div>Bruto    : <b>Rp ${formatRupiah(bruto)}</b></div>
+        <div>PPh 21 6%: <b style="color:var(--danger);">- Rp ${formatRupiah(pph)}</b></div>
+        <div style="margin-top:1mm;"><b>Netto    : Rp ${formatRupiah(netto)}</b></div>
+      </div>
+    `;
+  }
+
   return `
     <div class="kwitansi-page" style="width:${pw}mm; min-height:${ph}mm; padding:${mt}mm ${mr}mm ${mb}mm ${ml}mm; font-size:${fs}pt;">
       <div class="kwitansi-header">
-        <div class="merk">Silver Horse</div>
         <h2>KWITANSI</h2>
-        <div class="nomor">No: ${esc(k.nomor_kwitansi)}</div>
-      </div>
-
-      <div class="kwitansi-meta">
-        <span>Tahun Anggaran: ${esc(k.tahun_anggaran)}</span>
-        <span>Kode Rekening: ${esc(k.kode_rekening)}</span>
+        <div class="nomor">No: ${esc(labelNomorCetak(k.nomor_kwitansi))}</div>
       </div>
 
       <div class="kwitansi-body">
@@ -873,6 +1036,7 @@ function renderFullTemplate(k) {
         <div style="text-align: right; margin-top: 5mm;">
           <div class="kwitansi-jumlah-box">Rp ${formatRupiah(k.jumlah)}</div>
         </div>
+        ${pphBlock}
       </div>
 
       <div class="kwitansi-footer">
@@ -892,8 +1056,6 @@ function renderFullTemplate(k) {
           <div class="nama">${esc(k.penerima)}</div>
         </div>
       </div>
-
-      <div class="kwitansi-stamp">Materai</div>
     </div>
   `;
 }
@@ -948,79 +1110,109 @@ window.refreshPrintPreview = function () {
   container.innerHTML = lastPreviewData.data.map((k) => renderKwitansiTemplate(k)).join("");
 };
 
-// ========== POS CETAK ==========
+// ========== POS CETAK (DIRECT ESC/POS) ==========
 window.handleCetakPosRiwayat = async function (id) {
-  if (!posModule) return;
   try {
     const k = await invoke("cmd_get_kwitansi", { id });
-    const s = posModule.getPosSettings();
-    const needsDoc = bpuDocsModule && bpuDocsModule.needsDocuments(k);
+    const needsDoc = needsDocuments(k);
 
     if (needsDoc) {
-      const docStatus = await bpuDocsModule.loadDocStatus(k.id);
-      if (!bpuDocsModule.allDocsComplete(docStatus)) {
+      const docStatus = await loadDocStatus(k.id);
+      if (!allDocsComplete(docStatus)) {
         const proceed = confirm("BPU > Rp1.000.000 belum lengkap dokumennya.\nTetap cetak nota POS?");
         if (!proceed) return;
       }
     }
 
-    posModule.cetakNotaPos(k, s);
+    await cetakNotaPos(k);
   } catch (e) {
     showToast("Gagal load kwitansi: " + e, "error");
   }
 };
 
-window.handleCetakPosFromPreview = function () {
-  if (!posModule || !lastPreviewData || !lastPreviewData.data || lastPreviewData.data.length === 0) return;
+window.handleCetakPosFromPreview = async function () {
+  if (!lastPreviewData || !lastPreviewData.data || lastPreviewData.data.length === 0) return;
   const k = lastPreviewData.data[0];
-  const s = posModule.getPosSettings();
-  posModule.cetakNotaPos(k, s);
+  await cetakNotaPos(k);
 };
 
 window.handleCetakPosBatch = async function () {
-  if (!posModule || !lastPreviewData || !lastPreviewData.data) return;
+  if (!lastPreviewData || !lastPreviewData.data) return;
   const posData = lastPreviewData.data.filter(k => isBpu(k.nomor_kwitansi));
   if (posData.length === 0) {
     showToast("Tidak ada kwitansi BPU di batch ini", "warning");
     return;
   }
 
-  // Bug #5: Cek dokumen BPU untuk semua kwitansi BPU di batch
-  if (bpuDocsModule) {
-    let incompleteDocs = [];
-    for (const k of posData) {
-      if (bpuDocsModule.needsDocuments(k)) {
-        const docStatus = await bpuDocsModule.loadDocStatus(k.id);
-        if (!bpuDocsModule.allDocsComplete(docStatus)) {
-          incompleteDocs.push(k.nomor_kwitansi);
-        }
+  // Check doc status for all BPU kwitansi
+  let incompleteDocs = [];
+  for (const k of posData) {
+    if (needsDocuments(k)) {
+      const docStatus = await loadDocStatus(k.id);
+      if (!allDocsComplete(docStatus)) {
+        incompleteDocs.push(k.nomor_kwitansi);
       }
     }
-    if (incompleteDocs.length > 0) {
-      const proceed = confirm(
-        `${incompleteDocs.length} kwitansi BPU belum lengkap dokumennya:\n` +
-        incompleteDocs.join(", ") +
-        `\nTetap cetak nota POS?`
-      );
-      if (!proceed) return;
-    }
+  }
+  if (incompleteDocs.length > 0) {
+    const proceed = confirm(
+      `${incompleteDocs.length} kwitansi BPU belum lengkap dokumennya:\n` +
+      incompleteDocs.join(", ") +
+      `\nTetap cetak nota POS?`
+    );
+    if (!proceed) return;
   }
 
-  const s = posModule.getPosSettings();
-  // Bug #4: Gunakan batch-print-container, bukan print-container
-  const container = document.getElementById("batch-print-container");
-  if (!container) return;
-  container.innerHTML = posData.map(k => posModule.renderPosNotaTemplate(k, s)).join("");
-  let styleEl = document.getElementById("dynamic-print-style");
-  if (!styleEl) {
-    styleEl = document.createElement("style");
-    styleEl.id = "dynamic-print-style";
-    document.head.appendChild(styleEl);
+  // Print each one via ESC/POS
+  for (const k of posData) {
+    try {
+      await cetakNotaPos(k);
+    } catch (e) {
+      showToast(`Gagal cetak ${k.nomor_kwitansi}: ${e}`, "error");
+    }
   }
-  const widthMm = s?.paper_width || 58;
-  styleEl.textContent = `@media print { @page { size: ${widthMm}mm auto; margin: 0; } body * { visibility: hidden; } #batch-print-container, #batch-print-container * { visibility: visible; } }`;
-  // Tetap di halaman batch-print (tidak pindah ke halaman print)
-  setTimeout(() => window.print(), 200);
+};
+
+// ========== POS SETTINGS MODAL ==========
+document.addEventListener("DOMContentLoaded", async () => {
+  const s = getPosSettings();
+  if (s) {
+    const pw = document.getElementById("pos_paper_width");
+    const port = document.getElementById("pos_port");
+    const baud = document.getElementById("pos_baud_rate");
+    if (pw) pw.value = s.paper_width || 58;
+    if (port) port.value = s.port || "";
+    if (baud) baud.value = s.baud_rate || 9600;
+  }
+});
+
+window.handleSimpanPosSettings = async function () {
+  const s = getPosSettings() || {};
+  const settings = {
+    id: s.id || null,
+    paper_width: parseInt(document.getElementById("pos_paper_width")?.value || "58"),
+    port: document.getElementById("pos_port")?.value || "",
+    baud_rate: parseInt(document.getElementById("pos_baud_rate")?.value || "9600"),
+  };
+
+  try {
+    await invoke("cmd_save_pos_settings", { settings });
+    // Reload in pos.js
+    await loadPosSettingsMod();
+    showToast("Pengaturan POS disimpan", "success");
+    window._closeModal("modal-pos-settings");
+  } catch (e) {
+    showToast("Gagal simpan: " + e, "error");
+  }
+};
+
+window.handlePosTestPrint = async function () {
+  try {
+    await invoke("cmd_pos_test_print");
+    showToast("Test print berhasil dikirim", "success");
+  } catch (e) {
+    showToast("Gagal test print: " + e, "error");
+  }
 };
 
 // ========== UTILITIES ==========
