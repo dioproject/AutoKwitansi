@@ -31,6 +31,14 @@ pub fn cmd_update_sekolah(sekolah: Sekolah) -> Result<(), String> {
 
 #[command]
 pub fn cmd_simpan_kwitansi(mut kwitansi: Kwitansi) -> Result<i64, String> {
+    // Expand BNU description
+    kwitansi.untuk_pembayaran = expand_bnu_description(
+        &kwitansi.nomor_kwitansi,
+        &kwitansi.kode_rekening,
+        &kwitansi.untuk_pembayaran,
+        &kwitansi.bulan,
+        &kwitansi.tahun_anggaran,
+    );
     kwitansi.terbilang = terbilang(kwitansi.jumlah);
     db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())
 }
@@ -129,7 +137,13 @@ pub fn cmd_import_bku(
             sudah_terima_dari: sudah_terima_dari.clone(),
             jumlah: tx.pengeluaran,
             terbilang: terbilang(tx.pengeluaran),
-            untuk_pembayaran: tx.uraian.clone(),
+            untuk_pembayaran: expand_bnu_description(
+                &tx.no_bukti,
+                &tx.kode_kegiatan,
+                &tx.uraian,
+                &bulan,
+                &tahun_anggaran,
+            ),
             kode_rekening: tx.kode_rekening.clone(),
             tahun_anggaran: tahun_anggaran.clone(),
             bulan: bulan.clone(),
@@ -160,6 +174,85 @@ pub(crate) fn is_honor_pph21(no_bukti: &str, kode_kegiatan: &str, uraian: &str) 
         || u.contains("honor")
         || u.contains("honorarium")
         || u.contains("instruktur")
+}
+
+/// Expand BNU description to be more descriptive and less monotonous
+pub(crate) fn expand_bnu_description(
+    nomor: &str,
+    kode: &str,
+    uraian: &str,
+    bulan: &str,
+    tahun: &str,
+) -> String {
+    let nomor_upper = nomor.to_uppercase();
+    if !nomor_upper.contains("BNU") {
+        return uraian.to_string();
+    }
+
+    let kode_upper = kode.to_uppercase();
+    let uraian_lower = uraian.to_lowercase();
+    let bulan_display = if bulan.is_empty() {
+        "".to_string()
+    } else {
+        format!(" Bulan {}", bulan)
+    };
+    let tahun_display = if tahun.is_empty() {
+        "".to_string()
+    } else {
+        format!(" TA {}", tahun)
+    };
+
+    // Expand based on kode rekening and uraian keywords
+    if kode_upper.contains("07.12.04")
+        || uraian_lower.contains("tenaga ahli")
+        || uraian_lower.contains("narasumber")
+    {
+        // Tenaga Ahli / Narasumber
+        let base = uraian.trim();
+        if base.len() < 40 {
+            format!(
+                "Pembayaran Honorarium Tenaga Ahli/Narasumber — {}{}{}",
+                base, bulan_display, tahun_display
+            )
+        } else {
+            format!(
+                "{} — Honorarium Tenaga Ahli/Narasumber{}{}",
+                base, bulan_display, tahun_display
+            )
+        }
+    } else if uraian_lower.contains("instruktur")
+        || uraian_lower.contains("pelatih")
+        || uraian_lower.contains("guru")
+    {
+        // Instruktur / Pelatih
+        let base = uraian.trim();
+        if base.len() < 40 {
+            format!(
+                "Pembayaran Honorarium Instruktur/Pelatih — {}{}{}",
+                base, bulan_display, tahun_display
+            )
+        } else {
+            format!(
+                "{} — Honorarium Instruktur/Pelatih{}{}",
+                base, bulan_display, tahun_display
+            )
+        }
+    } else if uraian_lower.contains("honor") || uraian_lower.contains("honorarium") {
+        // Generic honorarium
+        let base = uraian.trim();
+        if base.len() < 40 {
+            format!(
+                "Pembayaran Honorarium — {}{}{}",
+                base, bulan_display, tahun_display
+            )
+        } else {
+            format!("{}{}{}", base, bulan_display, tahun_display)
+        }
+    } else {
+        // BNU but no honor keywords - just add context
+        let base = uraian.trim();
+        format!("{}{}{}", base, bulan_display, tahun_display)
+    }
 }
 
 // ============ PRINT SETTINGS ============

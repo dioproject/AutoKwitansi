@@ -51,8 +51,8 @@ fn format_currency(val: f64) -> String {
 }
 
 /// Build ESC/POS byte array for a single nota POS as store receipt
-/// Content is distinct from kwitansi: uses toko data as header, simpler layout
-fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings) -> Vec<u8> {
+/// Content is distinct from kwitansi: uses toko data as header, auto-generated nota number
+fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) -> Vec<u8> {
     let paper_width = settings.paper_width;
     let max_chars = if paper_width >= 80 { 48 } else { 32 };
     let line = |s: &str| truncate_per_line(&sanitize_ascii(s), max_chars);
@@ -99,10 +99,10 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings) -> Vec<u8> {
     buf.extend_from_slice(line(&double_sep).as_bytes());
     buf.extend_from_slice(LF);
 
-    // No & Tanggal
+    // No (auto-generated nota number) & Tanggal
     buf.extend_from_slice(ESC_ALIGN_LEFT);
     let label = label_nomor_cetak(&k.nomor_kwitansi);
-    buf.extend_from_slice(line(&format!("No   : {}", label)).as_bytes());
+    buf.extend_from_slice(line(&format!("No   : {}/{}", label, nota_number)).as_bytes());
     buf.extend_from_slice(LF);
     let tgl_fmt = format_tanggal_cetak(&k.tanggal);
     buf.extend_from_slice(line(&format!("Tgl  : {}", tgl_fmt)).as_bytes());
@@ -245,7 +245,9 @@ pub fn print_nota(kwitansi: &Kwitansi, settings: &PosSettings) -> Result<(), Str
         return Err("Port printer belum diatur".into());
     }
 
-    let bytes = build_escpos_nota(kwitansi, settings);
+    let nota_number = db::generate_pos_number()
+        .unwrap_or_else(|_| format!("{:06}", rand::random::<u32>() % 1000000));
+    let bytes = build_escpos_nota(kwitansi, settings, &nota_number);
 
     match serialport::new(&settings.port, settings.baud_rate as u32)
         .timeout(std::time::Duration::from_secs(5))

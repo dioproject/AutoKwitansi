@@ -109,6 +109,8 @@ pub struct PosSettings {
     pub header_text: String,
     #[serde(default)]
     pub footer_text: String,
+    #[serde(default)]
+    pub last_pos_number: i64,
 }
 
 // ============ BPU DOKUMEN ============

@@ -127,14 +127,15 @@ pub fn init_db() -> Result<()> {
             port TEXT NOT NULL DEFAULT '',
             baud_rate INTEGER NOT NULL DEFAULT 9600,
             header_text TEXT NOT NULL DEFAULT '',
-            footer_text TEXT NOT NULL DEFAULT ''
+            footer_text TEXT NOT NULL DEFAULT '',
+            last_pos_number INTEGER NOT NULL DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS idx_kwitansi_bulan_tahun ON kwitansi(bulan, tahun_anggaran);
         ",
     )?;
 
     // Migration: add new columns if missing (for existing DBs)
-    let column_migrations: [(&str, &str, &str); 10] = [
+    let column_migrations: [(&str, &str, &str); 11] = [
         ("print_settings", "sig_gap", "REAL NOT NULL DEFAULT 15.0"),
         ("kwitansi", "bulan", "TEXT NOT NULL DEFAULT ''"),
         ("kwitansi", "nama_toko", "TEXT NOT NULL DEFAULT ''"),
@@ -145,6 +146,11 @@ pub fn init_db() -> Result<()> {
         ("pos_settings", "baud_rate", "INTEGER NOT NULL DEFAULT 9600"),
         ("pos_settings", "header_text", "TEXT NOT NULL DEFAULT ''"),
         ("pos_settings", "footer_text", "TEXT NOT NULL DEFAULT ''"),
+        (
+            "pos_settings",
+            "last_pos_number",
+            "INTEGER NOT NULL DEFAULT 0",
+        ),
     ];
     for (table, column, typedef) in &column_migrations {
         match add_column_if_missing(&conn, table, column, typedef) {
@@ -430,7 +436,7 @@ pub fn save_print_settings(s: &PrintSettings) -> Result<()> {
 pub fn get_pos_settings() -> Result<PosSettings> {
     let conn = get_connection()?;
     let result = conn.query_row(
-        "SELECT id, paper_width, port, baud_rate, header_text, footer_text FROM pos_settings LIMIT 1",
+        "SELECT id, paper_width, port, baud_rate, header_text, footer_text, last_pos_number FROM pos_settings LIMIT 1",
         [],
         |row| {
             Ok(PosSettings {
@@ -440,6 +446,7 @@ pub fn get_pos_settings() -> Result<PosSettings> {
                 baud_rate: row.get(3)?,
                 header_text: row.get(4)?,
                 footer_text: row.get(5)?,
+                last_pos_number: row.get(6)?,
             })
         },
     );
@@ -454,11 +461,12 @@ pub fn get_pos_settings() -> Result<PosSettings> {
                 baud_rate: 9600,
                 header_text: String::new(),
                 footer_text: String::new(),
+                last_pos_number: 0,
             };
             let conn2 = get_connection()?;
             conn2.execute(
-                "INSERT INTO pos_settings (paper_width, port, baud_rate, header_text, footer_text) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![default.paper_width, default.port, default.baud_rate, default.header_text, default.footer_text],
+                "INSERT INTO pos_settings (paper_width, port, baud_rate, header_text, footer_text, last_pos_number) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![default.paper_width, default.port, default.baud_rate, default.header_text, default.footer_text, default.last_pos_number],
             )?;
             let id = conn2.last_insert_rowid();
             Ok(PosSettings {
@@ -473,17 +481,24 @@ pub fn save_pos_settings(s: &PosSettings) -> Result<()> {
     let conn = get_connection()?;
     if let Some(id) = s.id {
         conn.execute(
-            "UPDATE pos_settings SET paper_width=?1, port=?2, baud_rate=?3, header_text=?4, footer_text=?5 WHERE id=?6",
-            params![s.paper_width, s.port, s.baud_rate, s.header_text, s.footer_text, id],
+            "UPDATE pos_settings SET paper_width=?1, port=?2, baud_rate=?3, header_text=?4, footer_text=?5, last_pos_number=?6 WHERE id=?7",
+            params![s.paper_width, s.port, s.baud_rate, s.header_text, s.footer_text, s.last_pos_number, id],
         )?;
     } else {
         conn.execute("DELETE FROM pos_settings", [])?;
         conn.execute(
-            "INSERT INTO pos_settings (paper_width, port, baud_rate, header_text, footer_text) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![s.paper_width, s.port, s.baud_rate, s.header_text, s.footer_text],
+            "INSERT INTO pos_settings (paper_width, port, baud_rate, header_text, footer_text, last_pos_number) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![s.paper_width, s.port, s.baud_rate, s.header_text, s.footer_text, s.last_pos_number],
         )?;
     }
     Ok(())
+}
+
+/// Generate a random POS nota number (format: YYYYMMDD-RRRR)
+pub fn generate_pos_number() -> Result<String> {
+    let random_part: u32 = rand::random::<u32>() % 9000 + 1000;
+    let today = chrono::Local::now().format("%Y%m%d").to_string();
+    Ok(format!("{}-{:04}", today, random_part))
 }
 
 // ============ BPU DOKUMEN ============

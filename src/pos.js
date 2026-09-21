@@ -72,6 +72,7 @@ export function renderPosNotaTemplate(k, settings) {
   const doubleSep = "═".repeat(maxChars);
 
   const label = labelNomorCetak(k.nomor_kwitansi);
+  const autoNum = generateRandomNotaNum();
   const lines = [];
   
   // HEADER — data toko (BPU) atau custom text
@@ -91,8 +92,8 @@ export function renderPosNotaTemplate(k, settings) {
   }
   lines.push(doubleSep);
   
-  // No & Tanggal
-  lines.push(`No   : ${label}`);
+  // No (auto-generated) & Tanggal
+  lines.push(`No   : ${label}/${autoNum}`);
   lines.push(`Tgl  : ${formatTanggalPanjang(k.tanggal)}`);
   lines.push(sep);
   
@@ -146,6 +147,13 @@ function labelNomorCetak(nomor) {
   if (upper.includes("BNU")) return "BNU";
   if (upper.includes("BPU")) return "BPU";
   return nomor || "";
+}
+
+function generateRandomNotaNum() {
+  const now = new Date();
+  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `${ymd}-${rand}`;
 }
 
 function centerText(text, maxChars) {
