@@ -27,15 +27,14 @@ window._closeModal = function (id) {
 };
 
 // Default field positions (mm) for values_only mode
+// NOTE: kode_rekening & tahun_anggaran tidak ada di sini — sudah menyatu
+// dalam kalimat "Untuk Pembayaran". Tanggal menyatu dalam blok Penerima.
 const DEFAULT_FIELD_POSITIONS = {
   nomor: { x: 110, y: 18 },
-  tahun_anggaran: { x: 15, y: 28 },
-  kode_rekening: { x: 100, y: 28 },
   sudah_terima_dari: { x: 60, y: 40 },
   uang_sejumlah: { x: 60, y: 52 },
   untuk_pembayaran: { x: 60, y: 64 },
   jumlah_rp: { x: 120, y: 80 },
-  tanggal: { x: 100, y: 120 },
   mengetahui: { x: 15, y: 120 },
   penerima: { x: 100, y: 120 },
   bendahara: { x: 155, y: 120 },
@@ -855,6 +854,20 @@ async function loadPrintSettings() {
     currentPrintSettings = await invoke("cmd_get_print_settings");
     if (currentPrintSettings.field_positions === "{}" || !currentPrintSettings.field_positions) {
       currentPrintSettings.field_positions = JSON.stringify(DEFAULT_FIELD_POSITIONS);
+    } else {
+      // Bersihkan field lama yang sudah tidak dipakai (kode/tahun menyatu
+      // dalam kalimat pembayaran, tanggal menyatu dalam blok penerima)
+      try {
+        const pos = JSON.parse(currentPrintSettings.field_positions);
+        let dirty = false;
+        for (const legacy of ["tahun_anggaran", "kode_rekening", "tanggal"]) {
+          if (legacy in pos) { delete pos[legacy]; dirty = true; }
+        }
+        if (dirty) {
+          currentPrintSettings.field_positions = JSON.stringify(pos);
+          await invoke("cmd_save_print_settings", { settings: currentPrintSettings });
+        }
+      } catch (_) {}
     }
   } catch (e) {
     console.error("Gagal load print settings:", e);
@@ -950,15 +963,12 @@ function renderPaperPreview() {
   if (mode === "values_only") {
     const fieldDefs = [
       { key: "nomor", label: "No Kwitansi", color: "#1a56db" },
-      { key: "tahun_anggaran", label: "Tahun Anggaran", color: "#059669" },
-      { key: "kode_rekening", label: "Kode Rekening", color: "#059669" },
       { key: "sudah_terima_dari", label: "Sudah Terima Dari", color: "#d97706" },
       { key: "uang_sejumlah", label: "Uang Sejumlah", color: "#d97706" },
-      { key: "untuk_pembayaran", label: "Untuk Pembayaran", color: "#d97706" },
+      { key: "untuk_pembayaran", label: "Untuk Pembayaran (kalimat gabungan)", color: "#d97706" },
       { key: "jumlah_rp", label: "Jumlah Rp", color: "#dc2626" },
-      { key: "tanggal", label: "Tanggal", color: "#8b5cf6" },
       { key: "mengetahui", label: "Mengetahui (Nama + NIP)", color: "#6366f1" },
-      { key: "penerima", label: "Yang Menerima (Nama)", color: "#ec4899" },
+      { key: "penerima", label: "Penerima + Tgl (Nama)", color: "#ec4899" },
       { key: "bendahara", label: "Bendahara (Nama + NIP)", color: "#14b8a6" },
     ];
 
@@ -1091,8 +1101,6 @@ function renderValuesOnlyTemplate(k) {
   return `
     <div class="kwitansi-page values-only" style="width:${s.paper_width}mm; min-height:${s.paper_height}mm; padding:${s.margin_top}mm ${s.margin_right}mm ${s.margin_bottom}mm ${s.margin_left}mm; font-size:${fontSize}pt;">
       <div class="kv" style="${pos('nomor')}">${esc(k.nomor_kwitansi)}</div>
-      <div class="kv" style="${pos('tahun_anggaran')}">Tahun Anggaran: ${esc(k.tahun_anggaran)}</div>
-      <div class="kv" style="${pos('kode_rekening')}">Kode Rekening: ${esc(k.kode_rekening)}</div>
       <div class="kv" style="${pos('sudah_terima_dari')}">${esc(k.sudah_terima_dari)}</div>
       <div class="kv" style="${pos('uang_sejumlah')}">${esc(capitalize(k.terbilang))}</div>
       <div class="kv" style="${pos('untuk_pembayaran')}">${esc(composePaymentSentence(k))}</div>
