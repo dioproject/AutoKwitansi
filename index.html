@@ -220,6 +220,11 @@
               <h3 style="margin:0;">📋 Preview Data (<span id="bku-period-count">0</span> transaksi)</h3>
               <span style="font-size:12px;color:var(--text-muted);">✏️ Edit bulan/tahun & penerima sebelum import</span>
             </div>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer;padding:10px 14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;flex-wrap:wrap;">
+              <input type="checkbox" id="period-group-kode" onchange="handleToggleGroupKodePeriod(this)" style="width:16px;height:16px;cursor:pointer;" />
+              <span style="font-size:13px;font-weight:600;color:#92400e;">&#128279; Gabung transaksi dengan kode rekening sama (per bulan)</span>
+              <span style="font-size:11px;color:#a16207;">— menjadi 1 kwitansi per kode rekening</span>
+            </label>
             <div class="table-container" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);">
               <table>
                 <thead>
@@ -343,6 +348,11 @@
             <!-- PDF Preview Table -->
             <div id="pdf-preview" class="hidden">
               <h3>Preview Data BKU (<span id="pdf-count">0</span> transaksi)</h3>
+              <label style="display:flex;align-items:center;gap:8px;margin:10px 0;cursor:pointer;padding:10px 14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;flex-wrap:wrap;">
+                <input type="checkbox" id="pdf-group-kode" onchange="handleToggleGroupKode(this)" style="width:16px;height:16px;cursor:pointer;" />
+                <span style="font-size:13px;font-weight:600;color:#92400e;">&#128279; Gabung transaksi dengan kode rekening sama</span>
+                <span style="font-size:11px;color:#a16207;">— menjadi 1 kwitansi per kode rekening (jumlah dijumlahkan, uraian &amp; penerima digabung)</span>
+              </label>
               <div class="table-container">
                 <table>
                   <thead>
@@ -743,23 +753,23 @@
   </div>
 
   <!-- MODAL: POS NOTA PREVIEW -->
-  <div id="modal-pos-preview" class="modal hidden">
-    <div class="modal-content" style="max-width:420px;text-align:center;">
-      <h3 style="margin-bottom:12px;">🧾 Preview Nota POS</h3>
-      <div id="modal-pos-content" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:16px;max-height:400px;overflow-y:auto;">
+  <div id="modal-pos-preview" class="modal hidden" onclick="if(event.target===this)window._closeModal('modal-pos-preview')">
+    <div class="modal-content" style="max-width:380px;text-align:center;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;font-size:16px;">🧾 Preview Nota POS</h3>
+        <button onclick="window._closeModal('modal-pos-preview')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);padding:0;line-height:1;">&times;</button>
       </div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <button class="btn btn-pos" id="btn-pos-thermal" onclick="window._posPrintThermal()" style="width:100%;">
-          🖨️ Cetak ke Printer Thermal
+      <div id="modal-pos-content" style="background:linear-gradient(180deg,#fefefe,#f9fafb);border:1px solid #d1d5db;border-radius:4px;padding:10px;margin-bottom:14px;max-height:360px;overflow-y:auto;box-shadow:inset 0 1px 3px rgba(0,0,0,0.06);">
+      </div>
+      <div id="modal-pos-status" style="margin-bottom:10px;font-size:12px;min-height:18px;font-weight:500;"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-pos" id="btn-pos-thermal" onclick="window._posPrintThermal()" style="flex:1;font-size:13px;padding:10px;">
+          🖨️ Thermal
         </button>
-        <button class="btn btn-secondary" id="btn-pos-browser" onclick="window._posPrintBrowser()" style="width:100%;">
-          🖨️ Cetak via Printer Biasa
-        </button>
-        <button class="btn btn-sm" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-muted);" onclick="window._closeModal('modal-pos-preview')">
-          ✖ Tutup
+        <button class="btn btn-secondary" id="btn-pos-browser" onclick="window._posPrintBrowser()" style="flex:1;font-size:13px;padding:10px;">
+          🖨️ Printer
         </button>
       </div>
-      <div id="modal-pos-status" style="margin-top:10px;font-size:12px;color:var(--text-muted);min-height:18px;"></div>
     </div>
   </div>
 

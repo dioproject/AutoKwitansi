@@ -636,6 +636,83 @@ window.openPdfDialog = async function () {
   }
 };
 
+// ========== GROUP BY KODE REKENING ==========
+let pdfGroupMode = false;
+
+/**
+ * Gabung transaksi dengan kode rekening sama menjadi satu.
+ * Jumlah dijumlahkan, uraian & penerima digabung (unik), tanggal terlama dipakai.
+ */
+function groupTransactionsByKode(transactions) {
+  const groups = new Map();
+  for (const tx of transactions) {
+    const key = (tx.kode_rekening || "").trim() || "(tanpa kode)";
+    if (!groups.has(key)) {
+      groups.set(key, {
+        no_bukti: tx.no_bukti,
+        tanggal: tx.tanggal,
+        kode_kegiatan: tx.kode_kegiatan || "",
+        kode_rekening: key,
+        uraian: tx.uraian,
+        pengeluaran: tx.pengeluaran,
+        penerima: tx.penerima,
+        _count: 1,
+      });
+    } else {
+      const g = groups.get(key);
+      g.pengeluaran += tx.pengeluaran;
+      // Gabung uraian unik
+      if (tx.uraian && !g.uraian.includes(tx.uraian)) {
+        g.uraian = g.uraian ? g.uraian + "; " + tx.uraian : tx.uraian;
+      }
+      // Gabung penerima unik
+      const existingPenerima = (g.penerima || "").split(",").map(s => s.trim());
+      const newPenerima = (tx.penerima || "").trim();
+      if (newPenerima && !existingPenerima.includes(newPenerima)) {
+        g.penerima = g.penerima ? g.penerima + ", " + newPenerima : newPenerima;
+      }
+      // Tanggal terlama
+      if (tx.tanggal && (!g.tanggal || tx.tanggal < g.tanggal)) g.tanggal = tx.tanggal;
+      g._count++;
+    }
+  }
+  return [...groups.values()];
+}
+window._groupByKodeRekening = groupTransactionsByKode;
+
+function getPdfDisplayedRows() {
+  if (!currentBkuData) return [];
+  return pdfGroupMode ? groupTransactionsByKode(currentBkuData.transactions) : currentBkuData.transactions;
+}
+
+window.handleToggleGroupKode = function (el) {
+  pdfGroupMode = el.checked;
+  renderPdfPreviewTable();
+};
+
+function renderPdfPreviewTable() {
+  if (!currentBkuData) return;
+  const rows = getPdfDisplayedRows();
+  document.getElementById("pdf-count").textContent = rows.length;
+  const tbody = document.getElementById("pdf-tbody");
+  tbody.innerHTML = rows.map((tx, i) => {
+    const gabBadge = tx._count > 1
+      ? ` <span class="badge badge-period" title="Gabungan ${tx._count} transaksi">${tx._count}x</span>`
+      : "";
+    return `
+      <tr>
+        <td><input type="checkbox" class="pdf-row-check" data-index="${i}" checked /></td>
+        <td>${esc(tx.no_bukti)}${gabBadge}</td>
+        <td>${esc(tx.tanggal)}</td>
+        <td>${esc(tx.kode_rekening)}</td>
+        <td title="${esc(tx.uraian)}">${esc(tx.uraian.length > 60 ? tx.uraian.substring(0, 60) + "..." : tx.uraian)}</td>
+        <td class="rupiah">Rp ${formatRupiah(tx.pengeluaran)}</td>
+        <td><input type="text" class="pdf-penerima-input" data-index="${i}" value="${esc(tx.penerima)}" placeholder="Isi penerima..." /></td>
+      </tr>
+    `;
+  }).join("");
+}
+
 async function processPdfFile(filePath) {
   document.getElementById("pdf-loading").classList.remove("hidden");
   document.getElementById("pdf-preview").classList.add("hidden");
@@ -653,19 +730,10 @@ async function processPdfFile(filePath) {
     document.getElementById("pdf_bendahara").value = result.bendahara || (sekolahData ? sekolahData.bendahara : "");
     document.getElementById("pdf_nip_bendahara").value = result.nip_bendahara || (sekolahData ? sekolahData.nip_bendahara : "");
 
-    document.getElementById("pdf-count").textContent = result.transactions.length;
-    const tbody = document.getElementById("pdf-tbody");
-    tbody.innerHTML = result.transactions.map((tx, i) => `
-      <tr>
-        <td><input type="checkbox" class="pdf-row-check" data-index="${i}" checked /></td>
-        <td>${esc(tx.no_bukti)}</td>
-        <td>${esc(tx.tanggal)}</td>
-        <td>${esc(tx.kode_rekening)}</td>
-        <td title="${esc(tx.uraian)}">${esc(tx.uraian.length > 60 ? tx.uraian.substring(0, 60) + "..." : tx.uraian)}</td>
-        <td class="rupiah">Rp ${formatRupiah(tx.pengeluaran)}</td>
-        <td><input type="text" class="pdf-penerima-input" data-index="${i}" value="${esc(tx.penerima)}" placeholder="Isi penerima..." /></td>
-      </tr>
-    `).join("");
+    pdfGroupMode = false;
+    const groupToggle = document.getElementById("pdf-group-kode");
+    if (groupToggle) groupToggle.checked = false;
+    renderPdfPreviewTable();
 
     document.getElementById("pdf-import-settings").classList.remove("hidden");
     document.getElementById("pdf-preview").classList.remove("hidden");
@@ -689,6 +757,7 @@ window.handleImportBku = async function () {
     return;
   }
 
+  const displayedRows = getPdfDisplayedRows();
   const checkboxes = document.querySelectorAll(".pdf-row-check");
   const penerimaInputs = document.querySelectorAll(".pdf-penerima-input");
   const selectedTransactions = [];
@@ -696,7 +765,8 @@ window.handleImportBku = async function () {
   checkboxes.forEach((cb) => {
     if (cb.checked) {
       const idx = parseInt(cb.dataset.index);
-      const tx = { ...currentBkuData.transactions[idx] };
+      const tx = { ...displayedRows[idx] };
+      delete tx._count;
       const input = penerimaInputs[idx];
       if (input) tx.penerima = input.value;
       selectedTransactions.push(tx);

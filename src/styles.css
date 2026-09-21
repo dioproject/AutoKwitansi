@@ -983,3 +983,12 @@ td .actions {
   font-size: 36px;
   margin-bottom: 8px;
 }
+
+/* ============ POS NOTA PREVIEW (receipt paper look) ============ */
+#modal-pos-content .pos-nota {
+  border: none !important;
+  box-shadow: none !important;
+  margin: 0 auto !important;
+  padding: 2mm !important;
+  background: #fff !important;
+}

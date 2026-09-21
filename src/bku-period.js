@@ -30,6 +30,10 @@ async function processBkuPeriodFiles(filePaths) {
     const result = await invoke("cmd_parse_bku_pdfs", { filePaths });
     currentBkuPeriodData = result;
 
+    periodGroupMode = false;
+    const groupToggle = document.getElementById("period-group-kode");
+    if (groupToggle) groupToggle.checked = false;
+
     const grouped = groupByPeriod(result);
     currentGrouped = grouped;
     renderPeriodPreview(grouped);
@@ -68,15 +72,33 @@ function groupByPeriod(data) {
   return Object.values(map);
 }
 
+// ========== GROUP BY KODE REKENING (PER BULAN) ==========
+let periodGroupMode = false;
+
+window.handleToggleGroupKodePeriod = function (el) {
+  periodGroupMode = el.checked;
+  renderPeriodPreview(currentGrouped);
+};
+
+function getPeriodDisplayedRows(group) {
+  if (periodGroupMode && window._groupByKodeRekening) {
+    return window._groupByKodeRekening(group.transactions);
+  }
+  return group.transactions;
+}
+
 function renderPeriodPreview(grouped) {
   const tbody = document.getElementById("bku-period-tbody");
   if (!tbody) return;
 
   const countEl = document.getElementById("bku-period-count");
-  if (countEl) countEl.textContent = grouped.reduce((sum, g) => sum + g.transactions.length, 0);
+  if (countEl) {
+    countEl.textContent = grouped.reduce((sum, g) => sum + getPeriodDisplayedRows(g).length, 0);
+  }
 
   let html = "";
   for (const group of grouped) {
+    const rows = getPeriodDisplayedRows(group);
     html += `<tr class="period-header-row">
       <td colspan="7" style="background:linear-gradient(135deg,#e8effc,#dbeafe);font-weight:700;padding:10px 14px;border-bottom:2px solid var(--primary);">
         <span style="display:flex;align-items:center;gap:8px;">
@@ -84,17 +106,18 @@ function renderPeriodPreview(grouped) {
           <span style="color:var(--primary);">BKU</span>
           <input type="text" class="period-bulan-input" data-group="${group.id}" value="${esc(group.bulan)}" style="width:100px;font-weight:700;font-size:13px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;" placeholder="Bulan" />
           <input type="text" class="period-tahun-input" data-group="${group.id}" value="${esc(group.tahun)}" style="width:70px;font-weight:700;font-size:13px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;" placeholder="Tahun" />
-          <span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--text-muted);">${group.transactions.length} transaksi</span>
+          <span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--text-muted);">${rows.length} transaksi${periodGroupMode ? " (gabungan)" : ""}</span>
         </span>
       </td>
     </tr>`;
-    for (let i = 0; i < group.transactions.length; i++) {
-      const tx = group.transactions[i];
+    for (let i = 0; i < rows.length; i++) {
+      const tx = rows[i];
       const pph21 = (tx.no_bukti||'').toUpperCase().includes('BNU') || (tx.kode_kegiatan||'').includes('07.12.04') || (tx.uraian||'').toLowerCase().match(/honor|instruktur/);
+      const gabBadge = tx._count > 1 ? ` <span class="badge badge-period" title="Gabungan ${tx._count} transaksi">${tx._count}x</span>` : "";
       html += `
         <tr>
           <td><input type="checkbox" class="period-row-check" data-group="${group.id}" data-index="${i}" checked /></td>
-          <td>${esc(tx.no_bukti)} ${pph21 ? '<span class="badge badge-warn" style="font-size:10px;">PPh21</span>' : ''}</td>
+          <td>${esc(tx.no_bukti)}${gabBadge} ${pph21 ? '<span class="badge badge-warn" style="font-size:10px;">PPh21</span>' : ''}</td>
           <td>${esc(tx.tanggal)}</td>
           <td>${esc(tx.kode_rekening)}</td>
           <td title="${esc(tx.uraian)}">${esc(tx.uraian.length > 50 ? tx.uraian.substring(0, 50) + "..." : tx.uraian)}</td>
@@ -129,11 +152,13 @@ window.handleImportBkuPeriod = async function () {
     const checked = document.querySelectorAll(`.period-row-check[data-group="${group.id}"]:checked`);
     if (checked.length === 0) continue;
 
+    const displayedRows = getPeriodDisplayedRows(group);
     const txns = [];
     checked.forEach((cb) => {
       const idx = parseInt(cb.dataset.index);
-      if (group.transactions[idx]) {
-        const tx = { ...group.transactions[idx] };
+      if (displayedRows[idx]) {
+        const tx = { ...displayedRows[idx] };
+        delete tx._count;
         const input = document.querySelector(`.period-penerima-input[data-group="${group.id}"][data-index="${idx}"]`);
         if (input) tx.penerima = input.value;
         txns.push(tx);
@@ -173,6 +198,9 @@ window.handleImportBkuPeriod = async function () {
 window.resetBkuPeriod = function () {
   currentBkuPeriodData = [];
   currentGrouped = [];
+  periodGroupMode = false;
+  const groupToggle = document.getElementById("period-group-kode");
+  if (groupToggle) groupToggle.checked = false;
   const loading = document.getElementById("bku-period-loading");
   const preview = document.getElementById("bku-period-preview");
   const settings = document.getElementById("bku-period-settings");
