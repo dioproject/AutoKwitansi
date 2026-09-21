@@ -220,11 +220,12 @@
               <h3 style="margin:0;">📋 Preview Data (<span id="bku-period-count">0</span> transaksi)</h3>
               <span style="font-size:12px;color:var(--text-muted);">✏️ Edit bulan/tahun & penerima sebelum import</span>
             </div>
-            <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer;padding:10px 14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;flex-wrap:wrap;">
-              <input type="checkbox" id="period-group-kode" onchange="handleToggleGroupKodePeriod(this)" style="width:16px;height:16px;cursor:pointer;" />
-              <span style="font-size:13px;font-weight:600;color:#92400e;">&#128279; Gabung transaksi dengan kode rekening sama (per bulan)</span>
-              <span style="font-size:11px;color:#a16207;">— menjadi 1 kwitansi per kode rekening</span>
-            </label>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;flex-wrap:wrap;">
+              <button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff;" onclick="handleGabungPeriodSelected()">&#128279; Gabungkan yang Dicentang</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="handleGabungPeriodAutoKode()">&#9889; Gabung Otomatis per Kode (per bulan)</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="handleUraiPeriodSemua()">&#8634; Uraikan Semua</button>
+              <span style="font-size:11px;color:#a16207;flex-basis:100%;">Centang 2+ baris <b>dalam bulan yang sama</b> untuk dijadikan 1 kwitansi. Baris gabungan bertanda <b>Nx</b> dan bisa diuraikan (&#10006;).</span>
+            </div>
             <div class="table-container" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);">
               <table>
                 <thead>
@@ -348,11 +349,12 @@
             <!-- PDF Preview Table -->
             <div id="pdf-preview" class="hidden">
               <h3>Preview Data BKU (<span id="pdf-count">0</span> transaksi)</h3>
-              <label style="display:flex;align-items:center;gap:8px;margin:10px 0;cursor:pointer;padding:10px 14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;flex-wrap:wrap;">
-                <input type="checkbox" id="pdf-group-kode" onchange="handleToggleGroupKode(this)" style="width:16px;height:16px;cursor:pointer;" />
-                <span style="font-size:13px;font-weight:600;color:#92400e;">&#128279; Gabung transaksi dengan kode rekening sama</span>
-                <span style="font-size:11px;color:#a16207;">— menjadi 1 kwitansi per kode rekening (jumlah dijumlahkan, uraian &amp; penerima digabung)</span>
-              </label>
+              <div style="display:flex;align-items:center;gap:8px;margin:10px 0;padding:10px 14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff;" onclick="handleGabungPdfSelected()">&#128279; Gabungkan yang Dicentang</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="handleGabungPdfAutoKode()">&#9889; Gabung Otomatis per Kode Rekening</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="handleUraiPdfSemua()">&#8634; Uraikan Semua</button>
+                <span style="font-size:11px;color:#a16207;flex-basis:100%;">Centang 2+ baris yang ingin dijadikan 1 kwitansi, lalu klik "Gabungkan". Baris gabungan bertanda <b>Nx</b> dan bisa diuraikan lagi (&#10006;).</span>
+              </div>
               <div class="table-container">
                 <table>
                   <thead>

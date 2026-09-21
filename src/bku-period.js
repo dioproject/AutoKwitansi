@@ -30,12 +30,9 @@ async function processBkuPeriodFiles(filePaths) {
     const result = await invoke("cmd_parse_bku_pdfs", { filePaths });
     currentBkuPeriodData = result;
 
-    periodGroupMode = false;
-    const groupToggle = document.getElementById("period-group-kode");
-    if (groupToggle) groupToggle.checked = false;
-
     const grouped = groupByPeriod(result);
     currentGrouped = grouped;
+    initPeriodRows();
     renderPeriodPreview(grouped);
 
     if (settings) settings.classList.remove("hidden");
@@ -72,20 +69,104 @@ function groupByPeriod(data) {
   return Object.values(map);
 }
 
-// ========== GROUP BY KODE REKENING (PER BULAN) ==========
-let periodGroupMode = false;
+// ========== GABUNG TRANSAKSI MANUAL (PER BULAN) ==========
+// periodRowsByGroup[groupId] = array of { rid, tx, orig, count }
+let periodRowsByGroup = {};
+let periodRidCounter = 0;
 
-window.handleToggleGroupKodePeriod = function (el) {
-  periodGroupMode = el.checked;
+function initPeriodRows() {
+  periodRidCounter = 0;
+  periodRowsByGroup = {};
+  for (const g of currentGrouped) {
+    periodRowsByGroup[g.id] = g.transactions.map(tx => ({ rid: periodRidCounter++, tx: { ...tx }, orig: null, count: 1 }));
+  }
+}
+
+function getPeriodRows(group) {
+  return periodRowsByGroup[group.id] || [];
+}
+
+function capturePeriodPenerimaEdits() {
+  document.querySelectorAll(".period-penerima-input").forEach(inp => {
+    const gid = inp.dataset.group;
+    const rid = parseInt(inp.dataset.rid);
+    const row = (periodRowsByGroup[gid] || []).find(r => r.rid === rid);
+    if (row) row.tx.penerima = inp.value;
+  });
+}
+
+function mergePeriodByRids(gid, rids) {
+  const rows = periodRowsByGroup[gid] || [];
+  const ridSet = new Set(rids);
+  const rowsToMerge = rows.filter(r => ridSet.has(r.rid));
+  if (rowsToMerge.length < 2) return false;
+  const firstIdx = rows.findIndex(r => ridSet.has(r.rid));
+  const mergedRow = {
+    rid: periodRidCounter++,
+    tx: window._mergeDisplayRows(rowsToMerge),
+    orig: rowsToMerge.map(r => ({ rid: r.rid, tx: r.tx, orig: r.orig, count: r.count })),
+    count: rowsToMerge.reduce((s, r) => s + (r.count || 1), 0),
+  };
+  periodRowsByGroup[gid] = rows.filter(r => !ridSet.has(r.rid));
+  periodRowsByGroup[gid].splice(Math.min(firstIdx, periodRowsByGroup[gid].length), 0, mergedRow);
+  return true;
+}
+
+window.handleGabungPeriodSelected = function () {
+  capturePeriodPenerimaEdits();
+  const byGroup = new Map();
+  document.querySelectorAll(".period-row-check:checked").forEach(cb => {
+    const gid = cb.dataset.group;
+    if (!byGroup.has(gid)) byGroup.set(gid, []);
+    byGroup.get(gid).push(parseInt(cb.dataset.rid));
+  });
+  let totalMerged = 0;
+  for (const [gid, rids] of byGroup) {
+    if (rids.length >= 2 && mergePeriodByRids(gid, rids)) totalMerged += rids.length;
+  }
   renderPeriodPreview(currentGrouped);
+  if (totalMerged === 0) {
+    if (window._showToast) window._showToast("Centang minimal 2 baris dalam bulan yang sama", "warning");
+  } else {
+    if (window._showToast) window._showToast(`${totalMerged} transaksi digabung`, "success");
+  }
 };
 
-function getPeriodDisplayedRows(group) {
-  if (periodGroupMode && window._groupByKodeRekening) {
-    return window._groupByKodeRekening(group.transactions);
+window.handleGabungPeriodAutoKode = function () {
+  capturePeriodPenerimaEdits();
+  let mergedGroups = 0;
+  for (const g of currentGrouped) {
+    const byKode = new Map();
+    for (const row of getPeriodRows(g)) {
+      const key = (row.tx.kode_rekening || "").trim() || "(tanpa kode)";
+      if (!byKode.has(key)) byKode.set(key, []);
+      byKode.get(key).push(row.rid);
+    }
+    for (const [, ridList] of byKode) {
+      if (ridList.length >= 2 && mergePeriodByRids(g.id, ridList)) mergedGroups++;
+    }
   }
-  return group.transactions;
-}
+  renderPeriodPreview(currentGrouped);
+  if (window._showToast) {
+    if (mergedGroups === 0) window._showToast("Tidak ada transaksi dengan kode rekening sama", "warning");
+    else window._showToast(`${mergedGroups} grup kode rekening digabung otomatis`, "success");
+  }
+};
+
+window.handleUraiPeriodRow = function (gid, rid) {
+  const rows = periodRowsByGroup[gid] || [];
+  const idx = rows.findIndex(r => r.rid === rid);
+  if (idx < 0 || !rows[idx].orig) return;
+  rows.splice(idx, 1, ...rows[idx].orig);
+  renderPeriodPreview(currentGrouped);
+  if (window._showToast) window._showToast("Gabungan diuraikan", "success");
+};
+
+window.handleUraiPeriodSemua = function () {
+  initPeriodRows();
+  renderPeriodPreview(currentGrouped);
+  if (window._showToast) window._showToast("Semua gabungan diuraikan", "success");
+};
 
 function renderPeriodPreview(grouped) {
   const tbody = document.getElementById("bku-period-tbody");
@@ -93,12 +174,12 @@ function renderPeriodPreview(grouped) {
 
   const countEl = document.getElementById("bku-period-count");
   if (countEl) {
-    countEl.textContent = grouped.reduce((sum, g) => sum + getPeriodDisplayedRows(g).length, 0);
+    countEl.textContent = grouped.reduce((sum, g) => sum + getPeriodRows(g).length, 0);
   }
 
   let html = "";
   for (const group of grouped) {
-    const rows = getPeriodDisplayedRows(group);
+    const rows = getPeriodRows(group);
     html += `<tr class="period-header-row">
       <td colspan="7" style="background:linear-gradient(135deg,#e8effc,#dbeafe);font-weight:700;padding:10px 14px;border-bottom:2px solid var(--primary);">
         <span style="display:flex;align-items:center;gap:8px;">
@@ -106,23 +187,25 @@ function renderPeriodPreview(grouped) {
           <span style="color:var(--primary);">BKU</span>
           <input type="text" class="period-bulan-input" data-group="${group.id}" value="${esc(group.bulan)}" style="width:100px;font-weight:700;font-size:13px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;" placeholder="Bulan" />
           <input type="text" class="period-tahun-input" data-group="${group.id}" value="${esc(group.tahun)}" style="width:70px;font-weight:700;font-size:13px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;" placeholder="Tahun" />
-          <span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--text-muted);">${rows.length} transaksi${periodGroupMode ? " (gabungan)" : ""}</span>
+          <span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--text-muted);">${rows.length} transaksi</span>
         </span>
       </td>
     </tr>`;
-    for (let i = 0; i < rows.length; i++) {
-      const tx = rows[i];
+    for (const row of rows) {
+      const tx = row.tx;
       const pph21 = (tx.no_bukti||'').toUpperCase().includes('BNU') || (tx.kode_kegiatan||'').includes('07.12.04') || (tx.uraian||'').toLowerCase().match(/honor|instruktur/);
-      const gabBadge = tx._count > 1 ? ` <span class="badge badge-period" title="Gabungan ${tx._count} transaksi">${tx._count}x</span>` : "";
+      const gabBadge = row.count > 1
+        ? ` <span class="badge badge-period" title="Gabungan ${row.count} transaksi">${row.count}x</span> <button type="button" class="btn btn-sm btn-secondary" style="padding:1px 7px;font-size:11px;" title="Uraikan gabungan ini" onclick="handleUraiPeriodRow('${group.id}', ${row.rid})">&#10006;</button>`
+        : "";
       html += `
-        <tr>
-          <td><input type="checkbox" class="period-row-check" data-group="${group.id}" data-index="${i}" checked /></td>
+        <tr${row.count > 1 ? ' style="background:#fffbeb;"' : ""}>
+          <td><input type="checkbox" class="period-row-check" data-group="${group.id}" data-rid="${row.rid}" checked /></td>
           <td>${esc(tx.no_bukti)}${gabBadge} ${pph21 ? '<span class="badge badge-warn" style="font-size:10px;">PPh21</span>' : ''}</td>
           <td>${esc(tx.tanggal)}</td>
           <td>${esc(tx.kode_rekening)}</td>
           <td title="${esc(tx.uraian)}">${esc(tx.uraian.length > 50 ? tx.uraian.substring(0, 50) + "..." : tx.uraian)}</td>
           <td class="rupiah" style="text-align:right;">Rp ${formatRupiah(tx.pengeluaran)}</td>
-          <td><input type="text" class="period-penerima-input" data-group="${group.id}" data-index="${i}" value="${esc(tx.penerima)}" placeholder="Penerima..." style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:130px;" /></td>
+          <td><input type="text" class="period-penerima-input" data-group="${group.id}" data-rid="${row.rid}" value="${esc(tx.penerima)}" placeholder="Penerima..." style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:130px;" /></td>
         </tr>`;
     }
   }
@@ -149,21 +232,15 @@ window.handleImportBkuPeriod = async function () {
     const bulan = bulanInput ? bulanInput.value.trim() : group.bulan;
     const tahun = tahunInput ? tahunInput.value.trim() : group.tahun;
 
-    const checked = document.querySelectorAll(`.period-row-check[data-group="${group.id}"]:checked`);
-    if (checked.length === 0) continue;
+    const checkedRids = new Set(
+      [...document.querySelectorAll(`.period-row-check[data-group="${group.id}"]:checked`)].map(cb => parseInt(cb.dataset.rid))
+    );
+    if (checkedRids.size === 0) continue;
 
-    const displayedRows = getPeriodDisplayedRows(group);
-    const txns = [];
-    checked.forEach((cb) => {
-      const idx = parseInt(cb.dataset.index);
-      if (displayedRows[idx]) {
-        const tx = { ...displayedRows[idx] };
-        delete tx._count;
-        const input = document.querySelector(`.period-penerima-input[data-group="${group.id}"][data-index="${idx}"]`);
-        if (input) tx.penerima = input.value;
-        txns.push(tx);
-      }
-    });
+    capturePeriodPenerimaEdits();
+    const txns = getPeriodRows(group)
+      .filter(row => checkedRids.has(row.rid))
+      .map(row => ({ ...row.tx }));
 
     if (txns.length > 0) {
       if (!groupMap[group.id]) groupMap[group.id] = { bulan, tahun, transactions: [] };
@@ -198,9 +275,7 @@ window.handleImportBkuPeriod = async function () {
 window.resetBkuPeriod = function () {
   currentBkuPeriodData = [];
   currentGrouped = [];
-  periodGroupMode = false;
-  const groupToggle = document.getElementById("period-group-kode");
-  if (groupToggle) groupToggle.checked = false;
+  periodRowsByGroup = {};
   const loading = document.getElementById("bku-period-loading");
   const preview = document.getElementById("bku-period-preview");
   const settings = document.getElementById("bku-period-settings");

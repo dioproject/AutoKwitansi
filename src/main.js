@@ -636,78 +636,132 @@ window.openPdfDialog = async function () {
   }
 };
 
-// ========== GROUP BY KODE REKENING ==========
-let pdfGroupMode = false;
+// ========== GABUNG TRANSAKSI (MANUAL) ==========
+// Setiap baris preview = { rid, tx, orig, count }
+// rid = id unik baris; orig = baris-baris asli sebelum digabung (untuk urai); count = jumlah transaksi asal
+let pdfRows = [];
+let pdfRidCounter = 0;
 
-/**
- * Gabung transaksi dengan kode rekening sama menjadi satu.
- * Jumlah dijumlahkan, uraian & penerima digabung (unik), tanggal terlama dipakai.
- */
-function groupTransactionsByKode(transactions) {
-  const groups = new Map();
-  for (const tx of transactions) {
-    const key = (tx.kode_rekening || "").trim() || "(tanpa kode)";
-    if (!groups.has(key)) {
-      groups.set(key, {
-        no_bukti: tx.no_bukti,
-        tanggal: tx.tanggal,
-        kode_kegiatan: tx.kode_kegiatan || "",
-        kode_rekening: key,
-        uraian: tx.uraian,
-        pengeluaran: tx.pengeluaran,
-        penerima: tx.penerima,
-        _count: 1,
-      });
-    } else {
-      const g = groups.get(key);
-      g.pengeluaran += tx.pengeluaran;
-      // Gabung uraian unik
-      if (tx.uraian && !g.uraian.includes(tx.uraian)) {
-        g.uraian = g.uraian ? g.uraian + "; " + tx.uraian : tx.uraian;
-      }
-      // Gabung penerima unik
-      const existingPenerima = (g.penerima || "").split(",").map(s => s.trim());
-      const newPenerima = (tx.penerima || "").trim();
-      if (newPenerima && !existingPenerima.includes(newPenerima)) {
-        g.penerima = g.penerima ? g.penerima + ", " + newPenerima : newPenerima;
-      }
-      // Tanggal terlama
-      if (tx.tanggal && (!g.tanggal || tx.tanggal < g.tanggal)) g.tanggal = tx.tanggal;
-      g._count++;
+/** Gabung nilai unik dengan pemisah (mendukung re-merge: split dulu) */
+function uniqueJoin(values, sep) {
+  const parts = [];
+  for (const v of values) {
+    for (const p of String(v || "").split(sep)) {
+      const t = p.trim();
+      if (t && !parts.includes(t)) parts.push(t);
     }
   }
-  return [...groups.values()];
+  return parts.join(sep);
 }
-window._groupByKodeRekening = groupTransactionsByKode;
+window._uniqueJoin = uniqueJoin;
 
-function getPdfDisplayedRows() {
-  if (!currentBkuData) return [];
-  return pdfGroupMode ? groupTransactionsByKode(currentBkuData.transactions) : currentBkuData.transactions;
+/** Buat tx gabungan dari beberapa baris */
+function mergeDisplayRows(rowsList) {
+  return {
+    no_bukti: uniqueJoin(rowsList.map(r => r.tx.no_bukti), ", "),
+    tanggal: rowsList.map(r => r.tx.tanggal).filter(Boolean).sort()[0] || "",
+    kode_kegiatan: rowsList[0].tx.kode_kegiatan || "",
+    kode_rekening: uniqueJoin(rowsList.map(r => r.tx.kode_rekening), " + "),
+    uraian: uniqueJoin(rowsList.map(r => r.tx.uraian), "; "),
+    pengeluaran: rowsList.reduce((s, r) => s + (r.tx.pengeluaran || 0), 0),
+    penerima: uniqueJoin(rowsList.map(r => r.tx.penerima), ", "),
+  };
+}
+window._mergeDisplayRows = mergeDisplayRows;
+
+function initPdfRows() {
+  pdfRidCounter = 0;
+  pdfRows = (currentBkuData?.transactions || []).map(tx => ({ rid: pdfRidCounter++, tx: { ...tx }, orig: null, count: 1 }));
 }
 
-window.handleToggleGroupKode = function (el) {
-  pdfGroupMode = el.checked;
+/** Simpan editan input penerima ke state sebelum render ulang */
+function capturePdfPenerimaEdits() {
+  document.querySelectorAll(".pdf-penerima-input").forEach(inp => {
+    const rid = parseInt(inp.dataset.rid);
+    const row = pdfRows.find(r => r.rid === rid);
+    if (row) row.tx.penerima = inp.value;
+  });
+}
+
+function mergePdfByRids(rids) {
+  const ridSet = new Set(rids);
+  const rowsToMerge = pdfRows.filter(r => ridSet.has(r.rid));
+  if (rowsToMerge.length < 2) return false;
+  const firstIdx = pdfRows.findIndex(r => ridSet.has(r.rid));
+  const mergedRow = {
+    rid: pdfRidCounter++,
+    tx: mergeDisplayRows(rowsToMerge),
+    orig: rowsToMerge.map(r => ({ rid: r.rid, tx: r.tx, orig: r.orig, count: r.count })),
+    count: rowsToMerge.reduce((s, r) => s + (r.count || 1), 0),
+  };
+  pdfRows = pdfRows.filter(r => !ridSet.has(r.rid));
+  pdfRows.splice(Math.min(firstIdx, pdfRows.length), 0, mergedRow);
+  return true;
+}
+
+window.handleGabungPdfSelected = function () {
+  capturePdfPenerimaEdits();
+  const rids = [...document.querySelectorAll(".pdf-row-check:checked")].map(cb => parseInt(cb.dataset.rid));
+  if (rids.length < 2) {
+    showToast("Centang minimal 2 baris yang ingin digabung", "warning");
+    return;
+  }
+  if (mergePdfByRids(rids)) {
+    renderPdfPreviewTable();
+    showToast(`${rids.length} transaksi digabung menjadi 1 kwitansi`, "success");
+  }
+};
+
+window.handleGabungPdfAutoKode = function () {
+  capturePdfPenerimaEdits();
+  const byKode = new Map();
+  for (const row of pdfRows) {
+    const key = (row.tx.kode_rekening || "").trim() || "(tanpa kode)";
+    if (!byKode.has(key)) byKode.set(key, []);
+    byKode.get(key).push(row.rid);
+  }
+  let mergedGroups = 0;
+  for (const [, ridList] of byKode) {
+    if (ridList.length >= 2 && mergePdfByRids(ridList)) mergedGroups++;
+  }
   renderPdfPreviewTable();
+  if (mergedGroups === 0) showToast("Tidak ada transaksi dengan kode rekening sama", "warning");
+  else showToast(`${mergedGroups} grup kode rekening digabung otomatis`, "success");
+};
+
+window.handleUraiPdfRow = function (rid) {
+  const idx = pdfRows.findIndex(r => r.rid === rid);
+  if (idx < 0 || !pdfRows[idx].orig) return;
+  const row = pdfRows[idx];
+  pdfRows.splice(idx, 1, ...row.orig);
+  renderPdfPreviewTable();
+  showToast("Gabungan diuraikan", "success");
+};
+
+window.handleUraiPdfSemua = function () {
+  initPdfRows();
+  renderPdfPreviewTable();
+  showToast("Semua gabungan diuraikan", "success");
 };
 
 function renderPdfPreviewTable() {
   if (!currentBkuData) return;
-  const rows = getPdfDisplayedRows();
-  document.getElementById("pdf-count").textContent = rows.length;
+  document.getElementById("pdf-count").textContent = pdfRows.length;
   const tbody = document.getElementById("pdf-tbody");
-  tbody.innerHTML = rows.map((tx, i) => {
-    const gabBadge = tx._count > 1
-      ? ` <span class="badge badge-period" title="Gabungan ${tx._count} transaksi">${tx._count}x</span>`
+  tbody.innerHTML = pdfRows.map((row) => {
+    const tx = row.tx;
+    const gabBadge = row.count > 1
+      ? ` <span class="badge badge-period" title="Gabungan ${row.count} transaksi">${row.count}x</span> <button type="button" class="btn btn-sm btn-secondary" style="padding:1px 7px;font-size:11px;" title="Uraikan gabungan ini" onclick="handleUraiPdfRow(${row.rid})">&#10006;</button>`
       : "";
     return `
-      <tr>
-        <td><input type="checkbox" class="pdf-row-check" data-index="${i}" checked /></td>
+      <tr${row.count > 1 ? ' style="background:#fffbeb;"' : ""}>
+        <td><input type="checkbox" class="pdf-row-check" data-rid="${row.rid}" checked /></td>
         <td>${esc(tx.no_bukti)}${gabBadge}</td>
         <td>${esc(tx.tanggal)}</td>
         <td>${esc(tx.kode_rekening)}</td>
         <td title="${esc(tx.uraian)}">${esc(tx.uraian.length > 60 ? tx.uraian.substring(0, 60) + "..." : tx.uraian)}</td>
         <td class="rupiah">Rp ${formatRupiah(tx.pengeluaran)}</td>
-        <td><input type="text" class="pdf-penerima-input" data-index="${i}" value="${esc(tx.penerima)}" placeholder="Isi penerima..." /></td>
+        <td><input type="text" class="pdf-penerima-input" data-rid="${row.rid}" value="${esc(tx.penerima)}" placeholder="Isi penerima..." /></td>
       </tr>
     `;
   }).join("");
@@ -730,9 +784,7 @@ async function processPdfFile(filePath) {
     document.getElementById("pdf_bendahara").value = result.bendahara || (sekolahData ? sekolahData.bendahara : "");
     document.getElementById("pdf_nip_bendahara").value = result.nip_bendahara || (sekolahData ? sekolahData.nip_bendahara : "");
 
-    pdfGroupMode = false;
-    const groupToggle = document.getElementById("pdf-group-kode");
-    if (groupToggle) groupToggle.checked = false;
+    initPdfRows();
     renderPdfPreviewTable();
 
     document.getElementById("pdf-import-settings").classList.remove("hidden");
@@ -757,21 +809,13 @@ window.handleImportBku = async function () {
     return;
   }
 
-  const displayedRows = getPdfDisplayedRows();
-  const checkboxes = document.querySelectorAll(".pdf-row-check");
-  const penerimaInputs = document.querySelectorAll(".pdf-penerima-input");
-  const selectedTransactions = [];
-
-  checkboxes.forEach((cb) => {
-    if (cb.checked) {
-      const idx = parseInt(cb.dataset.index);
-      const tx = { ...displayedRows[idx] };
-      delete tx._count;
-      const input = penerimaInputs[idx];
-      if (input) tx.penerima = input.value;
-      selectedTransactions.push(tx);
-    }
-  });
+  capturePdfPenerimaEdits();
+  const checkedRids = new Set(
+    [...document.querySelectorAll(".pdf-row-check:checked")].map(cb => parseInt(cb.dataset.rid))
+  );
+  const selectedTransactions = pdfRows
+    .filter(row => checkedRids.has(row.rid))
+    .map(row => ({ ...row.tx }));
 
   if (selectedTransactions.length === 0) {
     showToast("Pilih minimal satu transaksi untuk diimport", "warning");
