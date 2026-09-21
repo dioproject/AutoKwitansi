@@ -1225,7 +1225,10 @@ async function loadPosSetupPage() {
     document.getElementById("pos_setup_port").value = s.port || "";
     document.getElementById("pos_setup_baud_rate").value = s.baud_rate || 9600;
     document.getElementById("pos_setup_paper_width").value = s.paper_width || 58;
+    document.getElementById("pos_setup_header").value = s.header_text || "";
+    document.getElementById("pos_setup_footer").value = s.footer_text || "";
     renderPosPaperPreview();
+    updatePosStrukPreview();
   } catch (e) {
     console.error("Gagal load pos settings:", e);
   }
@@ -1246,6 +1249,8 @@ window.handleSimpanPosSetupSettings = async function () {
     paper_width: parseInt(document.getElementById("pos_setup_paper_width")?.value || "58"),
     port: document.getElementById("pos_setup_port")?.value || "",
     baud_rate: parseInt(document.getElementById("pos_setup_baud_rate")?.value || "9600"),
+    header_text: document.getElementById("pos_setup_header")?.value || "",
+    footer_text: document.getElementById("pos_setup_footer")?.value || "",
   };
 
   try {
@@ -1267,7 +1272,31 @@ window.handleResetPosSetup = function () {
   document.getElementById("pos_setup_port").value = "";
   document.getElementById("pos_setup_baud_rate").value = "9600";
   document.getElementById("pos_setup_paper_width").value = "58";
+  document.getElementById("pos_setup_header").value = "";
+  document.getElementById("pos_setup_footer").value = "";
   renderPosPaperPreview();
+  updatePosStrukPreview();
+};
+
+window.updatePosStrukPreview = function () {
+  const header = document.getElementById("pos_setup_header")?.value || "";
+  const footer = document.getElementById("pos_setup_footer")?.value || "";
+  const headerEl = document.getElementById("pos-struk-header");
+  const footerEl = document.getElementById("pos-struk-footer");
+  if (headerEl) {
+    if (header.trim()) {
+      headerEl.innerHTML = header.replace(/\n/g, "<br>");
+    } else {
+      headerEl.innerHTML = "<b>NOTA PEMBAYARAN</b>";
+    }
+  }
+  if (footerEl) {
+    if (footer.trim()) {
+      footerEl.innerHTML = footer.replace(/\n/g, "<br>");
+    } else {
+      footerEl.textContent = "Terima kasih";
+    }
+  }
 };
 
 // ========== UTILITIES ==========

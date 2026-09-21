@@ -603,6 +603,24 @@
               </div>
             </div>
 
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                <span style="font-size:20px;">📝</span>
+                <div>
+                  <h3 style="margin:0;font-size:15px;">Kustomisasi Struk</h3>
+                  <p style="font-size:11px;color:var(--text-muted);margin:2px 0 0;">Header & footer akan tercetak di struk kasir (kosongkan untuk default)</p>
+                </div>
+              </div>
+              <div class="form-group full-width">
+                <label for="pos_setup_header">Header Struk (tercetak di atas, rata tengah)</label>
+                <textarea id="pos_setup_header" rows="3" placeholder="TOKO MAKMUR JAYA&#10;Jl. Sudirman No. 123&#10;Telp: 0812-3456-7890" style="font-family:monospace;font-size:12px;" oninput="updatePosStrukPreview()"></textarea>
+              </div>
+              <div class="form-group full-width">
+                <label for="pos_setup_footer">Footer Struk (tercetak di bawah, rata tengah)</label>
+                <textarea id="pos_setup_footer" rows="2" placeholder="Terima kasih telah berbelanja&#10;Barang yang sudah dibeli tidak dapat dikembalikan" style="font-family:monospace;font-size:12px;" oninput="updatePosStrukPreview()"></textarea>
+              </div>
+            </div>
+
             <div class="form-actions" style="margin-top:20px;gap:8px;">
               <button class="btn btn-primary" onclick="handleSimpanPosSetupSettings()">💾 Simpan</button>
               <button class="btn btn-pos" onclick="handlePosSetupTestPrint()">🧪 Test Print</button>
@@ -612,20 +630,23 @@
 
           <!-- Right: Visual Preview -->
           <div class="settings-form" style="display:flex;flex-direction:column;align-items:center;">
-            <h3 style="font-size:14px;margin-bottom:16px;">📐 Preview Kertas Thermal</h3>
+            <h3 style="font-size:14px;margin-bottom:16px;">📐 Preview Struk Kasir</h3>
             <div id="pos-paper-preview" style="background:#fff;border:2px solid #e2e8f0;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:width 0.3s;">
-              <div style="padding:12px;text-align:center;font-family:'Courier New',monospace;font-size:10px;line-height:1.4;color:#475569;width:90%;">
-                <div style="font-weight:bold;font-size:11px;">KWITANSI</div>
+              <div id="pos-struk-preview-content" style="padding:12px;text-align:center;font-family:'Courier New',monospace;font-size:10px;line-height:1.4;color:#475569;width:90%;">
+                <div style="font-weight:bold;font-size:11px;" id="pos-struk-header">NOTA PEMBAYARAN</div>
                 <div style="border-top:1px dashed #cbd5e1;margin:6px 0;"></div>
-                <div>No: BPU/001</div>
-                <div>Tgl: 21 Juni 2026</div>
+                <div style="text-align:left;">No   : BPU/001</div>
+                <div style="text-align:left;">Tgl  : 21 Juni 2026</div>
                 <div style="border-top:1px dashed #cbd5e1;margin:6px 0;"></div>
-                <div>Dari: Bendahara BOS</div>
-                <div>Jml: Rp 1.500.000</div>
+                <div style="text-align:left;font-weight:bold;">  ITEM</div>
+                <div style="text-align:left;">    ATK kegiatan belajar</div>
                 <div style="border-top:1px dashed #cbd5e1;margin:6px 0;"></div>
-                <div>Bendahara: ........</div>
-                <div>Penerima : ........</div>
-                <div style="margin-top:8px;font-size:9px;color:#94a3b8;">••• potong di sini •••</div>
+                <div style="text-align:right;font-weight:bold;">TOTAL  : Rp 1.500.000</div>
+                <div style="border-top:1px dashed #cbd5e1;margin:6px 0;"></div>
+                <div style="text-align:left;">Penerima: Bpk. Ahmad</div>
+                <div style="border-top:1px dashed #cbd5e1;margin:6px 0;"></div>
+                <div id="pos-struk-footer">Terima kasih</div>
+                <div style="margin-top:6px;font-size:8px;color:#94a3b8;">••• potong di sini •••</div>
               </div>
             </div>
             <div style="margin-top:10px;font-size:12px;color:var(--text-muted);">

@@ -105,6 +105,10 @@ pub struct PosSettings {
     pub paper_width: i32,
     pub port: String,
     pub baud_rate: i32,
+    #[serde(default)]
+    pub header_text: String,
+    #[serde(default)]
+    pub footer_text: String,
 }
 
 // ============ BPU DOKUMEN ============

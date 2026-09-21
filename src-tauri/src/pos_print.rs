@@ -50,142 +50,157 @@ fn format_currency(val: f64) -> String {
     result.chars().rev().collect()
 }
 
-/// Build ESC/POS byte array for a single kwitansi nota
-fn build_escpos_nota(k: &Kwitansi, paper_width: i32) -> Vec<u8> {
+/// Build ESC/POS byte array for a single nota POS as store receipt
+/// Content is distinct from kwitansi: uses toko data as header, simpler layout
+fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings) -> Vec<u8> {
+    let paper_width = settings.paper_width;
     let max_chars = if paper_width >= 80 { 48 } else { 32 };
+    let line = |s: &str| truncate_per_line(&sanitize_ascii(s), max_chars);
+    let sep = "─".repeat(max_chars);
+    let double_sep = "═".repeat(max_chars);
+
     let mut buf = Vec::new();
 
-    // School header (center)
+    // ══════════════════════════
+    // HEADER — data toko (BPU) atau custom text
+    // ══════════════════════════
     buf.extend_from_slice(ESC_ALIGN_CENTER);
-    buf.extend_from_slice(ESC_BOLD_ON);
-    let header = truncate_per_line(&sanitize_ascii("KWITANSI"), max_chars);
-    buf.extend_from_slice(header.as_bytes());
-    buf.extend_from_slice(LF);
-    buf.extend_from_slice(ESC_BOLD_OFF);
 
-    // Spacing
+    let has_toko = !k.nama_toko.trim().is_empty();
+    let custom_header = settings.header_text.trim();
+
+    if !custom_header.is_empty() {
+        // User-defined custom header
+        for hline in custom_header.lines() {
+            buf.extend_from_slice(line(hline).as_bytes());
+            buf.extend_from_slice(LF);
+        }
+    } else if has_toko {
+        // BPU: show toko as store header
+        buf.extend_from_slice(ESC_BOLD_ON);
+        buf.extend_from_slice(line(&k.nama_toko).as_bytes());
+        buf.extend_from_slice(LF);
+        buf.extend_from_slice(ESC_BOLD_OFF);
+        if !k.alamat_toko.trim().is_empty() {
+            buf.extend_from_slice(line(&k.alamat_toko).as_bytes());
+            buf.extend_from_slice(LF);
+        }
+        if !k.pimpinan_toko.trim().is_empty() {
+            buf.extend_from_slice(line(&format!("Pimp: {}", k.pimpinan_toko)).as_bytes());
+            buf.extend_from_slice(LF);
+        }
+    } else {
+        // Fallback: simple header
+        buf.extend_from_slice(ESC_BOLD_ON);
+        buf.extend_from_slice(line("NOTA PEMBAYARAN").as_bytes());
+        buf.extend_from_slice(LF);
+        buf.extend_from_slice(ESC_BOLD_OFF);
+    }
+    buf.extend_from_slice(line(&double_sep).as_bytes());
     buf.extend_from_slice(LF);
 
-    // No: BPU/BNU
+    // No & Tanggal
     buf.extend_from_slice(ESC_ALIGN_LEFT);
     let label = label_nomor_cetak(&k.nomor_kwitansi);
-    let no_line = format!("No: {}", sanitize_ascii(&label));
-    buf.extend_from_slice(truncate_per_line(&no_line, max_chars).as_bytes());
+    buf.extend_from_slice(line(&format!("No   : {}", label)).as_bytes());
+    buf.extend_from_slice(LF);
+    let tgl_fmt = format_tanggal_cetak(&k.tanggal);
+    buf.extend_from_slice(line(&format!("Tgl  : {}", tgl_fmt)).as_bytes());
+    buf.extend_from_slice(LF);
+    buf.extend_from_slice(line(&sep).as_bytes());
     buf.extend_from_slice(LF);
 
-    // Spacing
+    // ══════════════════════════
+    // ITEMS — dari uraian kwitansi
+    // ══════════════════════════
+    let uraian = &k.untuk_pembayaran;
+    let items: Vec<&str> = uraian.lines().filter(|l| !l.trim().is_empty()).collect();
+    if items.len() > 1 {
+        // Multi-line: show as item list
+        buf.extend_from_slice(ESC_BOLD_ON);
+        buf.extend_from_slice(line("ITEM").as_bytes());
+        buf.extend_from_slice(ESC_BOLD_OFF);
+        buf.extend_from_slice(LF);
+        for item in &items {
+            buf.extend_from_slice(line(&format!("  {}", item.trim())).as_bytes());
+            buf.extend_from_slice(LF);
+        }
+    } else {
+        // Single item
+        buf.extend_from_slice(ESC_BOLD_ON);
+        buf.extend_from_slice(line("ITEM").as_bytes());
+        buf.extend_from_slice(ESC_BOLD_OFF);
+        buf.extend_from_slice(LF);
+        let item_text = if items.is_empty() {
+            "-"
+        } else {
+            items[0].trim()
+        };
+        buf.extend_from_slice(line(&format!("  {}", item_text)).as_bytes());
+        buf.extend_from_slice(LF);
+    }
+    buf.extend_from_slice(line(&sep).as_bytes());
     buf.extend_from_slice(LF);
 
-    // Sudah terima dari
-    let sudah = format!("Sudah terima dari {}", sanitize_ascii(&k.sudah_terima_dari));
-    buf.extend_from_slice(truncate_per_line(&sudah, max_chars).as_bytes());
-    buf.extend_from_slice(LF);
-
-    // Sejumlah
-    let terbilang_str = &k.terbilang;
-    let terbilang_trunc = truncate_per_line(&sanitize_ascii(terbilang_str), max_chars - 2);
-    let jumlah_str = format_currency(k.jumlah);
-    let sejumlah = format!("Sejumlah Rp {}", sanitize_ascii(&jumlah_str));
-    buf.extend_from_slice(truncate_per_line(&sejumlah, max_chars).as_bytes());
-    buf.extend_from_slice(LF);
-
-    // Terbilang line
-    let terb_line = format!("  ({})", sanitize_ascii(&terbilang_trunc));
-    buf.extend_from_slice(terb_line.as_bytes());
-    buf.extend_from_slice(LF);
-
-    // Spacing
-    buf.extend_from_slice(LF);
-
-    // Untuk pembayaran
-    let pembayaran = format!("Untuk pembayaran {}", sanitize_ascii(&k.untuk_pembayaran));
-    buf.extend_from_slice(truncate_per_line(&pembayaran, max_chars).as_bytes());
+    // ══════════════════════════
+    // TOTAL
+    // ══════════════════════════
+    buf.extend_from_slice(ESC_BOLD_ON);
+    let total = format_currency(k.jumlah);
+    let total_line = format!("TOTAL  : Rp {}", total);
+    let pad = max_chars.saturating_sub(total_line.len());
+    buf.extend_from_slice(line(&format!("{}{}", " ".repeat(pad), total_line)).as_bytes());
+    buf.extend_from_slice(ESC_BOLD_OFF);
     buf.extend_from_slice(LF);
 
     // PPh 21 block (honorarium only)
     if k.kena_pph21 {
-        buf.extend_from_slice(LF);
         let bruto = k.jumlah;
-        let pph = bruto * 0.06;
-        let netto = bruto - pph;
-        let bruto_str = format_currency(bruto);
-        let pph_str = format_currency(pph);
-        let netto_str = format_currency(netto);
-
-        buf.extend_from_slice(ESC_ALIGN_LEFT);
-        buf.extend_from_slice(
-            truncate_per_line(
-                &format!("Bruto    : Rp {}", sanitize_ascii(&bruto_str)),
-                max_chars,
-            )
-            .as_bytes(),
-        );
+        let pph = (bruto * 0.06).round() as i64;
+        let netto = bruto as i64 - pph;
+        buf.extend_from_slice(line(&format!("Bruto  : Rp {}", format_currency(bruto))).as_bytes());
         buf.extend_from_slice(LF);
         buf.extend_from_slice(
-            truncate_per_line(
-                &format!("PPh 21 6%: Rp {}", sanitize_ascii(&pph_str)),
-                max_chars,
-            )
-            .as_bytes(),
+            line(&format!("PPh 6% : Rp {}", format_currency(pph as f64))).as_bytes(),
         );
         buf.extend_from_slice(LF);
-
         buf.extend_from_slice(ESC_BOLD_ON);
         buf.extend_from_slice(
-            truncate_per_line(
-                &format!("Netto    : Rp {}", sanitize_ascii(&netto_str)),
-                max_chars,
-            )
-            .as_bytes(),
+            line(&format!("NETTO  : Rp {}", format_currency(netto as f64))).as_bytes(),
         );
         buf.extend_from_slice(ESC_BOLD_OFF);
         buf.extend_from_slice(LF);
     }
-
-    // Spacing
+    buf.extend_from_slice(line(&sep).as_bytes());
     buf.extend_from_slice(LF);
 
-    // Penerima + Tgl
-    buf.extend_from_slice(ESC_ALIGN_LEFT);
-    let penerima_line = format!("Penerima : {}", sanitize_ascii(&k.penerima));
-    buf.extend_from_slice(truncate_per_line(&penerima_line, max_chars).as_bytes());
+    // ══════════════════════════
+    // PENERIMA (yang menerima uang, bukan bendahara)
+    // ══════════════════════════
+    buf.extend_from_slice(line(&format!("Penerima: {}", k.penerima)).as_bytes());
     buf.extend_from_slice(LF);
 
-    // Format tanggal: "21 Juni 2026"
-    let tgl_formatted = format_tanggal_cetak(&k.tanggal);
-    let tgl_line = format!("Tgl      : {}", sanitize_ascii(&tgl_formatted));
-    buf.extend_from_slice(truncate_per_line(&tgl_line, max_chars).as_bytes());
+    buf.extend_from_slice(line(&sep).as_bytes());
     buf.extend_from_slice(LF);
 
-    // Spacing before signatures
-    buf.extend_from_slice(LF);
-
-    // Bendahara
-    buf.extend_from_slice(ESC_ALIGN_LEFT);
-    let bend = format!("Bendahara: {}", sanitize_ascii(&k.bendahara));
-    buf.extend_from_slice(truncate_per_line(&bend, max_chars).as_bytes());
-    buf.extend_from_slice(LF);
-    let nip_bend = format!("NIP      : {}", sanitize_ascii(&k.nip_bendahara));
-    buf.extend_from_slice(truncate_per_line(&nip_bend, max_chars).as_bytes());
-    buf.extend_from_slice(LF);
-
-    // Spacing
-    buf.extend_from_slice(LF);
-
-    // Mengetahui
-    let mgt = format!("Mengetahui: {}", sanitize_ascii(&k.mengetahui));
-    buf.extend_from_slice(truncate_per_line(&mgt, max_chars).as_bytes());
-    buf.extend_from_slice(LF);
-    let nip_mgt = format!("NIP       : {}", sanitize_ascii(&k.nip_mengetahui));
-    buf.extend_from_slice(truncate_per_line(&nip_mgt, max_chars).as_bytes());
-    buf.extend_from_slice(LF);
-
-    // Spacing
-    buf.extend_from_slice(LF);
-    buf.extend_from_slice(LF);
+    // ══════════════════════════
+    // FOOTER (customizable)
+    // ══════════════════════════
+    let footer_raw = settings.footer_text.trim();
+    buf.extend_from_slice(ESC_ALIGN_CENTER);
+    if !footer_raw.is_empty() {
+        for fline in footer_raw.lines() {
+            buf.extend_from_slice(line(fline).as_bytes());
+            buf.extend_from_slice(LF);
+        }
+    } else {
+        buf.extend_from_slice(line("Terima kasih").as_bytes());
+        buf.extend_from_slice(LF);
+    }
 
     // Feed + cut
-    buf.extend_from_slice(&[0x1B, 0x64, 0x05]); // Feed 5 lines
+    buf.extend_from_slice(LF);
+    buf.extend_from_slice(&[0x1B, 0x64, 0x03]); // Feed 3 lines
     buf.extend_from_slice(GS_CUT);
 
     buf
@@ -230,7 +245,7 @@ pub fn print_nota(kwitansi: &Kwitansi, settings: &PosSettings) -> Result<(), Str
         return Err("Port printer belum diatur".into());
     }
 
-    let bytes = build_escpos_nota(kwitansi, settings.paper_width);
+    let bytes = build_escpos_nota(kwitansi, settings);
 
     match serialport::new(&settings.port, settings.baud_rate as u32)
         .timeout(std::time::Duration::from_secs(5))

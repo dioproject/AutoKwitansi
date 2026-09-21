@@ -125,14 +125,16 @@ pub fn init_db() -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             paper_width INTEGER NOT NULL DEFAULT 58,
             port TEXT NOT NULL DEFAULT '',
-            baud_rate INTEGER NOT NULL DEFAULT 9600
+            baud_rate INTEGER NOT NULL DEFAULT 9600,
+            header_text TEXT NOT NULL DEFAULT '',
+            footer_text TEXT NOT NULL DEFAULT ''
         );
         CREATE INDEX IF NOT EXISTS idx_kwitansi_bulan_tahun ON kwitansi(bulan, tahun_anggaran);
         ",
     )?;
 
     // Migration: add new columns if missing (for existing DBs)
-    let column_migrations: [(&str, &str, &str); 8] = [
+    let column_migrations: [(&str, &str, &str); 10] = [
         ("print_settings", "sig_gap", "REAL NOT NULL DEFAULT 15.0"),
         ("kwitansi", "bulan", "TEXT NOT NULL DEFAULT ''"),
         ("kwitansi", "nama_toko", "TEXT NOT NULL DEFAULT ''"),
@@ -141,6 +143,8 @@ pub fn init_db() -> Result<()> {
         ("kwitansi", "kena_pph21", "INTEGER NOT NULL DEFAULT 0"),
         ("pos_settings", "port", "TEXT NOT NULL DEFAULT ''"),
         ("pos_settings", "baud_rate", "INTEGER NOT NULL DEFAULT 9600"),
+        ("pos_settings", "header_text", "TEXT NOT NULL DEFAULT ''"),
+        ("pos_settings", "footer_text", "TEXT NOT NULL DEFAULT ''"),
     ];
     for (table, column, typedef) in &column_migrations {
         match add_column_if_missing(&conn, table, column, typedef) {
@@ -426,7 +430,7 @@ pub fn save_print_settings(s: &PrintSettings) -> Result<()> {
 pub fn get_pos_settings() -> Result<PosSettings> {
     let conn = get_connection()?;
     let result = conn.query_row(
-        "SELECT id, paper_width, port, baud_rate FROM pos_settings LIMIT 1",
+        "SELECT id, paper_width, port, baud_rate, header_text, footer_text FROM pos_settings LIMIT 1",
         [],
         |row| {
             Ok(PosSettings {
@@ -434,6 +438,8 @@ pub fn get_pos_settings() -> Result<PosSettings> {
                 paper_width: row.get(1)?,
                 port: row.get(2)?,
                 baud_rate: row.get(3)?,
+                header_text: row.get(4)?,
+                footer_text: row.get(5)?,
             })
         },
     );
@@ -446,11 +452,13 @@ pub fn get_pos_settings() -> Result<PosSettings> {
                 paper_width: 58,
                 port: String::new(),
                 baud_rate: 9600,
+                header_text: String::new(),
+                footer_text: String::new(),
             };
             let conn2 = get_connection()?;
             conn2.execute(
-                "INSERT INTO pos_settings (paper_width, port, baud_rate) VALUES (?1, ?2, ?3)",
-                params![default.paper_width, default.port, default.baud_rate],
+                "INSERT INTO pos_settings (paper_width, port, baud_rate, header_text, footer_text) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![default.paper_width, default.port, default.baud_rate, default.header_text, default.footer_text],
             )?;
             let id = conn2.last_insert_rowid();
             Ok(PosSettings {
@@ -465,14 +473,14 @@ pub fn save_pos_settings(s: &PosSettings) -> Result<()> {
     let conn = get_connection()?;
     if let Some(id) = s.id {
         conn.execute(
-            "UPDATE pos_settings SET paper_width=?1, port=?2, baud_rate=?3 WHERE id=?4",
-            params![s.paper_width, s.port, s.baud_rate, id],
+            "UPDATE pos_settings SET paper_width=?1, port=?2, baud_rate=?3, header_text=?4, footer_text=?5 WHERE id=?6",
+            params![s.paper_width, s.port, s.baud_rate, s.header_text, s.footer_text, id],
         )?;
     } else {
         conn.execute("DELETE FROM pos_settings", [])?;
         conn.execute(
-            "INSERT INTO pos_settings (paper_width, port, baud_rate) VALUES (?1, ?2, ?3)",
-            params![s.paper_width, s.port, s.baud_rate],
+            "INSERT INTO pos_settings (paper_width, port, baud_rate, header_text, footer_text) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![s.paper_width, s.port, s.baud_rate, s.header_text, s.footer_text],
         )?;
     }
     Ok(())
