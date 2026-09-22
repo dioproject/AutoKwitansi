@@ -1071,9 +1071,9 @@ function renderValuesOnlyTemplate(k) {
   return `
     <div class="kwitansi-page values-only" style="width:${s.paper_width}mm; min-height:${s.paper_height}mm; padding:${s.margin_top}mm ${s.margin_right}mm ${s.margin_bottom}mm ${s.margin_left}mm; font-size:${fontSize}pt;">
       <div class="kv" style="${pos('nomor')}">${esc(k.nomor_kwitansi)}</div>
-      <div class="kv" style="${pos('sudah_terima_dari')}">${esc(k.sudah_terima_dari)}</div>
-      <div class="kv" style="${pos('uang_sejumlah')}">${esc(capitalize(k.terbilang))}</div>
-      <div class="kv" style="${pos('untuk_pembayaran')}">${esc(composePaymentSentence(k))}</div>
+      <div class="kv multi-line" style="${pos('sudah_terima_dari')}">${esc(k.sudah_terima_dari)}</div>
+      <div class="kv multi-line" style="${pos('uang_sejumlah')}">${esc(capitalize(k.terbilang))}</div>
+      <div class="kv multi-line" style="${pos('untuk_pembayaran')}">${esc(composePaymentSentence(k))}</div>
       <div class="kv jumlah" style="${pos('jumlah_rp')}">Rp ${formatRupiah(nettoJumlah(k))}</div>
       ${pajakBlock}
       ${mengetahuiBlock}
