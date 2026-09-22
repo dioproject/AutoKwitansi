@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.3.1 (Current)
+### v3.3.2 (Current)
+- [FIXED] Import lewatkan baris uraian 2-baris (mis. honor pengawas BPU14/BPU15): baris lanjutan kini digabung sebelum cari nomor bukti
+
+### v3.3.1
 - [FIXED] Preview hasil cetak live di Pengaturan Cetak (contoh data, ikut font/posisi/mode) — atur angka font & lihat langsung hasilnya
 
 ### v3.3.0

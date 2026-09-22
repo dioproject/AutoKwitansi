@@ -298,7 +298,7 @@ fn parse_transactions(lines: &[&str]) -> Result<Vec<RawTransaction>, String> {
         // Try to match a transaction line starting with a date
         if let Some(date_cap) = re_date.captures(line) {
             let tanggal = date_cap[1].to_string();
-            let rest = date_cap[2].to_string();
+            let mut rest = date_cap[2].to_string();
 
             // Check if this line should be skipped
             let should_skip = skip_keywords.iter().any(|p| rest.contains(p))
@@ -330,19 +330,24 @@ fn parse_transactions(lines: &[&str]) -> Result<Vec<RawTransaction>, String> {
                 continue;
             }
 
-            // This might be a valid transaction
-            // Check next non-empty line for No Bukti
+            // This might be a valid transaction.
+            // Uraian bisa bersambung ke baris-baris berikut (mis. honor pengawas
+            // yang terpotong 2 baris dengan angka di baris kedua).
+            // Gabungkan semua baris lanjutan sampai ketemu garis no-bukti,
+            // tanggal baru, atau akhir file.
             let mut next_idx = i + 1;
-            // Skip uraian continuation lines (for multi-line uraian)
-            let _extra_uraian_lines: Vec<String> = Vec::new();
-
             while next_idx < lines.len() {
                 let next = lines[next_idx].trim();
                 if next.is_empty() {
                     next_idx += 1;
                     continue;
                 }
-                break;
+                if re_bukti_line.is_match(next) || re_date.is_match(next) {
+                    break;
+                }
+                // Baris lanjutan uraian
+                rest = format!("{} {}", rest, next);
+                next_idx += 1;
             }
 
             if next_idx < lines.len() {
@@ -610,6 +615,26 @@ mod tests {
             bnu16.pengeluaran, 1980000.0,
             "BNU16 total should be 1.980.000, got: {}",
             bnu16.pengeluaran
+        );
+
+        // BPU14 = honor pengawas ujian 2 baris (uraian bersambung + angka di baris 2)
+        let bpu14 = data.transactions.iter().find(|t| t.no_bukti == "BPU14");
+        assert!(bpu14.is_some(), "BPU14 (honor pengawas) should exist");
+        let bpu14 = bpu14.unwrap();
+        assert!(
+            bpu14.uraian.contains("Pengawas"),
+            "BPU14 should contain Pengawas, got: {}",
+            bpu14.uraian
+        );
+        assert_eq!(
+            bpu14.pengeluaran, 100000.0,
+            "BPU14 should be 100.000, got: {}",
+            bpu14.pengeluaran
+        );
+        assert_eq!(
+            bpu14.kode_rekening, "5.1.02.02.01.0009",
+            "BPU14 kode rekening should be completed from suffix, got: {}",
+            bpu14.kode_rekening
         );
     }
 }
