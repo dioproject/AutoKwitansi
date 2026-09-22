@@ -102,8 +102,11 @@
 
 ## Changelog
 
-### v3.6.0 (Current)
-- [NEW] PPN opsional nominal rupiah (form & modal edit, badge PPN, baris +Rp di cetak/POS, total = bruto − PPh + PPN, kolom `ppn_nominal`)
+### v3.6.1 (Current)
+- [FIXED] PPN mengurangi bruto (total = bruto − PPh − PPN), bukan menambah
+
+### v3.6.0
+- [NEW] PPN opsional nominal rupiah (form & modal edit, badge PPN, baris −Rp di cetak/POS, total = bruto − PPh − PPN, kolom `ppn_nominal`)
 
 ### v3.5.0
 - [NEW] PPh 23 2% (sewa/jasa, manual di form & modal edit, eksklusif vs PPh lain, kolom `kena_pph23_2`)

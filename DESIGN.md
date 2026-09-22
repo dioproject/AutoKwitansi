@@ -118,7 +118,7 @@ Rumpun **07.12.x** = honorarium; **06.05.06** = Konsumsi Rapat (makan minum).
 - **PPh 21 auto-check**: nomor mengandung BNU, atau kode 07.12.04, atau uraian mengandung honor/honorarium/instruktur.
 - **PPh 23 auto-check**: uraian mengandung makan/minum/konsumsi/catering/katering/snack/jamuan (bukan honorarium — PPh 21 didahulukan).
 - Checkbox manual saling eksklusif (PPh 21 / PPh 23 4% / PPh 23 2% sewa-jasa), tetap bisa diubah user.
-- Bruto disimpan di `jumlah`; PPh 21 = 6% bruto, PPh 23 = 4% bruto, PPh 23 2% = 2% bruto; PPN = nominal opsional; total = bruto − PPh + PPN.
+- Bruto disimpan di `jumlah`; PPh 21 = 6% bruto, PPh 23 = 4% bruto, PPh 23 2% = 2% bruto; PPN = nominal opsional; total = bruto − PPh − PPN.
 - `terbilang` (Rust) digenerate dari **netto** saat `kena_pph21`/`kena_pph23`.
 - Cetak kwitansi: blok 3 baris (Bruto / PPh / Netto) hanya untuk kwitansi kena pajak.
 - Cetak POS: blok sama di struk.

@@ -142,7 +142,7 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) ->
     } else {
         0.0
     };
-    let netto = k.jumlah - pph + ppn;
+    let netto = k.jumlah - pph - ppn;
     if pph_rate > 0.0 {
         buf.extend_from_slice(
             line(&format!("Bruto  : Rp {}", format_currency(k.jumlah))).as_bytes(),
@@ -154,7 +154,7 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) ->
         buf.extend_from_slice(LF);
     }
     if ppn > 0.0 {
-        buf.extend_from_slice(line(&format!("PPN    : + Rp {}", format_currency(ppn))).as_bytes());
+        buf.extend_from_slice(line(&format!("PPN    : - Rp {}", format_currency(ppn))).as_bytes());
         buf.extend_from_slice(LF);
     }
     buf.extend_from_slice(ESC_BOLD_ON);
@@ -570,11 +570,11 @@ mod tests {
         );
         assert_eq!(
             total_netto(1_000_000.0, false, false, false, 110_000.0),
-            1_110_000.0
+            890_000.0
         );
         assert_eq!(
             total_netto(1_000_000.0, false, true, false, 110_000.0),
-            1_070_000.0
+            850_000.0
         );
         assert_eq!(total_netto(1_000_000.0, true, false, false, 0.0), 940_000.0);
         assert!(is_makan_pph23("", "", "Belanja makan dan minum rapat"));

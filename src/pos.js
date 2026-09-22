@@ -144,13 +144,13 @@ export function renderPosNotaTemplate(k, settings) {
   const pphLabel = k.kena_pph21 ? "PPh 21 6%" : (k.kena_pph23 ? "PPh 23 4%" : "PPh 23 2%");
   const pph = Math.round(k.jumlah * pphRate);
   const ppn = (k.ppn_nominal || 0) > 0 ? Math.round(k.ppn_nominal) : 0;
-  const netto = k.jumlah - pph + ppn;
+  const netto = k.jumlah - pph - ppn;
   if (pphRate > 0) {
     lines.push(`Bruto  : Rp ${formatRupiah(k.jumlah)}`);
     lines.push(`${pphLabel} : Rp ${formatRupiah(pph)}`);
   }
   if (ppn > 0) {
-    lines.push(`PPN    : + Rp ${formatRupiah(ppn)}`);
+    lines.push(`PPN    : - Rp ${formatRupiah(ppn)}`);
   }
   let totalLine = `TOTAL  : Rp ${formatRupiah(netto)}`;
   const pad = Math.max(0, maxChars - totalLine.length);

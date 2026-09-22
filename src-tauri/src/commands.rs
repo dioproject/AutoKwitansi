@@ -87,7 +87,7 @@ pub(crate) fn netto_pajak(
     jumlah - (jumlah * pajak_rate(kena_pph21, kena_pph23, kena_pph23_2)).round()
 }
 
-/// Total bayar: bruto − PPh + PPN (PPN nominal rupiah opsional, 0 = nonaktif)
+/// Total bayar: bruto − PPh − PPN (PPN nominal rupiah opsional, 0 = nonaktif)
 pub(crate) fn total_netto(
     jumlah: f64,
     kena_pph21: bool,
@@ -101,7 +101,7 @@ pub(crate) fn total_netto(
     } else {
         0.0
     };
-    jumlah - pph + ppn
+    jumlah - pph - ppn
 }
 
 /// Normalisasi entri pajak dari frontend (PPh eksklusif + PPN wajar)

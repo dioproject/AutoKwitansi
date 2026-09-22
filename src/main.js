@@ -275,7 +275,7 @@ function updatePpnDetail() {
   const detail = document.getElementById("ppn-detail");
   if (detail) detail.classList.toggle("hidden", !(ppn > 0));
   const el = document.getElementById("ppn_rp");
-  if (el) el.textContent = `+ Rp ${formatRupiah(ppn)}`;
+  if (el) el.textContent = `- Rp ${formatRupiah(ppn)}`;
 }
 
 window.handlePpnInput = function (el) {
@@ -302,7 +302,7 @@ window.handleJumlahInput = async function (el) {
 
   const rate = pajakRateAktif();
   const bruto = parseInt(raw);
-  const jumlah = bruto - Math.round(bruto * rate) + ppnNominalAktif();
+  const jumlah = bruto - Math.round(bruto * rate) - ppnNominalAktif();
 
   try {
     const result = await invoke("cmd_terbilang", { jumlah: jumlah });
@@ -802,7 +802,7 @@ function updateEditNetto() {
     : (document.getElementById("e_cb_pph23_2")?.checked ? 0.02 : 0));
   const ppnRaw = (document.getElementById("e_ppn")?.value || "0").replace(/[^\d]/g, "");
   const ppn = parseFloat(ppnRaw) || 0;
-  const netto = bruto - Math.round(bruto * rate) + ppn;
+  const netto = bruto - Math.round(bruto * rate) - ppn;
   const info = document.getElementById("e_netto_info");
   if (info) info.textContent = (rate > 0 || ppn > 0) ? `Total: Rp ${formatRupiah(netto)}` : `Rp ${formatRupiah(bruto)}`;
 }
@@ -1213,9 +1213,9 @@ function renderValuesOnlyTemplate(k) {
   if (pphRate > 0 || ppn > 0) {
     const bruto = k.jumlah;
     const pph = Math.round(bruto * pphRate);
-    const netto = bruto - pph + ppn;
+    const netto = bruto - pph - ppn;
     const label = k.kena_pph21 ? "PPh 21 6%" : (k.kena_pph23 ? "PPh 23 4%" : "PPh 23 2%");
-    const ppnLine = ppn > 0 ? `<br>PPN: + Rp ${formatRupiah(ppn)}` : "";
+    const ppnLine = ppn > 0 ? `<br>PPN: - Rp ${formatRupiah(ppn)}` : "";
     pajakBlock = `<div class="kv multi-line" style="${pos('pajak')}">Bruto: Rp ${formatRupiah(bruto)}<br>${label}: - Rp ${formatRupiah(pph)}${ppnLine}<br><b>Netto: Rp ${formatRupiah(netto)}</b></div>`;
   }
 
@@ -1254,8 +1254,8 @@ function renderFullTemplate(k) {
   if (pphRate > 0 || ppnFull > 0) {
     const bruto = k.jumlah;
     const pph = Math.round(bruto * pphRate);
-    const netto = bruto - pph + ppnFull;
-    const ppnLine = ppnFull > 0 ? `<div>PPN      : <b style="color:var(--success);">+ Rp ${formatRupiah(ppnFull)}</b></div>` : "";
+    const netto = bruto - pph - ppnFull;
+    const ppnLine = ppnFull > 0 ? `<div>PPN      : <b style="color:var(--danger);">- Rp ${formatRupiah(ppnFull)}</b></div>` : "";
     pphBlock = `
       <div style="margin-top:3mm; font-size:10pt; color:#333;">
         <div>Bruto    : <b>Rp ${formatRupiah(bruto)}</b></div>
@@ -1555,13 +1555,13 @@ window.updatePosStrukPreview = function () {
 
 // ========== UTILITIES ==========
 
-/** Total bayar: bruto − PPh + PPN nominal (bruto jika tidak kena) */
+/** Total bayar: bruto − PPh − PPN nominal (bruto jika tidak kena) */
 function nettoJumlah(k) {
   let v = k.jumlah;
   if (k.kena_pph21) v -= Math.round(k.jumlah * 0.06);
   else if (k.kena_pph23) v -= Math.round(k.jumlah * 0.04);
   else if (k.kena_pph23_2) v -= Math.round(k.jumlah * 0.02);
-  if ((k.ppn_nominal || 0) > 0) v += Math.round(k.ppn_nominal);
+  if ((k.ppn_nominal || 0) > 0) v -= Math.round(k.ppn_nominal);
   return v;
 }
 

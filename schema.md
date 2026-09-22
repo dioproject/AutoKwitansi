@@ -60,7 +60,7 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite, WAL mode, foreign_k
 
 **Catatan pajak (kena_pph21/23/23_2=1, plus ppn_nominal opsional):**
 - `jumlah` tetap menyimpan **bruto**.
-- PPh 21 = 6% × bruto; PPh 23 = 4% × bruto; PPh 23 2% = 2% × bruto; PPN = nominal input; total = bruto − PPh + PPN (dihitung saat render/print, tidak disimpan).
+- PPh 21 = 6% × bruto; PPh 23 = 4% × bruto; PPh 23 2% = 2% × bruto; PPN = nominal input; total = bruto − PPh − PPN (dihitung saat render/print, tidak disimpan).
 - `terbilang` digenerate dari **netto**.
 
 ---
