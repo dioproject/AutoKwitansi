@@ -53,6 +53,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadPrintSettings();
   await loadPosSettingsMod();
   populateKegiatanDatalist();
+  fillPenandatangan();
   refreshPaymentPreview();
 });
 
@@ -68,6 +69,23 @@ function showPage(pageName) {
   if (pageName === "sekolah") loadSekolahForm();
   if (pageName === "print-settings") loadPrintSettingsForm();
   if (pageName === "pos-settings") loadPosSetupPage();
+  if (pageName === "input") fillPenandatangan();
+}
+
+// Isi otomatis penandatangan form dari Data Sekolah (hanya yang masih kosong)
+function fillPenandatangan() {
+  if (!sekolahData) return;
+  const fill = (id, val) => {
+    const el = document.getElementById(id);
+    if (el && !el.value && val) el.value = val;
+  };
+  fill("mengetahui", sekolahData.kepala_sekolah);
+  fill("nip_mengetahui", sekolahData.nip_kepala);
+  fill("bendahara", sekolahData.bendahara);
+  fill("nip_bendahara", sekolahData.nip_bendahara);
+  const std = defaultSudahTerimaDari();
+  const stdEl = document.getElementById("sudah_terima_dari");
+  if (stdEl && !stdEl.value) stdEl.value = std;
 }
 window.showPage = showPage;
 
@@ -110,6 +128,7 @@ window.handleSimpanSekolah = async function (e) {
     };
     await invoke("cmd_update_sekolah", { sekolah: data });
     sekolahData = data;
+    window._sekolahData = data;
     showToast("Data sekolah berhasil disimpan", "success");
   } catch (e) {
     showToast("Gagal menyimpan: " + e, "error");
@@ -300,6 +319,7 @@ window.resetForm = function () {
   if (cb23) cb23.checked = false;
   document.getElementById("pph21-detail")?.classList.add("hidden");
   document.getElementById("pph23-detail")?.classList.add("hidden");
+  fillPenandatangan();
   refreshPaymentPreview();
   updateBpuDocsVisibility();
 };

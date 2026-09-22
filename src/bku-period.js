@@ -38,15 +38,31 @@ async function processBkuPeriodFiles(filePaths) {
     if (settings) settings.classList.remove("hidden");
     if (preview) preview.classList.remove("hidden");
 
-    // Bug #10: Auto-fill dari data sekolah (konsisten dengan PDF BKU biasa di main.js)
-    const sekolah = window._sekolahData;
-    if (sekolah) {
-      const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
-      setVal("bku-period-mengetahui", sekolah.kepala_sekolah);
-      setVal("bku-period-nip-mengetahui", sekolah.nip_kepala);
-      setVal("bku-period-bendahara", sekolah.bendahara);
-      setVal("bku-period-nip-bendahara", sekolah.nip_bendahara);
+    // Auto-fill penandatangan: ambil TERBARU dari DB (global bisa basi),
+    // Data Sekolah menang; bila kosong fallback ke nama hasil parse PDF.
+    let sekolah = null;
+    try {
+      sekolah = await invoke("cmd_get_sekolah");
+      window._sekolahData = sekolah;
+    } catch (_) {
+      sekolah = window._sekolahData;
     }
+    const pdfPicked = (key) => {
+      for (const r of (result || [])) {
+        const v = (r[key] || "").trim();
+        if (v) return v;
+      }
+      return "";
+    };
+    const pick = (sekVal, pdfKey) => {
+      const s = (sekVal || "").trim();
+      return s ? s : pdfPicked(pdfKey);
+    };
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
+    setVal("bku-period-mengetahui", pick(sekolah?.kepala_sekolah, "kepala_sekolah"));
+    setVal("bku-period-nip-mengetahui", pick(sekolah?.nip_kepala, "nip_kepala"));
+    setVal("bku-period-bendahara", pick(sekolah?.bendahara, "bendahara"));
+    setVal("bku-period-nip-bendahara", pick(sekolah?.nip_bendahara, "nip_bendahara"));
 
     if (window._showToast) window._showToast(`${result.length} BKU berhasil diproses`, "success");
   } catch (e) {

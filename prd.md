@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.4.0 (Current)
+### v3.4.1 (Current)
+- [FIXED] Import & form otomatis ambil kepala sekolah/bendahara terbaru dari Data Sekolah (fallback ke nama di PDF bila kosong)
+
+### v3.4.0
 - [NEW] Import ulang anti-duplikat: hanya data baru yang masuk (`{inserted, skipped}`), data lama dilewati & tidak diubah
 
 ### v3.3.2
