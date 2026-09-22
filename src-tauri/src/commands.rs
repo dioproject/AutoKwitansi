@@ -280,7 +280,7 @@ pub fn cmd_import_bku_period(
     nip_mengetahui: String,
     bendahara: String,
     nip_bendahara: String,
-) -> Result<usize, String> {
+) -> Result<crate::models::ImportResult, String> {
     crate::bku_period::import_bku_period(
         &items,
         &tahun_anggaran,

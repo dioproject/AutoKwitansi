@@ -58,6 +58,7 @@
 2. Transaksi di-group per `no_bukti`; skip: Saldo Bank/Tunai, Tarik/Setor Tunai, Pergeseran, Bunga, Pajak, SIPLah, PPh, PPN.
 3. Multi-PDF: kelompokkan per `bulan+tahun`; bulan/tahun bisa diedit inline per group.
 4. Deteksi PPh 21/23 & expand deskripsi BNU berjalan otomatis per transaksi saat import.
+5. Import ulang BKU yang sama **tidak menduplikat**: baris dengan (nomor + bulan + tahun) yang sudah ada **dilewati** (data lama tidak diubah); hanya data baru yang masuk. Ubah data lama hanya lewat Edit di Riwayat.
 
 ### Merge Transaksi (Import)
 1. User memilih sendiri baris yang digabung (centang 2+ → Gabungkan) — **tidak harus** kode rekening sama.

@@ -316,6 +316,18 @@ pub fn delete_kwitansi(id: i64) -> Result<()> {
     Ok(())
 }
 
+/// Cek apakah kwitansi sudah ada (anti-duplikat import ulang).
+/// Kunci: nomor + bulan + tahun anggaran.
+pub fn kwitansi_exists(nomor: &str, bulan: &str, tahun: &str) -> Result<bool> {
+    let conn = get_connection()?;
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM kwitansi WHERE nomor_kwitansi=?1 AND bulan=?2 AND tahun_anggaran=?3",
+        params![nomor, bulan, tahun],
+        |row| row.get(0),
+    )?;
+    Ok(count > 0)
+}
+
 pub fn update_kwitansi(id: i64, k: &Kwitansi) -> Result<()> {
     let conn = get_connection()?;
     conn.execute(

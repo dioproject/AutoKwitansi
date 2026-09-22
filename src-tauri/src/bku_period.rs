@@ -1,5 +1,5 @@
 use crate::db;
-use crate::models::{BkuData, BkuPeriodItem, Kwitansi};
+use crate::models::{BkuData, BkuPeriodItem, ImportResult, Kwitansi};
 use crate::pdf_import::parse_bku_pdf;
 use crate::terbilang::terbilang;
 
@@ -20,8 +20,9 @@ pub fn import_bku_period(
     nip_mengetahui: &str,
     bendahara: &str,
     nip_bendahara: &str,
-) -> Result<usize, String> {
-    let mut count = 0;
+) -> Result<ImportResult, String> {
+    let mut inserted = 0;
+    let mut skipped = 0;
     for item in items {
         let bulan = item.bulan.clone();
         let tahun = if item.tahun.is_empty() {
@@ -64,9 +65,17 @@ pub fn import_bku_period(
                 kena_pph23: pph23,
                 kode_kegiatan: tx.kode_kegiatan.clone(),
             };
+            // Import ulang BKU yang sama: lewati yang sudah ada (jangan ubah/timpa).
+            // Data lama hanya bisa diubah lewat Edit di Riwayat.
+            if db::kwitansi_exists(&kwitansi.nomor_kwitansi, &bulan, &tahun)
+                .map_err(|e| e.to_string())?
+            {
+                skipped += 1;
+                continue;
+            }
             db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())?;
-            count += 1;
+            inserted += 1;
         }
     }
-    Ok(count)
+    Ok(ImportResult { inserted, skipped })
 }

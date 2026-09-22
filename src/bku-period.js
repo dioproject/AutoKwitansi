@@ -306,7 +306,7 @@ window.handleImportBkuPeriod = async function () {
   }
 
   try {
-    const count = await invoke("cmd_import_bku_period", {
+    const result = await invoke("cmd_import_bku_period", {
       items,
       tahunAnggaran: items[0]?.tahun || new Date().getFullYear().toString(),
       sudahTerimaDari: window._defaultSudahTerimaDari ? window._defaultSudahTerimaDari() : "Bendahara BOS",
@@ -315,7 +315,14 @@ window.handleImportBkuPeriod = async function () {
       bendahara: document.getElementById("bku-period-bendahara")?.value || "",
       nipBendahara: document.getElementById("bku-period-nip-bendahara")?.value || "",
     });
-    if (window._showToast) window._showToast(`${count} kwitansi berhasil diimport`, "success");
+    // Backend kembalikan {inserted, skipped} (anti-duplikat import ulang)
+    const inserted = result?.inserted ?? result ?? 0;
+    const skipped = result?.skipped ?? 0;
+    if (window._showToast) {
+      if (inserted > 0 && skipped > 0) window._showToast(`${inserted} baru diimport, ${skipped} sudah ada (dilewati)`, "success");
+      else if (inserted > 0) window._showToast(`${inserted} kwitansi berhasil diimport`, "success");
+      else window._showToast("Semua data sudah ada — tidak ada yang baru", "warning");
+    }
     resetBkuPeriod();
     if (window._showPage) window._showPage("riwayat");
   } catch (e) {

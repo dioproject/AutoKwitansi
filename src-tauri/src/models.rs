@@ -127,3 +127,9 @@ pub struct BkuPeriodItem {
     pub tahun: String,
     pub transactions: Vec<BkuTransaction>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ImportResult {
+    pub inserted: usize,
+    pub skipped: usize,
+}

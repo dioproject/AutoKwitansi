@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.3.2 (Current)
+### v3.4.0 (Current)
+- [NEW] Import ulang anti-duplikat: hanya data baru yang masuk (`{inserted, skipped}`), data lama dilewati & tidak diubah
+
+### v3.3.2
 - [FIXED] Import lewatkan baris uraian 2-baris (mis. honor pengawas BPU14/BPU15): baris lanjutan kini digabung sebelum cari nomor bukti
 
 ### v3.3.1
