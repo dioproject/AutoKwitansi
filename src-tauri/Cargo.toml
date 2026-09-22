@@ -1,6 +1,6 @@
 [package]
 name = "auto-kwitansi"
-version = "3.4.1"
+version = "3.4.2"
 description = "Aplikasi Desktop Pembuatan Kwitansi SPJ Lembaga Sekolah"
 authors = ["AutoKwitansi"]
 edition = "2021"

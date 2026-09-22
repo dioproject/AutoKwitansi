@@ -102,12 +102,12 @@
 
 ## Changelog
 
-### v3.4.1 (Current)
-- [FIXED] Import & form otomatis ambil kepala sekolah/bendahara terbaru dari Data Sekolah (fallback ke nama di PDF bila kosong)
+### v3.4.2 (Current)
 - [FIXED] Install baru di atas DB lama gagal import "has no column named bulan": index bulan_tahun dipindah setelah migrasi + regression test
 
-### v3.4.0
+### v3.4.1
 - [NEW] Import ulang anti-duplikat: hanya data baru yang masuk (`{inserted, skipped}`), data lama dilewati & tidak diubah
+- [FIXED] Import & form otomatis ambil kepala sekolah/bendahara terbaru dari Data Sekolah (fallback ke nama di PDF bila kosong)
 
 ### v3.3.2
 - [FIXED] Import lewatkan baris uraian 2-baris (mis. honor pengawas BPU14/BPU15): baris lanjutan kini digabung sebelum cari nomor bukti
