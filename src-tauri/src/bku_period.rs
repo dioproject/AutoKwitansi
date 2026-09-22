@@ -32,13 +32,15 @@ pub fn import_bku_period(
         for tx in &item.transactions {
             let pph21 =
                 crate::commands::is_honor_pph21(&tx.no_bukti, &tx.kode_kegiatan, &tx.uraian);
+            let pph23 = !pph21
+                && crate::commands::is_makan_pph23(&tx.no_bukti, &tx.kode_kegiatan, &tx.uraian);
             let kwitansi = Kwitansi {
                 id: None,
                 nomor_kwitansi: tx.no_bukti.clone(),
                 tanggal: tx.tanggal.clone(),
                 sudah_terima_dari: sudah_terima_dari.to_string(),
                 jumlah: tx.pengeluaran,
-                terbilang: terbilang(crate::commands::netto_pph21(tx.pengeluaran, pph21)),
+                terbilang: terbilang(crate::commands::netto_pajak(tx.pengeluaran, pph21, pph23)),
                 untuk_pembayaran: crate::commands::expand_bnu_description(
                     &tx.no_bukti,
                     &tx.kode_kegiatan,
@@ -59,6 +61,7 @@ pub fn import_bku_period(
                 pimpinan_toko: String::new(),
                 created_at: None,
                 kena_pph21: pph21,
+                kena_pph23: pph23,
             };
             db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())?;
             count += 1;

@@ -6,11 +6,12 @@ Aplikasi desktop pembuatan kwitansi SPJ (Surat Pertanggungjawaban) untuk lembaga
 
 - **Buat Kwitansi** — form input dengan auto-terbilang (bahasa Indonesia) dan auto-fill dari data sekolah.
 - **PPh 21 6% Honorarium** — checkbox otomatis untuk BNU / kode 07.12.04 / uraian honor & instruktur; cetak bruto → PPh → netto; terbilang mengikuti netto.
+- **PPh 23 4% Makan Minum** — checkbox otomatis untuk uraian makan/minum/konsumsi/catering/jamuan; eksklusif terhadap PPh 21.
 - **Cetak Nota POS Thermal (ESC/POS)** — cetak langsung ke printer thermal USB via COM port **tanpa dialog print**. Format struk kasir dengan header/footer kustom. Preview modal sebelum cetak, fallback ke printer biasa.
 - **Halaman Printer Thermal** — setup port, baud rate, lebar kertas (58/80mm), header & footer struk kustom, test print, preview kertas live.
 - **No Nota Auto-Generate** — setiap cetak POS mendapat nomor acak unik (`YYYYMMDD-NNNN`), bukan nomor kwitansi.
 - **Import BKU Per Bulan** — multi-PDF sekaligus, dikelompokkan per bulan/tahun, merge manual per bulan.
-- **Riwayat Group per Bulan** — accordion "BKU {Bulan} {Tahun}", terbaru terbuka; badge BPU/BNU/PPh21; pencarian flat.
+- **Riwayat Group per Bulan** — accordion "BKU {Bulan} {Tahun}", terbaru terbuka; badge BPU/BNU/PPh21/PPh23; pencarian flat.
 - **Dokumen BPU >Rp1jt** — BAST, Surat Pesanan, Invoice, BAP otomatis.
 - **Pengaturan Cetak** — mode "Isi Nilai Saja" (kertas pre-print) atau "Kwitansi Lengkap", ukuran kertas custom, margin, font, jarak TTD, **visual drag & drop editor**.
 - **Data Sekolah** — nama, alamat, kepala sekolah + NIP, bendahara + NIP.
@@ -39,7 +40,7 @@ bun run tauri build
 
 Build release menghasilkan installer NSIS (.exe) dan MSI di `src-tauri/target/release/bundle/`.
 
-> **Migrasi dari v2.0**: DB lama di `%APPDATA%/AutoKwitansi/auto_kwitansi.db` otomatis dimigrasikan (ALTER TABLE aman) saat pertama kali jalan — kolom `kena_pph21`, `port`, `baud_rate`, `header_text`, `footer_text`, `last_pos_number` ditambahkan sendiri.
+> **Migrasi dari v2.0**: DB lama di `%APPDATA%/AutoKwitansi/auto_kwitansi.db` otomatis dimigrasikan (ALTER TABLE aman) saat pertama kali jalan — kolom `kena_pph21`, `kena_pph23`, `port`, `baud_rate`, `header_text`, `footer_text`, `last_pos_number` ditambahkan sendiri.
 
 ## Setup Printer Thermal
 

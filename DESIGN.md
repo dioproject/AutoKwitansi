@@ -6,6 +6,7 @@ Aplikasi desktop pembuatan kwitansi SPJ sekolah — **satu aplikasi utuh** (tanp
 
 1. **Kwitansi SPJ** — buat, cetak kwitansi (pre-print / kosong), layout sederhana 8 field.
 2. **PPh 21 6% Honorarium** — BNU / tenaga ahli (07.12.04) / instruktur pelatih: bruto → PPh → netto, terbilang mengikuti netto.
+2b. **PPh 23 4% Makan Minum** — uraian makan/minum/konsumsi/catering/jamuan; eksklusif terhadap PPh 21.
 3. **Import BKU Per Bulan** — multi-PDF BKU ARKAS sekaligus, group per bulan/tahun. **Merge transaksi manual** (pilih baris → gabung jadi 1 kwitansi).
 4. **Cetak Nota POS Thermal** — ESC/POS langsung ke printer USB via COM port; format struk kasir; header/footer kustom; no nota auto-generate; modal preview sebelum cetak.
 5. **Riwayat Group per Bulan** — accordion "BKU {Bulan} {Tahun}".
@@ -45,7 +46,7 @@ Aplikasi desktop pembuatan kwitansi SPJ sekolah — **satu aplikasi utuh** (tanp
 
 | Module | Fungsi | Export |
 |--------|--------|--------|
-| `main.js` | State, navigasi, form + PPh 21, riwayat accordion, merge PDF, print kwitansi, POS setup page | `window.*` handlers |
+| `main.js` | State, navigasi, form + pajak (PPh 21/23), riwayat accordion, merge PDF, print kwitansi, POS setup page | `window.*` handlers |
 | `pos.js` | Modal preview nota, template struk, cetak thermal/browser, settings POS | `isBpu()`, `cetakNotaPos()`, `cetakPosThermal()`, `cetakPosBrowser()`, `renderPosNotaTemplate()`, `loadPosSettings()`, `getPosSettings()` |
 | `bpu-docs.js` | Dokumen BPU: 4 template A4, checklist status, data toko | `needsDocuments()`, `loadDocStatus()`, `allDocsComplete()`, `window.cetakDokumen()` |
 | `bku-period.js` | Import multi-PDF per bulan + merge manual per group | `window.openBkuPeriodDialog()`, `window.handleImportBkuPeriod()`, merge handlers |
@@ -56,18 +57,18 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 
 | Module | Fungsi | Commands |
 |--------|--------|----------|
-| `commands.rs` | 23 command + `is_honor_pph21()` + `expand_bnu_description()` | semua `cmd_*` |
+| `commands.rs` | 23 command + deteksi pajak (`is_honor_pph21()`, `is_makan_pph23()`) + `expand_bnu_description()` | semua `cmd_*` |
 | `db.rs` | SQLite CRUD + migrations + `generate_pos_number()` (rand) | — |
 | `pdf_import.rs` | Parse 1 PDF BKU → BkuData | `cmd_parse_bku_pdf` |
-| `bku_period.rs` | Parse N PDF + import per bulan (PPh21 & expand BNU per tx) | `cmd_parse_bku_pdfs`, `cmd_import_bku_period` |
+| `bku_period.rs` | Parse N PDF + import per bulan (pajak & expand BNU per tx) | `cmd_parse_bku_pdfs`, `cmd_import_bku_period` |
 | `pos_print.rs` | ESC/POS builder + serialport write + test print | `cmd_print_pos_nota`, `cmd_pos_test_print`, `cmd_get/save_pos_settings` |
 | `bpu_docs.rs` | BPU dokumen + toko CRUD | `cmd_get_doc_status`, `cmd_set_doc_lengkap`, `cmd_update_toko` |
 
 ## UI Components
 
 ### Navigation (sidebar)
-- **Buat Kwitansi** — form + checkbox PPh 21 + section dokumen BPU (kondisional)
-- **Riwayat** — accordion per BKU bulan; badge BPU (biru) / BNU (pink) / PPh21 (kuning); tombol Cetak/POS/Hapus
+- **Buat Kwitansi** — form + checkbox PPh 21 / PPh 23 (eksklusif) + section dokumen BPU (kondisional)
+- **Riwayat** — accordion per BKU bulan; badge BPU (biru) / BNU (pink) / PPh21/PPh23 (kuning); tombol Cetak/POS/Hapus
 - **Import BKU Per Bulan** — multi-PDF, grouped preview, toolbar merge per bulan (Gabungkan yang Dicentang / Gabung Otomatis per Kode / Uraikan Semua)
 - **Data Sekolah** — form identitas
 - **Pengaturan Cetak** — kwitansi: mode, kertas, margin, font, drag-drop editor
@@ -83,9 +84,9 @@ Di preview cetak, tombol dikelompokkan dengan label:
 2. **Modal POS Settings** — quick access (paper width, port, baud) dari halaman lain.
 
 ### Print Templates
-1. **Kwitansi Full** (v3.0 sederhana) — KWITANSI, nomor lengkap (mis. BPU12, tanpa awalan "No:"), Sudah terima dari, Uang sejumlah (terbilang netto), Untuk pembayaran (kalimat gabungan uraian + kode + tahun), box Rp (netto), blok bruto/PPh/netto (honorarium), TTD 3 kolom: Mengetahui / Bendahara / {Tgl "21 Juni 2026"} + Yang Menerima.
+1. **Kwitansi Full** (v3.0 sederhana) — KWITANSI, nomor lengkap (mis. BPU12, tanpa awalan "No:"), Sudah terima dari, Uang sejumlah (terbilang netto), Untuk pembayaran (kalimat gabungan uraian + kode + tahun), box Rp (netto), blok bruto/PPh/netto (kena pajak), TTD 3 kolom: Mengetahui / Bendahara / {Tgl "21 Juni 2026"} + Yang Menerima.
 2. **Kwitansi Values Only** — pre-print, field absolute position (drag-drop).
-3. **Nota POS (struk kasir)** — header kustom/toko, No label+random, Tgl, ITEM, TOTAL (bold), PPh block, Penerima, footer kustom. 32 char (58mm) / 48 char (80mm).
+3. **Nota POS (struk kasir)** — header kustom/toko, No label+random, Tgl, ITEM, TOTAL (bold), blok PPh (21/23), Penerima, footer kustom. 32 char (58mm) / 48 char (80mm).
 4. **BAST / Surat Pesanan / Invoice / BAP** — A4.
 
 ## Merge Transaksi (v3.0)
@@ -108,13 +109,14 @@ baris gabungan (amber bg, badge "Nx", tombol ✖ urai)
 - `Gabung Otomatis per Kode Rekening` = shortcut merge semua baris berkode sama.
 - Import = baris yang tercentang (gabungan dihitung 1 kwitansi).
 
-## PPh 21 6% (v3.0)
+## Pajak (v3.0): PPh 21 6% Honorarium & PPh 23 4% Makan Minum
 
-- **Auto-check**: nomor mengandung BNU, atau kode 07.12.04, atau uraian mengandung honor/honorarium/instruktur.
-- Checkbox manual tetap bisa diubah user.
-- Bruto disimpan di `jumlah`; PPh = 6% bruto; netto = bruto − PPh.
-- `terbilang` (Rust) digenerate dari **netto** saat `kena_pph21`.
-- Cetak kwitansi: blok 3 baris (Bruto / PPh 21 6% / Netto) hanya untuk honorarium.
+- **PPh 21 auto-check**: nomor mengandung BNU, atau kode 07.12.04, atau uraian mengandung honor/honorarium/instruktur.
+- **PPh 23 auto-check**: uraian mengandung makan/minum/konsumsi/catering/katering/snack/jamuan (bukan honorarium — PPh 21 didahulukan).
+- Checkbox manual saling eksklusif, tetap bisa diubah user.
+- Bruto disimpan di `jumlah`; PPh 21 = 6% bruto, PPh 23 = 4% bruto; netto = bruto − PPh.
+- `terbilang` (Rust) digenerate dari **netto** saat `kena_pph21`/`kena_pph23`.
+- Cetak kwitansi: blok 3 baris (Bruto / PPh / Netto) hanya untuk kwitansi kena pajak.
 - Cetak POS: blok sama di struk.
 
 ## Auto-Refresh System

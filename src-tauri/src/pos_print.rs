@@ -125,20 +125,25 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) ->
     buf.extend_from_slice(LF);
 
     // ══════════════════════════
-    // TOTAL — netto jika kena PPh 21
+    // TOTAL — netto jika kena PPh 21 (6%) atau PPh 23 (4%)
     // ══════════════════════════
-    let pph: f64 = if k.kena_pph21 {
-        (k.jumlah * 0.06).round()
+    let (pph_label, pph_rate): (&str, f64) = if k.kena_pph21 {
+        ("PPh 21 6%", 0.06)
+    } else if k.kena_pph23 {
+        ("PPh 23 4%", 0.04)
     } else {
-        0.0
+        ("", 0.0)
     };
+    let pph: f64 = (k.jumlah * pph_rate).round();
     let netto = k.jumlah - pph;
-    if k.kena_pph21 {
+    if pph_rate > 0.0 {
         buf.extend_from_slice(
             line(&format!("Bruto  : Rp {}", format_currency(k.jumlah))).as_bytes(),
         );
         buf.extend_from_slice(LF);
-        buf.extend_from_slice(line(&format!("PPh 6% : Rp {}", format_currency(pph))).as_bytes());
+        buf.extend_from_slice(
+            line(&format!("{} : Rp {}", pph_label, format_currency(pph))).as_bytes(),
+        );
         buf.extend_from_slice(LF);
     }
     buf.extend_from_slice(ESC_BOLD_ON);
@@ -449,6 +454,7 @@ mod tests {
             pimpinan_toko: "".into(),
             created_at: None,
             kena_pph21: false,
+            kena_pph23: false,
         };
         assert_eq!(
             compose_payment_sentence(&k),
@@ -466,5 +472,21 @@ mod tests {
     fn test_format_currency() {
         assert_eq!(format_currency(1000000.0), "1.000.000");
         assert_eq!(format_currency(50000.5), "50.000");
+    }
+
+    #[test]
+    fn test_pajak_rate_dan_netto() {
+        use crate::commands::{is_makan_pph23, netto_pajak, pajak_rate};
+        assert_eq!(pajak_rate(true, false), 0.06);
+        assert_eq!(pajak_rate(false, true), 0.04);
+        assert_eq!(pajak_rate(false, false), 0.0);
+        assert_eq!(pajak_rate(true, true), 0.06); // PPh 21 didahulukan
+        assert_eq!(netto_pajak(1_000_000.0, false, true), 960_000.0);
+        assert_eq!(netto_pajak(1_000_000.0, true, false), 940_000.0);
+        assert_eq!(netto_pajak(1_000_000.0, false, false), 1_000_000.0);
+        assert!(is_makan_pph23("", "", "Belanja makan dan minum rapat"));
+        assert!(is_makan_pph23("", "", "Konsumsi kegiatan MPLS"));
+        assert!(is_makan_pph23("", "", "Jasa catering acara wisuda"));
+        assert!(!is_makan_pph23("", "", "Pembelian ATK"));
     }
 }

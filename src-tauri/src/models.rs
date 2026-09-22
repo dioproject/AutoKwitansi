@@ -39,6 +39,8 @@ pub struct Kwitansi {
     pub created_at: Option<String>,
     #[serde(default)]
     pub kena_pph21: bool,
+    #[serde(default)]
+    pub kena_pph23: bool,
 }
 
 // ============ BKU PDF MODELS ============

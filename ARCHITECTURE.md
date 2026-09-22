@@ -26,7 +26,7 @@ AutoKwitansi/
 ├── package.json                  # Bun/npm deps, v3.0.0
 ├── vite.config.js                # Dev server :1420, outDir dist/
 ├── src/
-│   ├── main.js                   # Inti frontend: state, form, riwayat accordion, merge, PPh 21
+│   ├── main.js                   # Inti frontend: state, form, riwayat accordion, merge, pajak (PPh 21/23)
 │   ├── pos.js                    # Nota POS: modal preview, template struk, ESC/POS invoke
 │   ├── bpu-docs.js               # Dokumen BPU >1jt (BAST, SP, Invoice, BAP)
 │   ├── bku-period.js             # Import BKU per bulan (multi-PDF) + merge manual
@@ -38,12 +38,12 @@ AutoKwitansi/
 │   └── src/
 │       ├── main.rs               # Entry point → lib::run()
 │       ├── lib.rs                # Module registration (9 mod) + 23 command
-│       ├── commands.rs           # 23 #[tauri::command] + is_honor_pph21 + expand_bnu_description
+│       ├── commands.rs           # 23 #[tauri::command] + deteksi pajak + expand_bnu_description
 │       ├── db.rs                 # SQLite init, migrations, CRUD (5 tabel) + generate_pos_number
 │       ├── models.rs             # 8 structs (serde)
 │       ├── terbilang.rs          # Number → Indonesian words
 │       ├── pdf_import.rs         # PDF BKU parser → BkuData
-│       ├── bku_period.rs         # Multi-PDF BKU parse + import per bulan (+ PPh21 & expand BNU)
+│       ├── bku_period.rs         # Multi-PDF BKU parse + import per bulan (+ pajak & expand BNU)
 │       ├── pos_print.rs          # ESC/POS builder + serialport print + test print
 │       └── bpu_docs.rs           # BPU dokumen + toko CRUD
 ├── README.md
@@ -81,7 +81,7 @@ AutoKwitansi/
 │  ├── cmd_get_sekolah / cmd_update_sekolah                        │
 │  ├── cmd_simpan_kwitansi (terbilang netto + expand BNU)          │
 │  ├── cmd_get_all / cmd_get / cmd_delete / cmd_search             │
-│  ├── cmd_parse_bku_pdfs / cmd_import_bku_period (PPh21 + expand BNU)    │
+│  ├── cmd_parse_bku_pdfs / cmd_import_bku_period (pajak + expand BNU)       │
 │  ├── cmd_get_print_settings / cmd_save_print_settings            │
 │  ├── cmd_get_pos_settings / cmd_save_pos_settings                │
 │  ├── cmd_print_pos_nota / cmd_pos_test_print          [ESC/POS]  │
@@ -107,7 +107,7 @@ AutoKwitansi/
 │                                │   └─────────────────────────────┘
 │  sekolah        → 1 row        │
 │  kwitansi       → N rows       │
-│    (+kena_pph21 v3.0)          │
+│    (+kena_pph21/kena_pph23 v3.0) │
 │  print_settings → 1 row        │
 │  pos_settings   → 1 row        │
 │    (+port, baud_rate,          │
@@ -139,7 +139,7 @@ Alur cetak nota thermal:
    - `db::generate_pos_number()` → nomor acak `YYYYMMDD-NNNN`.
    - `build_escpos_nota(k, settings, nota_number)` → byte array ESC/POS:
      - Header: `header_text` kustom → fallback `nama_toko`/`alamat_toko` (BPU) → fallback "NOTA PEMBAYARAN" (center, bold).
-     - Body: No (label BPU/BNU + nota number), Tgl, ITEM (uraian), TOTAL (bold, right), blok PPh 21 (bruto/pph/netto) jika `kena_pph21`, Penerima.
+     - Body: No (label BPU/BNU + nota number), Tgl, ITEM (uraian), TOTAL (bold, right), blok pajak (bruto/pph/netto) jika kena PPh, Penerima.
      - Footer: `footer_text` kustom → fallback "Terima kasih" (center).
      - Sanitasi ASCII, truncation per lebar kertas (32/48 char), feed 3 baris, `GS V` (cut).
    - `serialport::new(port, baud).open()` → `write_all(bytes)` → `flush()`.
@@ -158,7 +158,7 @@ Testing manual melalui UI (`bun run tauri dev`).
 ## Print System
 
 1. `renderKwitansiTemplate(k)` — pilih `renderValuesOnlyTemplate` atau `renderFullTemplate` berdasarkan `currentPrintSettings.mode`.
-2. `renderFullTemplate` (v3.0, disederhanakan): header KWITANSI + No (label BPU/BNU saja), Sudah terima dari, Uang sejumlah (terbilang netto), Untuk pembayaran, box Rp, blok PPh 21 (jika honorarium), 3 kolom TTD (Mengetahui / Bendahara / Penerima+Tgl format "21 Juni 2026"). Tanpa merk, tanpa materai, tanpa tahun anggaran/kode rekening.
+2. `renderFullTemplate` (v3.0, disederhanakan): header KWITANSI + No (label BPU/BNU saja), Sudah terima dari, Uang sejumlah (terbilang netto), Untuk pembayaran, box Rp, blok pajak (jika kena PPh), 3 kolom TTD (Mengetahui / Bendahara / Penerima+Tgl format "21 Juni 2026"). Tanpa merk, tanpa materai, tanpa tahun anggaran/kode rekening.
 3. Auto-refresh: `handleLivePreview()` debounce 300ms → update `currentPrintSettings` → render ulang.
 4. `refreshPrintPreview()` — render ulang dari `lastPreviewData` tanpa query DB.
 5. `cetakKwitansi()` — inject `<style> @page { size: WxH mm }` → `window.print()`.

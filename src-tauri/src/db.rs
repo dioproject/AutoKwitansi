@@ -89,7 +89,8 @@ pub fn init_db() -> Result<()> {
             alamat_toko TEXT NOT NULL DEFAULT '',
             pimpinan_toko TEXT NOT NULL DEFAULT '',
             created_at TEXT DEFAULT (datetime('now','localtime')),
-            kena_pph21 INTEGER NOT NULL DEFAULT 0
+            kena_pph21 INTEGER NOT NULL DEFAULT 0,
+            kena_pph23 INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE INDEX IF NOT EXISTS idx_kwitansi_nomor ON kwitansi(nomor_kwitansi);
@@ -135,13 +136,14 @@ pub fn init_db() -> Result<()> {
     )?;
 
     // Migration: add new columns if missing (for existing DBs)
-    let column_migrations: [(&str, &str, &str); 11] = [
+    let column_migrations: [(&str, &str, &str); 12] = [
         ("print_settings", "sig_gap", "REAL NOT NULL DEFAULT 15.0"),
         ("kwitansi", "bulan", "TEXT NOT NULL DEFAULT ''"),
         ("kwitansi", "nama_toko", "TEXT NOT NULL DEFAULT ''"),
         ("kwitansi", "alamat_toko", "TEXT NOT NULL DEFAULT ''"),
         ("kwitansi", "pimpinan_toko", "TEXT NOT NULL DEFAULT ''"),
         ("kwitansi", "kena_pph21", "INTEGER NOT NULL DEFAULT 0"),
+        ("kwitansi", "kena_pph23", "INTEGER NOT NULL DEFAULT 0"),
         ("pos_settings", "port", "TEXT NOT NULL DEFAULT ''"),
         ("pos_settings", "baud_rate", "INTEGER NOT NULL DEFAULT 9600"),
         ("pos_settings", "header_text", "TEXT NOT NULL DEFAULT ''"),
@@ -223,7 +225,7 @@ pub fn update_sekolah(sekolah: &Sekolah) -> Result<()> {
 
 // ============ KWITANSI ============
 
-const KWITANSI_COLUMNS: &str = "id, nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, nama_toko, alamat_toko, pimpinan_toko, created_at, kena_pph21";
+const KWITANSI_COLUMNS: &str = "id, nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, nama_toko, alamat_toko, pimpinan_toko, created_at, kena_pph21, kena_pph23";
 
 fn row_to_kwitansi(row: &rusqlite::Row) -> rusqlite::Result<Kwitansi> {
     Ok(Kwitansi {
@@ -247,14 +249,15 @@ fn row_to_kwitansi(row: &rusqlite::Row) -> rusqlite::Result<Kwitansi> {
         pimpinan_toko: row.get(17)?,
         created_at: row.get(18)?,
         kena_pph21: row.get::<_, i32>(19)? != 0,
+        kena_pph23: row.get::<_, i32>(20)? != 0,
     })
 }
 
 pub fn insert_kwitansi(k: &Kwitansi) -> Result<i64> {
     let conn = get_connection()?;
     conn.execute(
-        "INSERT INTO kwitansi (nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, nama_toko, alamat_toko, pimpinan_toko, kena_pph21)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18)",
+        "INSERT INTO kwitansi (nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan, mengetahui, nip_mengetahui, bendahara, nip_bendahara, penerima, nama_toko, alamat_toko, pimpinan_toko, kena_pph21, kena_pph23)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19)",
         params![
             k.nomor_kwitansi,
             k.tanggal,
@@ -274,6 +277,7 @@ pub fn insert_kwitansi(k: &Kwitansi) -> Result<i64> {
             k.alamat_toko,
             k.pimpinan_toko,
             k.kena_pph21 as i32,
+            k.kena_pph23 as i32,
         ],
     )?;
     Ok(conn.last_insert_rowid())

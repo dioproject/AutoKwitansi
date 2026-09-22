@@ -36,18 +36,29 @@ pub fn cmd_simpan_kwitansi(mut kwitansi: Kwitansi) -> Result<i64, String> {
         &kwitansi.bulan,
         &kwitansi.tahun_anggaran,
     );
-    // Terbilang mengikuti netto (setelah PPh 21 6%) jika honorarium
-    kwitansi.terbilang = terbilang(netto_pph21(kwitansi.jumlah, kwitansi.kena_pph21));
+    // Terbilang mengikuti netto (setelah potongan pajak) jika kena PPh 21/23
+    kwitansi.terbilang = terbilang(netto_pajak(
+        kwitansi.jumlah,
+        kwitansi.kena_pph21,
+        kwitansi.kena_pph23,
+    ));
     db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())
 }
 
-/// Netto setelah PPh 21 6% (bruto jika tidak kena)
-pub(crate) fn netto_pph21(jumlah: f64, kena: bool) -> f64 {
-    if kena {
-        jumlah - (jumlah * 0.06).round()
+/// Tarif pajak: PPh 21 6% (honorarium) didahulukan, lalu PPh 23 4% (makan minum)
+pub(crate) fn pajak_rate(kena_pph21: bool, kena_pph23: bool) -> f64 {
+    if kena_pph21 {
+        0.06
+    } else if kena_pph23 {
+        0.04
     } else {
-        jumlah
+        0.0
     }
+}
+
+/// Netto setelah potongan pajak (bruto jika tidak kena)
+pub(crate) fn netto_pajak(jumlah: f64, kena_pph21: bool, kena_pph23: bool) -> f64 {
+    jumlah - (jumlah * pajak_rate(kena_pph21, kena_pph23)).round()
 }
 
 #[command]
@@ -68,6 +79,19 @@ pub fn cmd_delete_kwitansi(id: i64) -> Result<(), String> {
 #[command]
 pub fn cmd_search_kwitansi(query: String) -> Result<Vec<Kwitansi>, String> {
     db::search_kwitansi(&query).map_err(|e| e.to_string())
+}
+
+/// Deteksi otomatis apakah transaksi makan minum kena PPh 23 4%
+pub(crate) fn is_makan_pph23(no_bukti: &str, kode_kegiatan: &str, uraian: &str) -> bool {
+    let _ = (no_bukti, kode_kegiatan);
+    let u = uraian.to_lowercase();
+    u.contains("makan")
+        || u.contains("minum")
+        || u.contains("konsumsi")
+        || u.contains("catering")
+        || u.contains("katering")
+        || u.contains("snack")
+        || u.contains("jamuan")
 }
 
 /// Deteksi otomatis apakah transaksi kena PPh 21 6%

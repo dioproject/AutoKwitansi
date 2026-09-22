@@ -30,7 +30,7 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite, WAL mode, foreign_k
 | tanggal | TEXT | — | YYYY-MM-DD (dari input date) |
 | sudah_terima_dari | TEXT | — | Pengirim dana |
 | jumlah | REAL | 0 | Jumlah bruto rupiah |
-| terbilang | TEXT | "" | Auto dari Rust `terbilang()` — **mengikuti netto jika kena PPh 21** |
+| terbilang | TEXT | "" | Auto dari Rust `terbilang()` — **mengikuti netto jika kena PPh 21/23** |
 | untuk_pembayaran | TEXT | "" | Keterangan barang/jasa — **auto-expand untuk BNU** |
 | kode_rekening | TEXT | "" | Kode rekening ARKAS |
 | tahun_anggaran | TEXT | "" | 2026 |
@@ -45,6 +45,7 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite, WAL mode, foreign_k
 | pimpinan_toko | TEXT | "" | Pimpinan toko (BPU >1jt) |
 | created_at | TEXT | datetime('now','localtime') | Auto timestamp |
 | kena_pph21 | INTEGER | 0 | **[v3.0]** 1 = honorarium kena PPh 21 6% |
+| kena_pph23 | INTEGER | 0 | 1 = makan minum kena PPh 23 4% (saling eksklusif dengan PPh 21) |
 
 **Index:**
 - `idx_kwitansi_nomor` ON `nomor_kwitansi`
@@ -54,9 +55,9 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite, WAL mode, foreign_k
 **Relasi:**
 - 1 kwitansi → 0..1 bpu_dokumen (via `kwitansi_id`)
 
-**Catatan PPh 21 (kena_pph21=1):**
+**Catatan pajak (kena_pph21=1 atau kena_pph23=1):**
 - `jumlah` tetap menyimpan **bruto**.
-- PPh = 6% × bruto; netto = bruto − PPh (dihitung saat render/print, tidak disimpan).
+- PPh 21 = 6% × bruto; PPh 23 = 4% × bruto; netto = bruto − PPh (dihitung saat render/print, tidak disimpan).
 - `terbilang` digenerate dari **netto**.
 
 ---

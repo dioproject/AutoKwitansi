@@ -2,7 +2,7 @@
 
 ## Product Overview
 
-**AutoKwitansi** adalah aplikasi desktop untuk pembuatan kwitansi SPJ sekolah yang terintegrasi dengan data BKU dari ARKAS. Versi 3.0 menyatukan aplikasi menjadi **satu varian utuh**, menambahkan **cetak langsung ke printer thermal (ESC/POS)**, **PPh 21 6% untuk honorarium**, **riwayat group per bulan**, dan **merge transaksi manual saat import**.
+**AutoKwitansi** adalah aplikasi desktop untuk pembuatan kwitansi SPJ sekolah yang terintegrasi dengan data BKU dari ARKAS. Versi 3.0 menyatukan aplikasi menjadi **satu varian utuh**, menambahkan **cetak langsung ke printer thermal (ESC/POS)**, **PPh 21 6% untuk honorarium & PPh 23 4% untuk makan minum**, **riwayat group per bulan**, dan **merge transaksi manual saat import**.
 
 ## Target Users
 
@@ -14,7 +14,7 @@
 
 1. Percepatan pembuatan kwitansi dari BKU ARKAS (dari 30 menit → 2 menit per transaksi).
 2. Cetak nota POS **langsung ke printer thermal USB tanpa dialog print**.
-3. Kepatuhan pajak: honorarium (BNU, tenaga ahli 07.12.04, instruktur pelatih) otomatis terpotong PPh 21 6% dengan rincian bruto/netto.
+3. Kepatuhan pajak: honorarium (BNU, tenaga ahli 07.12.04, instruktur pelatih) otomatis terpotong PPh 21 6%, makan minum (konsumsi/catering/jamuan) terpotong PPh 23 4%, dengan rincian bruto/netto.
 4. Fleibilitas import: gabungkan beberapa transaksi BKU menjadi 1 kwitansi sesuai keinginan user.
 5. Organisasi data per bulan (accordion) untuk kemudahan pelaporan.
 
@@ -31,10 +31,11 @@
 - Mode `values_only` (kertas pre-print) dengan drag-drop editor tetap ada.
 - Batch print multi-select.
 
-### F3: PPh 21 6% Honorarium
+### F3: PPh 21 6% Honorarium & PPh 23 4% Makan Minum
 - **Kategori BNU** = honorarium saja: tenaga ahli (kode 07.12.04) dan instruktur/pelatih.
 - Checkbox "Honorarium — potong PPh 21 6%" **auto-tercentang** jika: nomor mengandung BNU, atau kode rekening 07.12.04, atau uraian mengandung honor/honorarium/instruktur.
-- Rincian bruto → PPh 21 6% → netto tampil di form, kwitansi cetak, dan struk POS.
+- Checkbox "Makan minum — potong PPh 23 4%" **auto-tercentang** jika: uraian mengandung makan/minum/konsumsi/catering/katering/snack/jamuan (bukan honorarium).
+- Kedua checkbox saling eksklusif; rincian bruto → PPh → netto tampil di form, kwitansi cetak, dan struk POS.
 - **Terbilang mengikuti netto**; `jumlah` di DB tetap bruto.
 - BNU tidak punya tombol POS dan tidak wajib dokumen toko.
 
@@ -58,7 +59,7 @@
 ### F6: Riwayat Group per Bulan
 - Group accordion **"BKU {Bulan} {Tahun}"** (dari data import), group "Tanpa BKU" untuk input manual.
 - Grup terbaru terbuka default; search = tampilan flat.
-- Badge: BPU (biru), BNU (pink), PPh21 (kuning).
+- Badge: BPU (biru), BNU (pink), PPh21/PPh23 (kuning).
 - Select-all per group, batch print, POS per baris.
 
 ### F7: Dokumen BPU >Rp1jt

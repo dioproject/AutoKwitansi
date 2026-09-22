@@ -27,16 +27,18 @@
 
 ### Kwitansi
 1. Field wajib: `nomor_kwitansi`, `tanggal`, `sudah_terima_dari`, `jumlah`, `untuk_pembayaran`, `penerima`.
-2. `terbilang` auto-generate via Rust — dari **netto** jika `kena_pph21`, selain itu dari bruto.
+2. `terbilang` auto-generate via Rust — dari **netto** jika `kena_pph21`/`kena_pph23`, selain itu dari bruto.
 3. `bulan` diisi dari import BKU; kosong untuk input manual (masuk group "Tanpa BKU" di riwayat).
 4. Nomor kwitansi dicetak **lengkap apa adanya** (mis. `BPU12`, `BNU16`) **tanpa awalan "No:"** — kertas pre-print / layout sudah menyediakan posisinya.
 
-### PPh 21 6% (Honorarium)
+### PPh 21 6% (Honorarium) & PPh 23 4% (Makan Minum)
 1. Kategori BNU = honorarium saja: tenaga ahli kode **07.12.04** dan instruktur/pelatih.
-2. Auto-check jika: nomor mengandung BNU **atau** kode 07.12.04 **atau** uraian mengandung honor/honorarium/instruktur. User tetap bisa mengubah manual.
-3. PPh = 6% × bruto (dibulatkan); netto = bruto − PPh.
-4. Tampilan bruto/PPh/netto hanya untuk kwitansi honorarium (form, cetak kwitansi, struk POS).
-5. **BNU tidak punya tombol POS** dan **tidak wajib dokumen toko** (dokumen hanya untuk BPU >1jt).
+2. Auto-check PPh 21 jika: nomor mengandung BNU **atau** kode 07.12.04 **atau** uraian mengandung honor/honorarium/instruktur. User tetap bisa mengubah manual.
+3. Auto-check PPh 23 jika: uraian mengandung makan/minum/konsumsi/catering/katering/snack/jamuan (**bukan** honorarium — PPh 21 didahulukan).
+4. Kedua checkbox **saling eksklusif** (hanya satu yang aktif).
+5. PPh 21 = 6% × bruto; PPh 23 = 4% × bruto (dibulatkan); netto = bruto − PPh.
+6. Tampilan bruto/PPh/netto hanya untuk kwitansi kena pajak (form, cetak kwitansi, struk POS).
+7. **BNU tidak punya tombol POS** dan **tidak wajib dokumen toko** (dokumen hanya untuk BPU >1jt).
 
 ### Deskripsi BNU (anti-monoton)
 1. `expand_bnu_description()` memperpanjang uraian pendek (<40 char) saat save/import:
@@ -50,7 +52,7 @@
 1. 1 PDF BKU = 1 bulan. Parse header → `bulan` + `tahun`.
 2. Transaksi di-group per `no_bukti`; skip: Saldo Bank/Tunai, Tarik/Setor Tunai, Pergeseran, Bunga, Pajak, SIPLah, PPh, PPN.
 3. Multi-PDF: kelompokkan per `bulan+tahun`; bulan/tahun bisa diedit inline per group.
-4. Deteksi PPh 21 & expand deskripsi BNU berjalan otomatis per transaksi saat import.
+4. Deteksi PPh 21/23 & expand deskripsi BNU berjalan otomatis per transaksi saat import.
 
 ### Merge Transaksi (Import)
 1. User memilih sendiri baris yang digabung (centang 2+ → Gabungkan) — **tidak harus** kode rekening sama.

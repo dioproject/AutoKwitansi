@@ -123,6 +123,22 @@
             </div>
           </div>
 
+          <!-- PPh 23 Makan Minum -->
+          <div id="pph23-section" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+              <input type="checkbox" id="cb_kena_pph23" onchange="handlePPh23Toggle()" />
+              Makan minum — potong PPh 23 4% (konsumsi / catering / jamuan)
+            </label>
+            <div id="pph23-detail" class="hidden" style="margin-top:10px;padding:10px;background:#fff;border-radius:6px;border:1px solid var(--border);">
+              <div style="display:flex;gap:20px;font-size:13px;">
+                <div><strong>Bruto:</strong> <span id="pph23_bruto">Rp 0</span></div>
+                <div><strong>PPh 23 4%:</strong> <span id="pph23_pph" style="color:var(--danger);">- Rp 0</span></div>
+                <div><strong>Netto:</strong> <span id="pph23_netto" style="color:var(--success);font-weight:700;">Rp 0</span></div>
+              </div>
+              <p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Terbilang akan mencetak nilai netto (setelah potongan PPh 23)</p>
+            </div>
+          </div>
+
           <!-- BPU Dokumen Checklist (hidden by default, shown via JS) -->
           <div id="bpu-docs-section" class="hidden" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
             <h3 style="margin-bottom:10px;color:var(--accent);">Dokumen Wajib BPU &gt; Rp1.000.000</h3>

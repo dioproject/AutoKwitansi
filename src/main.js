@@ -114,7 +114,13 @@ window.handleSimpanSekolah = async function (e) {
   return false;
 };
 
-// ========== PPh 21 ==========
+// ========== PAJAK (PPh 21 & PPh 23, saling eksklusif) ==========
+function pajakRateAktif() {
+  if (document.getElementById("cb_kena_pph21")?.checked) return 0.06;
+  if (document.getElementById("cb_kena_pph23")?.checked) return 0.04;
+  return 0;
+}
+
 function updatePph21Detail() {
   const checked = document.getElementById("cb_kena_pph21")?.checked;
   const detail = document.getElementById("pph21-detail");
@@ -132,22 +138,64 @@ function updatePph21Detail() {
   document.getElementById("pph21_netto").textContent = `Rp ${formatRupiah(netto)}`;
 }
 
+function updatePph23Detail() {
+  const checked = document.getElementById("cb_kena_pph23")?.checked;
+  const detail = document.getElementById("pph23-detail");
+  if (detail) detail.classList.toggle("hidden", !checked);
+
+  if (!checked) return;
+
+  const jumlahRaw = (document.getElementById("jumlah")?.value || "0").replace(/[^\d]/g, "");
+  const bruto = parseFloat(jumlahRaw) || 0;
+  const pph = Math.round(bruto * 0.04);
+  const netto = bruto - pph;
+
+  document.getElementById("pph23_bruto").textContent = `Rp ${formatRupiah(bruto)}`;
+  document.getElementById("pph23_pph").textContent = `- Rp ${formatRupiah(pph)}`;
+  document.getElementById("pph23_netto").textContent = `Rp ${formatRupiah(netto)}`;
+}
+
+function isMakanUraian(u) {
+  return ["makan", "minum", "konsumsi", "catering", "katering", "snack", "jamuan"].some(w => u.includes(w));
+}
+
 function autoDetectPPh21() {
   const nomor = document.getElementById("nomor_kwitansi")?.value || "";
   const kode = document.getElementById("kode_rekening")?.value || "";
   const uraian = (document.getElementById("untuk_pembayaran")?.value || "").toLowerCase();
 
-  const shouldCheck = isBnu(nomor) || kode.includes("07.12.04") || uraian.includes("honor") || uraian.includes("honorarium") || uraian.includes("instruktur");
+  const isHonor = isBnu(nomor) || kode.includes("07.12.04") || uraian.includes("honor") || uraian.includes("honorarium") || uraian.includes("instruktur");
+  const isMakan = !isHonor && isMakanUraian(uraian);
 
-  const cb = document.getElementById("cb_kena_pph21");
-  if (cb && !cb.checked) {
-    cb.checked = shouldCheck;
+  const cb21 = document.getElementById("cb_kena_pph21");
+  const cb23 = document.getElementById("cb_kena_pph23");
+  if (isHonor) {
+    if (cb21 && !cb21.checked) cb21.checked = true;
+    if (cb23) cb23.checked = false;
+  } else if (isMakan) {
+    if (cb23 && !cb23.checked) cb23.checked = true;
+    if (cb21) cb21.checked = false;
   }
   updatePph21Detail();
+  updatePph23Detail();
 }
 
 window.handlePPh21Toggle = function () {
+  if (document.getElementById("cb_kena_pph21")?.checked) {
+    const cb23 = document.getElementById("cb_kena_pph23");
+    if (cb23) cb23.checked = false;
+  }
   updatePph21Detail();
+  updatePph23Detail();
+};
+
+window.handlePPh23Toggle = function () {
+  if (document.getElementById("cb_kena_pph23")?.checked) {
+    const cb21 = document.getElementById("cb_kena_pph21");
+    if (cb21) cb21.checked = false;
+  }
+  updatePph21Detail();
+  updatePph23Detail();
 };
 
 // ========== KWITANSI INPUT ==========
@@ -160,9 +208,9 @@ window.handleJumlahInput = async function (el) {
   let formatted = parseInt(raw).toLocaleString("id-ID");
   el.value = formatted;
 
-  const kenaPph21 = document.getElementById("cb_kena_pph21")?.checked;
+  const rate = pajakRateAktif();
   const bruto = parseInt(raw);
-  const jumlah = kenaPph21 ? bruto - Math.round(bruto * 0.06) : bruto;
+  const jumlah = bruto - Math.round(bruto * rate);
 
   try {
     const result = await invoke("cmd_terbilang", { jumlah: jumlah });
@@ -172,6 +220,7 @@ window.handleJumlahInput = async function (el) {
   }
   updateBpuDocsVisibility();
   updatePph21Detail();
+  updatePph23Detail();
 };
 
 window.handleSimpanKwitansi = async function (e) {
@@ -183,6 +232,7 @@ window.handleSimpanKwitansi = async function (e) {
   const nipBendahara = document.getElementById("nip_bendahara").value || (sekolahData ? sekolahData.nip_bendahara : "");
   const jumlahRaw = document.getElementById("jumlah").value.replace(/[^\d]/g, "");
   const kenaPph21 = document.getElementById("cb_kena_pph21")?.checked || false;
+  const kenaPph23 = !kenaPph21 && (document.getElementById("cb_kena_pph23")?.checked || false);
 
   const kwitansi = {
     id: null,
@@ -205,6 +255,7 @@ window.handleSimpanKwitansi = async function (e) {
     pimpinan_toko: document.getElementById("doc_pimpinan_toko")?.value || "",
     created_at: null,
     kena_pph21: kenaPph21,
+    kena_pph23: kenaPph23,
   };
 
   try {
@@ -237,7 +288,11 @@ window.resetForm = function () {
   const today = new Date().toISOString().split("T")[0];
   document.getElementById("tanggal").value = today;
   document.getElementById("tahun_anggaran").value = new Date().getFullYear().toString();
+  document.getElementById("cb_kena_pph21").checked = false;
+  const cb23 = document.getElementById("cb_kena_pph23");
+  if (cb23) cb23.checked = false;
   document.getElementById("pph21-detail")?.classList.add("hidden");
+  document.getElementById("pph23-detail")?.classList.add("hidden");
   refreshPaymentPreview();
   updateBpuDocsVisibility();
 };
@@ -428,7 +483,7 @@ function renderGrouped(data) {
                   let badge = "";
                   if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
                   else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
-                  const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : "";
+                  const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : "");
                   return `
                   <tr>
                     <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
@@ -506,7 +561,7 @@ function renderTable(data) {
             let badge = "";
             if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
             else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
-            const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : "";
+            const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : "");
             return `
             <tr>
               <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
@@ -884,16 +939,18 @@ function renderFullTemplate(k) {
   const fs = s ? s.font_size : 12;
   const gap = s ? (s.sig_gap || 15) : 15;
 
-  // PPh 21 block (honorarium only)
+  // Blok pajak (PPh 21 honorarium 6% / PPh 23 makan minum 4%)
   let pphBlock = "";
-  if (k.kena_pph21) {
+  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : 0);
+  const pphLabel = k.kena_pph21 ? "PPh 21 6%" : "PPh 23 4%";
+  if (pphRate > 0) {
     const bruto = k.jumlah;
-    const pph = Math.round(bruto * 0.06);
+    const pph = Math.round(bruto * pphRate);
     const netto = bruto - pph;
     pphBlock = `
       <div style="margin-top:3mm; font-size:10pt; color:#333;">
         <div>Bruto    : <b>Rp ${formatRupiah(bruto)}</b></div>
-        <div>PPh 21 6%: <b style="color:var(--danger);">- Rp ${formatRupiah(pph)}</b></div>
+        <div>${pphLabel}: <b style="color:var(--danger);">- Rp ${formatRupiah(pph)}</b></div>
         <div style="margin-top:1mm;"><b>Netto    : Rp ${formatRupiah(netto)}</b></div>
       </div>
     `;
@@ -1188,10 +1245,11 @@ window.updatePosStrukPreview = function () {
 
 // ========== UTILITIES ==========
 
-/** Netto setelah PPh 21 6% (bruto jika tidak kena) */
+/** Netto setelah potongan pajak (bruto jika tidak kena) */
 function nettoJumlah(k) {
-  if (!k.kena_pph21) return k.jumlah;
-  return k.jumlah - Math.round(k.jumlah * 0.06);
+  if (k.kena_pph21) return k.jumlah - Math.round(k.jumlah * 0.06);
+  if (k.kena_pph23) return k.jumlah - Math.round(k.jumlah * 0.04);
+  return k.jumlah;
 }
 
 /** Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat panjang yang natural */

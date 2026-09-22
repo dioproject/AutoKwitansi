@@ -138,12 +138,14 @@ export function renderPosNotaTemplate(k, settings) {
   }
   lines.push(sep);
   
-  // TOTAL — netto jika kena PPh 21
-  const pph = k.kena_pph21 ? Math.round(k.jumlah * 0.06) : 0;
+  // TOTAL — netto jika kena PPh 21 (6%) atau PPh 23 (4%)
+  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : 0);
+  const pphLabel = k.kena_pph21 ? "PPh 21 6%" : "PPh 23 4%";
+  const pph = Math.round(k.jumlah * pphRate);
   const netto = k.jumlah - pph;
-  if (k.kena_pph21) {
+  if (pphRate > 0) {
     lines.push(`Bruto  : Rp ${formatRupiah(k.jumlah)}`);
-    lines.push(`PPh 6% : Rp ${formatRupiah(pph)}`);
+    lines.push(`${pphLabel} : Rp ${formatRupiah(pph)}`);
   }
   let totalLine = `TOTAL  : Rp ${formatRupiah(netto)}`;
   const pad = Math.max(0, maxChars - totalLine.length);

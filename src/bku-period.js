@@ -240,14 +240,17 @@ function renderPeriodPreview(grouped) {
     </tr>`;
     for (const row of rows) {
       const tx = row.tx;
-      const pph21 = (tx.no_bukti||'').toUpperCase().includes('BNU') || (tx.kode_kegiatan||'').includes('07.12.04') || (tx.uraian||'').toLowerCase().match(/honor|instruktur/);
+      const uRendah = (tx.uraian||'').toLowerCase();
+      const pph21 = (tx.no_bukti||'').toUpperCase().includes('BNU') || (tx.kode_kegiatan||'').includes('07.12.04') || uRendah.match(/honor|instruktur/);
+      const pph23 = !pph21 && uRendah.match(/makan|minum|konsumsi|catering|katering|snack|jamuan/);
+      const pphBadgeHtml = pph21 ? '<span class="badge badge-warn" style="font-size:10px;">PPh21</span>' : (pph23 ? '<span class="badge badge-warn" style="font-size:10px;">PPh23</span>' : '');
       const gabBadge = row.count > 1
         ? ` <span class="badge badge-period" title="Gabungan ${row.count} transaksi">${row.count}x</span> <button type="button" class="btn btn-sm btn-secondary" style="padding:1px 7px;font-size:11px;" title="Uraikan gabungan ini" onclick="handleUraiPeriodRow('${group.id}', ${row.rid})">&#10006;</button>`
         : "";
       html += `
         <tr${row.count > 1 ? ' style="background:#fffbeb;"' : ""}>
           <td><input type="checkbox" class="period-row-check" data-group="${group.id}" data-rid="${row.rid}" checked /></td>
-          <td>${esc(tx.no_bukti)}${gabBadge} ${pph21 ? '<span class="badge badge-warn" style="font-size:10px;">PPh21</span>' : ''}</td>
+          <td>${esc(tx.no_bukti)}${gabBadge} ${pphBadgeHtml}</td>
           <td>${esc(tx.tanggal)}</td>
           <td>${esc(tx.kode_rekening)}</td>
           <td><input type="text" class="period-uraian-input" data-group="${group.id}" data-rid="${row.rid}" value="${esc(tx.uraian)}" placeholder="Uraian..." style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;width:100%;min-width:180px;" /></td>
