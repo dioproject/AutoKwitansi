@@ -33,6 +33,7 @@ const DEFAULT_FIELD_POSITIONS = {
   uang_sejumlah: { x: 60, y: 52 },
   untuk_pembayaran: { x: 60, y: 64 },
   jumlah_rp: { x: 120, y: 80 },
+  pajak: { x: 120, y: 95 },
   mengetahui: { x: 15, y: 120 },
   penerima: { x: 100, y: 120 },
   bendahara: { x: 155, y: 120 },
@@ -345,6 +346,13 @@ async function loadRiwayat() {
     const data = await invoke("cmd_get_all_kwitansi");
     currentRiwayatData = data;
     selectedKwitansiIds.clear();
+    // Reset filter & pencarian agar data baru (mis. hasil import) selalu terlihat.
+    // Filter basi adalah penyebab riwayat "hilang" setelah update.
+    riwayatPeriodeFilter = "";
+    const filterSel = document.getElementById("riwayat-periode-filter");
+    if (filterSel) filterSel.value = "";
+    const searchInput = document.getElementById("search-input");
+    if (searchInput) searchInput.value = "";
     const selectAll = document.getElementById("riwayat-select-all");
     if (selectAll) selectAll.checked = false;
     updateBatchButton();
@@ -507,6 +515,7 @@ function renderGrouped(data) {
                     <td>
                       <div class="actions">
                         <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
+                        <button class="btn btn-sm btn-secondary" onclick="openEditModal(${k.id})">Edit</button>
                         ${posBtn}
                         <button class="btn btn-sm btn-danger" onclick="hapusKwitansi(${k.id})">Hapus</button>
                       </div>
@@ -585,6 +594,7 @@ function renderTable(data) {
               <td>
                 <div class="actions">
                   <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
+                        <button class="btn btn-sm btn-secondary" onclick="openEditModal(${k.id})">Edit</button>
                   ${posBtn}
                   <button class="btn btn-sm btn-danger" onclick="hapusKwitansi(${k.id})">Hapus</button>
                 </div>
@@ -621,6 +631,104 @@ window.hapusKwitansi = async function (id) {
   }
 };
 
+// ========== EDIT KWITANSI (MODAL) ==========
+let _editingKwitansi = null;
+
+window.openEditModal = async function (id) {
+  try {
+    const k = await invoke("cmd_get_kwitansi", { id: id });
+    _editingKwitansi = k;
+    const set = (eid, val) => { const el = document.getElementById(eid); if (el) el.value = val ?? ""; };
+    set("e_id", k.id);
+    set("e_nomor_kwitansi", k.nomor_kwitansi);
+    const tp = parseTanggalParts(k.tanggal);
+    set("e_tanggal", tp ? `${tp.y}-${String(tp.m).padStart(2, "0")}-${String(tp.d).padStart(2, "0")}` : (k.tanggal || "").slice(0, 10));
+    set("e_tahun_anggaran", k.tahun_anggaran);
+    set("e_kode_rekening", k.kode_rekening);
+    set("e_kode_kegiatan", k.kode_kegiatan || "");
+    set("e_sudah_terima_dari", k.sudah_terima_dari);
+    set("e_jumlah", Math.round(k.jumlah).toLocaleString("id-ID"));
+    set("e_untuk_pembayaran", k.untuk_pembayaran);
+    set("e_penerima", k.penerima);
+    set("e_mengetahui", k.mengetahui);
+    set("e_nip_mengetahui", k.nip_mengetahui);
+    set("e_bendahara", k.bendahara);
+    set("e_nip_bendahara", k.nip_bendahara);
+    set("e_nama_toko", k.nama_toko || "");
+    set("e_alamat_toko", k.alamat_toko || "");
+    set("e_pimpinan_toko", k.pimpinan_toko || "");
+    document.getElementById("e_cb_pph21").checked = !!k.kena_pph21;
+    document.getElementById("e_cb_pph23").checked = !!k.kena_pph23;
+    updateEditNetto();
+    populateKegiatanDatalist();
+    document.getElementById("modal-edit").classList.remove("hidden");
+  } catch (e) {
+    showToast("Gagal memuat kwitansi: " + e, "error");
+  }
+};
+
+window.handleEditJumlahInput = function (el) {
+  const raw = el.value.replace(/[^\d]/g, "");
+  if (raw === "") { updateEditNetto(); return; }
+  el.value = parseInt(raw).toLocaleString("id-ID");
+  updateEditNetto();
+};
+
+window.handleEditPajakToggle = function (which) {
+  const cb21 = document.getElementById("e_cb_pph21");
+  const cb23 = document.getElementById("e_cb_pph23");
+  if (which === "pph21" && cb21.checked) cb23.checked = false;
+  if (which === "pph23" && cb23.checked) cb21.checked = false;
+  updateEditNetto();
+};
+
+function updateEditNetto() {
+  const raw = (document.getElementById("e_jumlah")?.value || "0").replace(/[^\d]/g, "");
+  const bruto = parseFloat(raw) || 0;
+  const rate = document.getElementById("e_cb_pph21")?.checked ? 0.06
+    : (document.getElementById("e_cb_pph23")?.checked ? 0.04 : 0);
+  const netto = bruto - Math.round(bruto * rate);
+  const info = document.getElementById("e_netto_info");
+  if (info) info.textContent = rate > 0 ? `Netto: Rp ${formatRupiah(netto)}` : `Rp ${formatRupiah(bruto)}`;
+}
+
+window.handleUpdateKwitansi = async function () {
+  if (!_editingKwitansi) return;
+  const jumlahRaw = (document.getElementById("e_jumlah").value || "0").replace(/[^\d]/g, "");
+  const kena21 = document.getElementById("e_cb_pph21")?.checked || false;
+  const kwitansi = {
+    ..._editingKwitansi,
+    nomor_kwitansi: document.getElementById("e_nomor_kwitansi").value,
+    tanggal: document.getElementById("e_tanggal").value,
+    sudah_terima_dari: document.getElementById("e_sudah_terima_dari").value,
+    jumlah: parseFloat(jumlahRaw) || 0,
+    terbilang: "",
+    untuk_pembayaran: document.getElementById("e_untuk_pembayaran").value,
+    kode_rekening: document.getElementById("e_kode_rekening").value,
+    kode_kegiatan: document.getElementById("e_kode_kegiatan")?.value || "",
+    tahun_anggaran: document.getElementById("e_tahun_anggaran").value,
+    mengetahui: document.getElementById("e_mengetahui").value,
+    nip_mengetahui: document.getElementById("e_nip_mengetahui").value,
+    bendahara: document.getElementById("e_bendahara").value,
+    nip_bendahara: document.getElementById("e_nip_bendahara").value,
+    penerima: document.getElementById("e_penerima").value,
+    nama_toko: document.getElementById("e_nama_toko")?.value || "",
+    alamat_toko: document.getElementById("e_alamat_toko")?.value || "",
+    pimpinan_toko: document.getElementById("e_pimpinan_toko")?.value || "",
+    kena_pph21: kena21,
+    kena_pph23: !kena21 && (document.getElementById("e_cb_pph23")?.checked || false),
+  };
+  try {
+    await invoke("cmd_update_kwitansi", { kwitansi: kwitansi });
+    showToast("Kwitansi berhasil diperbarui", "success");
+    window._closeModal("modal-edit");
+    _editingKwitansi = null;
+    await loadRiwayat();
+  } catch (e) {
+    showToast("Gagal menyimpan: " + e, "error");
+  }
+};
+
 window.previewKwitansi = async function (id) {
   try {
     const k = await invoke("cmd_get_kwitansi", { id: id });
@@ -650,14 +758,38 @@ window.handleRiwayatCheck = function () {
 };
 
 function updateBatchButton() {
-  const btn = document.getElementById("btn-cetak-batch");
-  if (selectedKwitansiIds.size > 1) {
-    btn.style.display = "inline-flex";
-    btn.textContent = `Cetak yang Dipilih (${selectedKwitansiIds.size})`;
-  } else {
-    btn.style.display = "none";
+  const n = selectedKwitansiIds.size;
+  const btnPrint = document.getElementById("btn-cetak-batch");
+  const btnDel = document.getElementById("btn-hapus-batch");
+  if (btnPrint) {
+    btnPrint.style.display = n >= 1 ? "inline-flex" : "none";
+    btnPrint.textContent = `Cetak yang Dipilih (${n})`;
+  }
+  if (btnDel) {
+    btnDel.style.display = n >= 1 ? "inline-flex" : "none";
+    btnDel.textContent = `Hapus yang Dipilih (${n})`;
   }
 }
+
+window.handleHapusBatch = async function () {
+  if (selectedKwitansiIds.size === 0) {
+    showToast("Pilih minimal satu kwitansi", "warning");
+    return;
+  }
+  if (!confirm(`Yakin hapus ${selectedKwitansiIds.size} kwitansi yang dipilih? Tindakan ini tidak bisa dibatalkan.`)) return;
+  try {
+    let ok = 0;
+    for (const id of selectedKwitansiIds) {
+      await invoke("cmd_delete_kwitansi", { id: id });
+      ok++;
+    }
+    showToast(`${ok} kwitansi dihapus`, "success");
+    selectedKwitansiIds.clear();
+    await loadRiwayat();
+  } catch (e) {
+    showToast("Gagal menghapus: " + e, "error");
+  }
+};
 
 window.handleCetakBatch = async function () {
   if (selectedKwitansiIds.size === 0) {
@@ -793,6 +925,7 @@ function renderPaperPreview() {
       { key: "uang_sejumlah", label: "Uang Sejumlah", color: "#d97706" },
       { key: "untuk_pembayaran", label: "Untuk Pembayaran (kalimat gabungan)", color: "#d97706" },
       { key: "jumlah_rp", label: "Jumlah Rp", color: "#dc2626" },
+      { key: "pajak", label: "Pajak (Bruto/PPh/Netto)", color: "#ea580c" },
       { key: "mengetahui", label: "Mengetahui (Nama + NIP)", color: "#6366f1" },
       { key: "penerima", label: "Penerima + Tgl (Nama)", color: "#ec4899" },
       { key: "bendahara", label: "Bendahara (Nama + NIP)", color: "#14b8a6" },
@@ -924,6 +1057,17 @@ function renderValuesOnlyTemplate(k) {
   const penerimaBlock = `<div class="kv multi-line" style="${pos('penerima')}">${esc(formatTanggalPanjang(k.tanggal))}<br>Yang Menerima,<div class="sig-space" style="height:${gap}mm"></div>${esc(k.penerima)}</div>`;
   const bendaharaBlock = `<div class="kv multi-line" style="${pos('bendahara')}">Bendahara,<div class="sig-space" style="height:${gap}mm"></div>${esc(k.bendahara)}<br>NIP. ${esc(k.nip_bendahara)}</div>`;
 
+  // Blok pajak (field draggable sendiri; kosong bila tidak kena pajak)
+  let pajakBlock = "";
+  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : 0);
+  if (pphRate > 0) {
+    const bruto = k.jumlah;
+    const pph = Math.round(bruto * pphRate);
+    const netto = bruto - pph;
+    const label = k.kena_pph21 ? "PPh 21 6%" : "PPh 23 4%";
+    pajakBlock = `<div class="kv multi-line" style="${pos('pajak')}">Bruto: Rp ${formatRupiah(bruto)}<br>${label}: - Rp ${formatRupiah(pph)}<br><b>Netto: Rp ${formatRupiah(netto)}</b></div>`;
+  }
+
   return `
     <div class="kwitansi-page values-only" style="width:${s.paper_width}mm; min-height:${s.paper_height}mm; padding:${s.margin_top}mm ${s.margin_right}mm ${s.margin_bottom}mm ${s.margin_left}mm; font-size:${fontSize}pt;">
       <div class="kv" style="${pos('nomor')}">${esc(k.nomor_kwitansi)}</div>
@@ -931,6 +1075,7 @@ function renderValuesOnlyTemplate(k) {
       <div class="kv" style="${pos('uang_sejumlah')}">${esc(capitalize(k.terbilang))}</div>
       <div class="kv" style="${pos('untuk_pembayaran')}">${esc(composePaymentSentence(k))}</div>
       <div class="kv jumlah" style="${pos('jumlah_rp')}">Rp ${formatRupiah(nettoJumlah(k))}</div>
+      ${pajakBlock}
       ${mengetahuiBlock}
       ${penerimaBlock}
       ${bendaharaBlock}

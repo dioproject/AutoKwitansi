@@ -102,7 +102,14 @@
 
 ## Changelog
 
-### v3.2.0 (Current)
+### v3.3.0 (Current)
+- [NEW] Edit kwitansi per baris via modal (terbilang netto dihitung ulang otomatis)
+- [NEW] Hapus massal kwitansi yang dicentang di Riwayat
+- [NEW] Field Pajak (Bruto/PPh/Netto) yang bisa digeser di Pengaturan Cetak values-only
+- [NEW] Backup otomatis DB ke %APPDATA%/AutoKwitansi/backup/ tiap start (5 terbaru)
+- [FIXED] Filter periode & pencarian basi direset tiap load Riwayat (data baru tak lagi "hilang")
+
+### v3.2.0
 - [NEW] Kalimat cetak berpatokan referensi resmi ARKAS 2026 (153 kode dari PDF root): `{uraian} untuk {uraian resmi} dengan Kode Rekening ... pada Tahun Anggaran ...`
 - [NEW] Kolom Kode Kegiatan (auto dari import + input form dengan saran datalist)
 - [IMPROVED] Deteksi pajak ikut patokan: rumpun 07.12.x = honor, 06.05.06 = makan minum

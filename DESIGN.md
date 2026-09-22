@@ -68,7 +68,7 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 
 ### Navigation (sidebar)
 - **Buat Kwitansi** — form + checkbox PPh 21 / PPh 23 (eksklusif) + section dokumen BPU (kondisional)
-- **Riwayat** — accordion per BKU bulan; badge BPU (biru) / BNU (pink) / PPh21/PPh23 (kuning); tombol Cetak/POS/Hapus
+- **Riwayat** — accordion per BKU bulan; badge BPU (biru) / BNU (pink) / PPh21/PPh23 (kuning); tombol Cetak/Edit/POS/Hapus per baris; hapus massal yang dicentang
 - **Import BKU Per Bulan** — multi-PDF, grouped preview, toolbar merge per bulan (Gabungkan yang Dicentang / Gabung Otomatis per Kode / Uraikan Semua)
 - **Data Sekolah** — form identitas
 - **Pengaturan Cetak** — kwitansi: mode, kertas, margin, font, drag-drop editor

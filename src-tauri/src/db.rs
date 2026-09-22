@@ -316,6 +316,75 @@ pub fn delete_kwitansi(id: i64) -> Result<()> {
     Ok(())
 }
 
+pub fn update_kwitansi(id: i64, k: &Kwitansi) -> Result<()> {
+    let conn = get_connection()?;
+    conn.execute(
+        "UPDATE kwitansi SET nomor_kwitansi=?1, tanggal=?2, sudah_terima_dari=?3, jumlah=?4, terbilang=?5, untuk_pembayaran=?6, kode_rekening=?7, tahun_anggaran=?8, bulan=?9, mengetahui=?10, nip_mengetahui=?11, bendahara=?12, nip_bendahara=?13, penerima=?14, nama_toko=?15, alamat_toko=?16, pimpinan_toko=?17, kena_pph21=?18, kena_pph23=?19, kode_kegiatan=?20 WHERE id=?21",
+        params![
+            k.nomor_kwitansi,
+            k.tanggal,
+            k.sudah_terima_dari,
+            k.jumlah,
+            k.terbilang,
+            k.untuk_pembayaran,
+            k.kode_rekening,
+            k.tahun_anggaran,
+            k.bulan,
+            k.mengetahui,
+            k.nip_mengetahui,
+            k.bendahara,
+            k.nip_bendahara,
+            k.penerima,
+            k.nama_toko,
+            k.alamat_toko,
+            k.pimpinan_toko,
+            k.kena_pph21 as i32,
+            k.kena_pph23 as i32,
+            k.kode_kegiatan,
+            id,
+        ],
+    )?;
+    Ok(())
+}
+
+/// Backup DB ke %APPDATA%/AutoKwitansi/backup/ tiap start (pertahankan 5 terbaru).
+/// Pengaman bila riwayat "hilang" — file backup bisa dicopy manual kembali.
+pub fn backup_db() {
+    let path = get_db_path();
+    if path.exists() == false {
+        return;
+    }
+    // Checkpoint WAL dulu agar semua transaksi masuk ke file utama.
+    if let Ok(conn) = get_connection() {
+        let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+    }
+    let backup_dir = path
+        .parent()
+        .map(|p| p.join("backup"))
+        .unwrap_or_else(|| PathBuf::from("backup"));
+    if std::fs::create_dir_all(&backup_dir).is_err() {
+        return;
+    }
+    let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let dest = backup_dir.join(format!("auto_kwitansi-{}.db", ts));
+    let _ = std::fs::copy(&path, &dest);
+    // Prune: sisakan 5 file terbaru.
+    if let Ok(entries) = std::fs::read_dir(&backup_dir) {
+        let mut files: Vec<_> = entries
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().map(|x| x == "db").unwrap_or(false))
+            .collect();
+        files.sort();
+        while files.len() > 5 {
+            if let Some(old) = files.first() {
+                let _ = std::fs::remove_file(old);
+            }
+            files.remove(0);
+        }
+    }
+}
+
 pub fn search_kwitansi(query: &str) -> Result<Vec<Kwitansi>> {
     let conn = get_connection()?;
     let pattern = format!("%{}%", query.replace('%', "\\%").replace('_', "\\_"));

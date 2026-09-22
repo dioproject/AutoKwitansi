@@ -45,6 +45,19 @@ pub fn cmd_simpan_kwitansi(mut kwitansi: Kwitansi) -> Result<i64, String> {
     db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())
 }
 
+#[command]
+pub fn cmd_update_kwitansi(mut kwitansi: Kwitansi) -> Result<(), String> {
+    let id = kwitansi.id.ok_or("ID kwitansi kosong".to_string())?;
+    // Teks untuk_pembayaran sudah final dari user — jangan expand ulang.
+    // Terbilang selalu dihitung ulang dari netto agar konsisten.
+    kwitansi.terbilang = terbilang(netto_pajak(
+        kwitansi.jumlah,
+        kwitansi.kena_pph21,
+        kwitansi.kena_pph23,
+    ));
+    db::update_kwitansi(id, &kwitansi).map_err(|e| e.to_string())
+}
+
 /// Tarif pajak: PPh 21 6% (honorarium) didahulukan, lalu PPh 23 4% (makan minum)
 pub(crate) fn pajak_rate(kena_pph21: bool, kena_pph23: bool) -> f64 {
     if kena_pph21 {

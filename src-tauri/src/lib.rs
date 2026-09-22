@@ -15,6 +15,8 @@ pub fn run() {
     if let Err(e) = db::init_db() {
         eprintln!("Failed to initialize database: {}", e);
     }
+    // Backup otomatis tiap start (pengaman data riwayat).
+    db::backup_db();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -23,6 +25,7 @@ pub fn run() {
             cmd_get_sekolah,
             cmd_update_sekolah,
             cmd_simpan_kwitansi,
+            cmd_update_kwitansi,
             cmd_get_all_kwitansi,
             cmd_get_kwitansi,
             cmd_delete_kwitansi,
