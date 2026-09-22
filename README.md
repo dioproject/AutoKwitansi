@@ -7,6 +7,7 @@ Aplikasi desktop pembuatan kwitansi SPJ (Surat Pertanggungjawaban) untuk lembaga
 - **Buat Kwitansi** — form input dengan auto-terbilang (bahasa Indonesia) dan auto-fill dari data sekolah.
 - **PPh 21 6% Honorarium** — checkbox otomatis untuk BNU / kode 07.12.04 / uraian honor & instruktur; cetak bruto → PPh → netto; terbilang mengikuti netto.
 - **PPh 23 4% Makan Minum** — checkbox otomatis untuk uraian makan/minum/konsumsi/catering/jamuan; eksklusif terhadap PPh 21.
+- **Referensi ARKAS 2026** — 153 kode kegiatan resmi (dari PDF) jadi patokan kalimat cetak + saran input + deteksi pajak.
 - **Cetak Nota POS Thermal (ESC/POS)** — cetak langsung ke printer thermal USB via COM port **tanpa dialog print**. Format struk kasir dengan header/footer kustom. Preview modal sebelum cetak, fallback ke printer biasa.
 - **Halaman Printer Thermal** — setup port, baud rate, lebar kertas (58/80mm), header & footer struk kustom, test print, preview kertas live.
 - **No Nota Auto-Generate** — setiap cetak POS mendapat nomor acak unik (`YYYYMMDD-NNNN`), bukan nomor kwitansi.

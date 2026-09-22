@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isBpu, loadPosSettings as loadPosSettingsMod, getPosSettings, cetakNotaPos, cetakPosThermal, cetakPosBrowser } from "./pos.js";
+import { cariUraianKegiatan, normKode, DAFTAR_KEGIATAN } from "./kode-referensi.js";
 import { needsDocuments, loadDocStatus, allDocsComplete } from "./bpu-docs.js";
 import "./bku-period.js";
 
@@ -50,6 +51,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadSekolah();
   await loadPrintSettings();
   await loadPosSettingsMod();
+  populateKegiatanDatalist();
   refreshPaymentPreview();
 });
 
@@ -161,11 +163,14 @@ function isMakanUraian(u) {
 
 function autoDetectPPh21() {
   const nomor = document.getElementById("nomor_kwitansi")?.value || "";
-  const kode = document.getElementById("kode_rekening")?.value || "";
+  const kodeRek = normKode(document.getElementById("kode_rekening")?.value || "");
+  const kodeKeg = normKode(document.getElementById("kode_kegiatan")?.value || "");
   const uraian = (document.getElementById("untuk_pembayaran")?.value || "").toLowerCase();
 
-  const isHonor = isBnu(nomor) || kode.includes("07.12.04") || uraian.includes("honor") || uraian.includes("honorarium") || uraian.includes("instruktur");
-  const isMakan = !isHonor && isMakanUraian(uraian);
+  // Patokan Kode-Rekening-ARKAS-2026-Lengkap.pdf: rumpun 07.12.x = honor,
+  // 06.05.06 = Konsumsi Rapat Kedinasan dan Tamu Sekolah.
+  const isHonor = isBnu(nomor) || kodeRek.startsWith("07.12") || kodeKeg.startsWith("07.12") || uraian.includes("honor") || uraian.includes("honorarium") || uraian.includes("instruktur");
+  const isMakan = !isHonor && (kodeRek === "06.05.06" || kodeKeg === "06.05.06" || isMakanUraian(uraian));
 
   const cb21 = document.getElementById("cb_kena_pph21");
   const cb23 = document.getElementById("cb_kena_pph23");
@@ -243,6 +248,7 @@ window.handleSimpanKwitansi = async function (e) {
     terbilang: "",
     untuk_pembayaran: document.getElementById("untuk_pembayaran").value,
     kode_rekening: document.getElementById("kode_rekening").value,
+    kode_kegiatan: document.getElementById("kode_kegiatan")?.value || "",
     tahun_anggaran: document.getElementById("tahun_anggaran").value,
     bulan: "",
     mengetahui: mengetahui,
@@ -318,13 +324,18 @@ function updateBpuDocBadge() {
   }
 }
 
-// Auto-detect PPh 21 on input changes
+// Auto-detect pajak on input changes
 document.addEventListener("DOMContentLoaded", () => {
   const nomorInput = document.getElementById("nomor_kwitansi");
   const kodeInput = document.getElementById("kode_rekening");
+  const kegInput = document.getElementById("kode_kegiatan");
   const uraianInput = document.getElementById("untuk_pembayaran");
   if (nomorInput) nomorInput.addEventListener("input", autoDetectPPh21);
   if (kodeInput) kodeInput.addEventListener("input", autoDetectPPh21);
+  if (kegInput) {
+    kegInput.addEventListener("input", autoDetectPPh21);
+    kegInput.addEventListener("input", refreshPaymentPreview);
+  }
   if (uraianInput) uraianInput.addEventListener("input", autoDetectPPh21);
 });
 
@@ -1252,23 +1263,29 @@ function nettoJumlah(k) {
   return k.jumlah;
 }
 
-/** Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat panjang yang natural */
+/** Gabung uraian + uraian resmi ARKAS + kode rekening + tahun anggaran jadi 1 kalimat.
+ * Uraian resmi dilookup dari Kode-Rekening-ARKAS-2026-Lengkap.pdf (kode-referensi.js). */
 function composePaymentSentence(k) {
   const raw = (k.untuk_pembayaran || "").trim().replace(/\s+/g, " ").replace(/[.]+$/, "");
+  const resmi = cariUraianKegiatan(k.kode_kegiatan) || cariUraianKegiatan(k.kode_rekening);
+  const rawLower = raw.toLowerCase();
+  const base = (resmi && !rawLower.includes(resmi.toLowerCase()))
+    ? (raw ? `${raw} untuk ${resmi}` : resmi)
+    : raw;
   const kode = (k.kode_rekening || "").trim();
   const tahun = (k.tahun_anggaran || "").trim();
-  const hasKode = kode && !raw.includes(kode);
-  const hasTahun = tahun && !raw.includes(tahun);
-  if (!raw && !hasKode && !hasTahun) return "";
-  if (!raw) {
+  const hasKode = kode && !base.includes(kode);
+  const hasTahun = tahun && !base.includes(tahun);
+  if (!base && !hasKode && !hasTahun) return "";
+  if (!base) {
     if (hasKode && hasTahun) return `Dengan Kode Rekening ${kode} pada Tahun Anggaran ${tahun}`;
     if (hasKode) return `Dengan Kode Rekening ${kode}`;
     return `Pada Tahun Anggaran ${tahun}`;
   }
-  if (hasKode && hasTahun) return `${raw} dengan Kode Rekening ${kode} pada Tahun Anggaran ${tahun}`;
-  if (hasKode) return `${raw} dengan Kode Rekening ${kode}`;
-  if (hasTahun) return `${raw} pada Tahun Anggaran ${tahun}`;
-  return raw;
+  if (hasKode && hasTahun) return `${base} dengan Kode Rekening ${kode} pada Tahun Anggaran ${tahun}`;
+  if (hasKode) return `${base} dengan Kode Rekening ${kode}`;
+  if (hasTahun) return `${base} pada Tahun Anggaran ${tahun}`;
+  return base;
 }
 
 /** Preview kalimat gabungan dari form input (live) */
@@ -1276,8 +1293,17 @@ function composePaymentSentenceFromForm() {
   return composePaymentSentence({
     untuk_pembayaran: document.getElementById("untuk_pembayaran")?.value || "",
     kode_rekening: document.getElementById("kode_rekening")?.value || "",
+    kode_kegiatan: document.getElementById("kode_kegiatan")?.value || "",
     tahun_anggaran: document.getElementById("tahun_anggaran")?.value || "",
   });
+}
+
+/** Isi datalist saran kode kegiatan resmi ARKAS */
+function populateKegiatanDatalist() {
+  const dl = document.getElementById("kode_kegiatan_list");
+  if (!dl || dl.dataset.filled) return;
+  dl.innerHTML = DAFTAR_KEGIATAN.map(([c, u]) => `<option value="${c}">${u}</option>`).join("");
+  dl.dataset.filled = "1";
 }
 
 function refreshPaymentPreview() {

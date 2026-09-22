@@ -41,6 +41,8 @@ pub struct Kwitansi {
     pub kena_pph21: bool,
     #[serde(default)]
     pub kena_pph23: bool,
+    #[serde(default)]
+    pub kode_kegiatan: String,
 }
 
 // ============ BKU PDF MODELS ============

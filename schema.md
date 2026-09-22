@@ -45,7 +45,8 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite, WAL mode, foreign_k
 | pimpinan_toko | TEXT | "" | Pimpinan toko (BPU >1jt) |
 | created_at | TEXT | datetime('now','localtime') | Auto timestamp |
 | kena_pph21 | INTEGER | 0 | **[v3.0]** 1 = honorarium kena PPh 21 6% |
-| kena_pph23 | INTEGER | 0 | 1 = makan minum kena PPh 23 4% (saling eksklusif dengan PPh 21) |
+| kena_pph23 | INTEGER | 0 | **[v3.1]** 1 = makan minum kena PPh 23 4% (saling eksklusif dengan PPh 21) |
+| kode_kegiatan | TEXT | "" | **[v3.2]** Kode referensi kegiatan ARKAS (06.05.06, 07.12.04) — patokan uraian resmi |
 
 **Index:**
 - `idx_kwitansi_nomor` ON `nomor_kwitansi`

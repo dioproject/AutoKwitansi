@@ -111,6 +111,10 @@ baris gabungan (amber bg, badge "Nx", tombol ✖ urai)
 
 ## Pajak (v3.0): PPh 21 6% Honorarium & PPh 23 4% Makan Minum
 
+Patokan kode: `Kode-Rekening-ARKAS-2026-Lengkap.pdf` (root project) diekstrak jadi
+`kode_referensi.rs` / `kode-referensi.js` (153 kode → uraian resmi).
+Rumpun **07.12.x** = honorarium; **06.05.06** = Konsumsi Rapat (makan minum).
+
 - **PPh 21 auto-check**: nomor mengandung BNU, atau kode 07.12.04, atau uraian mengandung honor/honorarium/instruktur.
 - **PPh 23 auto-check**: uraian mengandung makan/minum/konsumsi/catering/katering/snack/jamuan (bukan honorarium — PPh 21 didahulukan).
 - Checkbox manual saling eksklusif, tetap bisa diubah user.
@@ -118,6 +122,7 @@ baris gabungan (amber bg, badge "Nx", tombol ✖ urai)
 - `terbilang` (Rust) digenerate dari **netto** saat `kena_pph21`/`kena_pph23`.
 - Cetak kwitansi: blok 3 baris (Bruto / PPh / Netto) hanya untuk kwitansi kena pajak.
 - Cetak POS: blok sama di struk.
+- **Kalimat cetak (v3.2)**: `{uraian} untuk {uraian resmi ARKAS} dengan Kode Rekening {kode} pada Tahun Anggaran {tahun}` — uraian resmi dilookup dari kode kegiatan (kolom baru + saran datalist di form).
 
 ## Auto-Refresh System
 

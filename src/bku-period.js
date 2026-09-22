@@ -241,8 +241,9 @@ function renderPeriodPreview(grouped) {
     for (const row of rows) {
       const tx = row.tx;
       const uRendah = (tx.uraian||'').toLowerCase();
-      const pph21 = (tx.no_bukti||'').toUpperCase().includes('BNU') || (tx.kode_kegiatan||'').includes('07.12.04') || uRendah.match(/honor|instruktur/);
-      const pph23 = !pph21 && uRendah.match(/makan|minum|konsumsi|catering|katering|snack|jamuan/);
+      const kodeKeg = ((tx.kode_kegiatan||'').trim().replace(/[.]+$/,''));
+      const pph21 = (tx.no_bukti||'').toUpperCase().includes('BNU') || kodeKeg.startsWith('07.12') || uRendah.match(/honor|instruktur/);
+      const pph23 = !pph21 && (kodeKeg === '06.05.06' || uRendah.match(/makan|minum|konsumsi|catering|katering|snack|jamuan/));
       const pphBadgeHtml = pph21 ? '<span class="badge badge-warn" style="font-size:10px;">PPh21</span>' : (pph23 ? '<span class="badge badge-warn" style="font-size:10px;">PPh23</span>' : '');
       const gabBadge = row.count > 1
         ? ` <span class="badge badge-period" title="Gabungan ${row.count} transaksi">${row.count}x</span> <button type="button" class="btn btn-sm btn-secondary" style="padding:1px 7px;font-size:11px;" title="Uraikan gabungan ini" onclick="handleUraiPeriodRow('${group.id}', ${row.rid})">&#10006;</button>`

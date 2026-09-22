@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { cariUraianKegiatan } from "./kode-referensi.js";
 
 let currentPosSettings = null;
 
@@ -185,17 +186,22 @@ function generateRandomNotaNum() {
   return `${ymd}-${rand}`;
 }
 
-/** Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat yang natural */
+/** Gabung uraian + uraian resmi ARKAS + kode rekening + tahun anggaran (patokan PDF referensi) */
 function composePaymentSentence(k) {
   const raw = (k.untuk_pembayaran || "-").trim().replace(/\s+/g, " ").replace(/[.]+$/, "");
+  const resmi = cariUraianKegiatan(k.kode_kegiatan) || cariUraianKegiatan(k.kode_rekening);
+  const rawLower = raw.toLowerCase();
+  const base = (resmi && !rawLower.includes(resmi.toLowerCase()))
+    ? (raw && raw !== "-" ? `${raw} untuk ${resmi}` : resmi)
+    : raw;
   const kode = (k.kode_rekening || "").trim();
   const tahun = (k.tahun_anggaran || "").trim();
-  const hasKode = kode && !raw.includes(kode);
-  const hasTahun = tahun && !raw.includes(tahun);
-  if (hasKode && hasTahun) return `${raw} dengan Kode Rekening ${kode} pada Tahun Anggaran ${tahun}`;
-  if (hasKode) return `${raw} dengan Kode Rekening ${kode}`;
-  if (hasTahun) return `${raw} pada Tahun Anggaran ${tahun}`;
-  return raw;
+  const hasKode = kode && !base.includes(kode);
+  const hasTahun = tahun && !base.includes(tahun);
+  if (hasKode && hasTahun) return `${base} dengan Kode Rekening ${kode} pada Tahun Anggaran ${tahun}`;
+  if (hasKode) return `${base} dengan Kode Rekening ${kode}`;
+  if (hasTahun) return `${base} pada Tahun Anggaran ${tahun}`;
+  return base;
 }
 
 /** Word-wrap teks ke lebar maksimum */

@@ -268,7 +268,10 @@ pub fn test_print(settings: &PosSettings) -> Result<(), String> {
     }
 }
 
-/// Gabung uraian + kode rekening + tahun anggaran jadi 1 kalimat panjang yang natural
+/// Gabung uraian + uraian resmi ARKAS + kode rekening + tahun anggaran
+/// jadi 1 kalimat panjang yang natural.
+/// Uraian resmi dilookup dari Kode-Rekening-ARKAS-2026-Lengkap.pdf
+/// (kode_referensi.rs) berdasarkan kode kegiatan.
 fn compose_payment_sentence(k: &Kwitansi) -> String {
     let raw = k
         .untuk_pembayaran
@@ -276,11 +279,26 @@ fn compose_payment_sentence(k: &Kwitansi) -> String {
         .replace(|c: char| c == '\n' || c == '\r' || c == '\t', " ");
     let raw: String = raw.split_whitespace().collect::<Vec<_>>().join(" ");
     let raw = raw.trim_end_matches('.').trim().to_string();
+    // Uraian resmi: coba kode kegiatan dulu, lalu kode rekening
+    // (user kadang mengetik kode pendek di kolom kode rekening).
+    let resmi: Option<&str> = crate::kode_referensi::lookup_uraian_kegiatan(&k.kode_kegiatan)
+        .or_else(|| crate::kode_referensi::lookup_uraian_kegiatan(&k.kode_rekening));
+    let raw_lower = raw.to_lowercase();
+    let base = match resmi {
+        Some(r) if !raw_lower.contains(&r.to_lowercase()) => {
+            if raw.is_empty() {
+                r.to_string()
+            } else {
+                format!("{} untuk {}", raw, r)
+            }
+        }
+        _ => raw,
+    };
     let kode = k.kode_rekening.trim();
     let tahun = k.tahun_anggaran.trim();
-    let has_kode = !kode.is_empty() && !raw.contains(kode);
-    let has_tahun = !tahun.is_empty() && !raw.contains(tahun);
-    if raw.is_empty() {
+    let has_kode = !kode.is_empty() && !base.contains(kode);
+    let has_tahun = !tahun.is_empty() && !base.contains(tahun);
+    if base.is_empty() {
         if has_kode && has_tahun {
             return format!(
                 "Dengan Kode Rekening {} pada Tahun Anggaran {}",
@@ -296,14 +314,14 @@ fn compose_payment_sentence(k: &Kwitansi) -> String {
     if has_kode && has_tahun {
         format!(
             "{} dengan Kode Rekening {} pada Tahun Anggaran {}",
-            raw, kode, tahun
+            base, kode, tahun
         )
     } else if has_kode {
-        format!("{} dengan Kode Rekening {}", raw, kode)
+        format!("{} dengan Kode Rekening {}", base, kode)
     } else if has_tahun {
-        format!("{} pada Tahun Anggaran {}", raw, tahun)
+        format!("{} pada Tahun Anggaran {}", base, tahun)
     } else {
-        raw
+        base
     }
 }
 
@@ -455,10 +473,54 @@ mod tests {
             created_at: None,
             kena_pph21: false,
             kena_pph23: false,
+            kode_kegiatan: "".into(),
         };
         assert_eq!(
             compose_payment_sentence(&k),
             "Pembelian ATK untuk kegiatan belajar dengan Kode Rekening 5.1.02.01.01.0001 pada Tahun Anggaran 2026"
+        );
+    }
+
+    #[test]
+    fn test_lookup_kegiatan_dan_compose_resmi() {
+        use crate::kode_referensi::{lookup_uraian_kegiatan, norm_kode};
+        assert_eq!(norm_kode("07.12.04."), "07.12.04");
+        assert_eq!(
+            lookup_uraian_kegiatan("06.05.06"),
+            Some("Konsumsi Rapat Kedinasan dan Tamu Sekolah (di luar kegiatan lain)")
+        );
+        assert_eq!(lookup_uraian_kegiatan("99.99.99"), None);
+        use crate::models::Kwitansi;
+        let k = Kwitansi {
+            id: None,
+            nomor_kwitansi: "BPU001".into(),
+            tanggal: "2026-06-21".into(),
+            sudah_terima_dari: "Bendahara".into(),
+            jumlah: 1500000.0,
+            terbilang: "".into(),
+            untuk_pembayaran: "Belanja snack rapat".into(),
+            kode_rekening: "5.1.02.01.01.0001".into(),
+            tahun_anggaran: "2026".into(),
+            bulan: "".into(),
+            mengetahui: "".into(),
+            nip_mengetahui: "".into(),
+            bendahara: "".into(),
+            nip_bendahara: "".into(),
+            penerima: "".into(),
+            nama_toko: "".into(),
+            alamat_toko: "".into(),
+            pimpinan_toko: "".into(),
+            created_at: None,
+            kena_pph21: false,
+            kena_pph23: false,
+            kode_kegiatan: "06.05.06".into(),
+        };
+        let s = compose_payment_sentence(&k);
+        assert!(s.contains("Belanja snack rapat untuk Konsumsi Rapat Kedinasan dan Tamu Sekolah (di luar kegiatan lain)"), "got: {}", s);
+        assert!(
+            s.contains("dengan Kode Rekening 5.1.02.01.01.0001 pada Tahun Anggaran 2026"),
+            "got: {}",
+            s
         );
     }
 

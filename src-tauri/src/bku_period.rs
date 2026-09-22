@@ -62,6 +62,7 @@ pub fn import_bku_period(
                 created_at: None,
                 kena_pph21: pph21,
                 kena_pph23: pph23,
+                kode_kegiatan: tx.kode_kegiatan.clone(),
             };
             db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())?;
             count += 1;

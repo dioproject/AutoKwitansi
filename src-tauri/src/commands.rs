@@ -81,9 +81,15 @@ pub fn cmd_search_kwitansi(query: String) -> Result<Vec<Kwitansi>, String> {
     db::search_kwitansi(&query).map_err(|e| e.to_string())
 }
 
-/// Deteksi otomatis apakah transaksi makan minum kena PPh 23 4%
+/// Deteksi otomatis apakah transaksi makan minum kena PPh 23 4%.
+/// Patokan: kode kegiatan 06.05.06 = Konsumsi Rapat Kedinasan dan Tamu
+/// (Kode-Rekening-ARKAS-2026-Lengkap.pdf) + kata kunci uraian.
 pub(crate) fn is_makan_pph23(no_bukti: &str, kode_kegiatan: &str, uraian: &str) -> bool {
-    let _ = (no_bukti, kode_kegiatan);
+    let _ = no_bukti;
+    let kode = crate::kode_referensi::norm_kode(kode_kegiatan);
+    if kode == "06.05.06" {
+        return true;
+    }
     let u = uraian.to_lowercase();
     u.contains("makan")
         || u.contains("minum")
@@ -94,13 +100,15 @@ pub(crate) fn is_makan_pph23(no_bukti: &str, kode_kegiatan: &str, uraian: &str) 
         || u.contains("jamuan")
 }
 
-/// Deteksi otomatis apakah transaksi kena PPh 21 6%
+/// Deteksi otomatis apakah transaksi honor kena PPh 21 6%.
+/// Patokan kode kegiatan dari Kode-Rekening-ARKAS-2026-Lengkap.pdf:
+/// seluruh rumpun 07.12.x = Pembayaran Honor.
 pub(crate) fn is_honor_pph21(no_bukti: &str, kode_kegiatan: &str, uraian: &str) -> bool {
     let nomor = no_bukti.to_uppercase();
-    let kode = kode_kegiatan.to_uppercase();
+    let kode = crate::kode_referensi::norm_kode(kode_kegiatan).to_uppercase();
     let u = uraian.to_lowercase();
     nomor.contains("BNU")
-        || kode.contains("07.12.04")
+        || kode.starts_with("07.12")
         || u.contains("honor")
         || u.contains("honorarium")
         || u.contains("instruktur")

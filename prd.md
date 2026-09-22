@@ -102,7 +102,12 @@
 
 ## Changelog
 
-### v3.1.0 (Current)
+### v3.2.0 (Current)
+- [NEW] Kalimat cetak berpatokan referensi resmi ARKAS 2026 (153 kode dari PDF root): `{uraian} untuk {uraian resmi} dengan Kode Rekening ... pada Tahun Anggaran ...`
+- [NEW] Kolom Kode Kegiatan (auto dari import + input form dengan saran datalist)
+- [IMPROVED] Deteksi pajak ikut patokan: rumpun 07.12.x = honor, 06.05.06 = makan minum
+
+### v3.1.0
 - [NEW] PPh 23 4% makan minum (auto-detect konsumsi/catering/jamuan, eksklusif vs PPh 21, kolom `kena_pph23`)
 - [NEW] Filter periode per bulan di Riwayat (dropdown BKU {Bulan} {Tahun})
 - [NEW] Sortir kolom tabel Riwayat via klik header (nomor/tanggal/diterima/jumlah/uraian, asc/desc)
