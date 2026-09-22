@@ -511,7 +511,7 @@ function renderGrouped(data) {
                     <td>${formatTanggal(k.tanggal)}</td>
                     <td>${esc(k.sudah_terima_dari)}</td>
                     <td class="rupiah">Rp ${formatRupiah(k.jumlah)}</td>
-                    <td title="${esc(composePaymentSentence(k))}">${esc(truncatePayment(composePaymentSentence(k)))}</td>
+                    <td title="${esc(composePaymentSentence(k))}"><div class="uraian-wrap">${esc(truncatePayment(composePaymentSentence(k)))}</div></td>
                     <td>
                       <div class="actions">
                         <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
@@ -590,7 +590,7 @@ function renderTable(data) {
               <td>${formatTanggal(k.tanggal)}</td>
               <td>${esc(k.sudah_terima_dari)}</td>
               <td class="rupiah">Rp ${formatRupiah(k.jumlah)}</td>
-              <td title="${esc(composePaymentSentence(k))}">${esc(truncatePayment(composePaymentSentence(k)))}</td>
+              <td title="${esc(composePaymentSentence(k))}"><div class="uraian-wrap">${esc(truncatePayment(composePaymentSentence(k)))}</div></td>
               <td>
                 <div class="actions">
                   <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
