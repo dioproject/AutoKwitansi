@@ -36,7 +36,7 @@
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v3.4.2</p>
+        <p class="version">v3.5.0</p>
       </div>
     </aside>
 
@@ -142,6 +142,22 @@
                 <div><strong>Netto:</strong> <span id="pph23_netto" style="color:var(--success);font-weight:700;">Rp 0</span></div>
               </div>
               <p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Terbilang akan mencetak nilai netto (setelah potongan PPh 23)</p>
+            </div>
+          </div>
+
+          <!-- PPh 23 2% Sewa/Jasa -->
+          <div id="pph23_2-section" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+              <input type="checkbox" id="cb_kena_pph23_2" onchange="handlePPh23_2Toggle()" />
+              Sewa / jasa lain — potong PPh 23 2%
+            </label>
+            <div id="pph23_2-detail" class="hidden" style="margin-top:10px;padding:10px;background:#fff;border-radius:6px;border:1px solid var(--border);">
+              <div style="display:flex;gap:20px;font-size:13px;">
+                <div><strong>Bruto:</strong> <span id="pph23_2_bruto">Rp 0</span></div>
+                <div><strong>PPh 23 2%:</strong> <span id="pph23_2_pph" style="color:var(--danger);">- Rp 0</span></div>
+                <div><strong>Netto:</strong> <span id="pph23_2_netto" style="color:var(--success);font-weight:700;">Rp 0</span></div>
+              </div>
+              <p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Terbilang akan mencetak nilai netto (setelah potongan PPh 23 2%)</p>
             </div>
           </div>
 
@@ -721,6 +737,9 @@
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
           <input type="checkbox" id="e_cb_pph23" onchange="handleEditPajakToggle('pph23')" /> PPh 23 4%
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="e_cb_pph23_2" onchange="handleEditPajakToggle('pph23_2')" /> PPh 23 2%
         </label>
         <span id="e_netto_info" style="margin-left:auto;font-weight:600;"></span>
       </div>

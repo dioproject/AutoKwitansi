@@ -41,7 +41,12 @@ pub fn import_bku_period(
                 tanggal: tx.tanggal.clone(),
                 sudah_terima_dari: sudah_terima_dari.to_string(),
                 jumlah: tx.pengeluaran,
-                terbilang: terbilang(crate::commands::netto_pajak(tx.pengeluaran, pph21, pph23)),
+                terbilang: terbilang(crate::commands::netto_pajak(
+                    tx.pengeluaran,
+                    pph21,
+                    pph23,
+                    false,
+                )),
                 untuk_pembayaran: crate::commands::expand_bnu_description(
                     &tx.no_bukti,
                     &tx.kode_kegiatan,
@@ -63,6 +68,7 @@ pub fn import_bku_period(
                 created_at: None,
                 kena_pph21: pph21,
                 kena_pph23: pph23,
+                kena_pph23_2: false,
                 kode_kegiatan: tx.kode_kegiatan.clone(),
             };
             // Import ulang BKU yang sama: lewati yang sudah ada (jangan ubah/timpa).

@@ -125,12 +125,14 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) ->
     buf.extend_from_slice(LF);
 
     // ══════════════════════════
-    // TOTAL — netto jika kena PPh 21 (6%) atau PPh 23 (4%)
+    // TOTAL — netto jika kena pajak (PPh 21 6% / PPh 23 4% / PPh 23 2%)
     // ══════════════════════════
     let (pph_label, pph_rate): (&str, f64) = if k.kena_pph21 {
         ("PPh 21 6%", 0.06)
     } else if k.kena_pph23 {
         ("PPh 23 4%", 0.04)
+    } else if k.kena_pph23_2 {
+        ("PPh 23 2%", 0.02)
     } else {
         ("", 0.0)
     };
@@ -473,6 +475,7 @@ mod tests {
             created_at: None,
             kena_pph21: false,
             kena_pph23: false,
+            kena_pph23_2: false,
             kode_kegiatan: "".into(),
         };
         assert_eq!(
@@ -513,6 +516,7 @@ mod tests {
             created_at: None,
             kena_pph21: false,
             kena_pph23: false,
+            kena_pph23_2: false,
             kode_kegiatan: "06.05.06".into(),
         };
         let s = compose_payment_sentence(&k);
@@ -539,13 +543,16 @@ mod tests {
     #[test]
     fn test_pajak_rate_dan_netto() {
         use crate::commands::{is_makan_pph23, netto_pajak, pajak_rate};
-        assert_eq!(pajak_rate(true, false), 0.06);
-        assert_eq!(pajak_rate(false, true), 0.04);
-        assert_eq!(pajak_rate(false, false), 0.0);
-        assert_eq!(pajak_rate(true, true), 0.06); // PPh 21 didahulukan
-        assert_eq!(netto_pajak(1_000_000.0, false, true), 960_000.0);
-        assert_eq!(netto_pajak(1_000_000.0, true, false), 940_000.0);
-        assert_eq!(netto_pajak(1_000_000.0, false, false), 1_000_000.0);
+        assert_eq!(pajak_rate(true, false, false), 0.06);
+        assert_eq!(pajak_rate(false, true, false), 0.04);
+        assert_eq!(pajak_rate(false, false, true), 0.02);
+        assert_eq!(pajak_rate(false, false, false), 0.0);
+        assert_eq!(pajak_rate(true, true, true), 0.06); // PPh 21 didahulukan
+        assert_eq!(pajak_rate(false, true, true), 0.04); // lalu PPh 23 4%
+        assert_eq!(netto_pajak(1_000_000.0, false, true, false), 960_000.0);
+        assert_eq!(netto_pajak(1_000_000.0, false, false, true), 980_000.0);
+        assert_eq!(netto_pajak(1_000_000.0, true, false, false), 940_000.0);
+        assert_eq!(netto_pajak(1_000_000.0, false, false, false), 1_000_000.0);
         assert!(is_makan_pph23("", "", "Belanja makan dan minum rapat"));
         assert!(is_makan_pph23("", "", "Konsumsi kegiatan MPLS"));
         assert!(is_makan_pph23("", "", "Jasa catering acara wisuda"));

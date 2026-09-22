@@ -42,6 +42,8 @@ pub struct Kwitansi {
     #[serde(default)]
     pub kena_pph23: bool,
     #[serde(default)]
+    pub kena_pph23_2: bool,
+    #[serde(default)]
     pub kode_kegiatan: String,
 }
 

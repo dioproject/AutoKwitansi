@@ -140,6 +140,7 @@ window.handleSimpanSekolah = async function (e) {
 function pajakRateAktif() {
   if (document.getElementById("cb_kena_pph21")?.checked) return 0.06;
   if (document.getElementById("cb_kena_pph23")?.checked) return 0.04;
+  if (document.getElementById("cb_kena_pph23_2")?.checked) return 0.02;
   return 0;
 }
 
@@ -177,6 +178,23 @@ function updatePph23Detail() {
   document.getElementById("pph23_netto").textContent = `Rp ${formatRupiah(netto)}`;
 }
 
+function updatePph23_2Detail() {
+  const checked = document.getElementById("cb_kena_pph23_2")?.checked;
+  const detail = document.getElementById("pph23_2-detail");
+  if (detail) detail.classList.toggle("hidden", !checked);
+
+  if (!checked) return;
+
+  const jumlahRaw = (document.getElementById("jumlah")?.value || "0").replace(/[^\d]/g, "");
+  const bruto = parseFloat(jumlahRaw) || 0;
+  const pph = Math.round(bruto * 0.02);
+  const netto = bruto - pph;
+
+  document.getElementById("pph23_2_bruto").textContent = `Rp ${formatRupiah(bruto)}`;
+  document.getElementById("pph23_2_pph").textContent = `- Rp ${formatRupiah(pph)}`;
+  document.getElementById("pph23_2_netto").textContent = `Rp ${formatRupiah(netto)}`;
+}
+
 function isMakanUraian(u) {
   return ["makan", "minum", "konsumsi", "catering", "katering", "snack", "jamuan"].some(w => u.includes(w));
 }
@@ -194,33 +212,55 @@ function autoDetectPPh21() {
 
   const cb21 = document.getElementById("cb_kena_pph21");
   const cb23 = document.getElementById("cb_kena_pph23");
+  const cb232 = document.getElementById("cb_kena_pph23_2");
   if (isHonor) {
     if (cb21 && !cb21.checked) cb21.checked = true;
     if (cb23) cb23.checked = false;
+    if (cb232) cb232.checked = false;
   } else if (isMakan) {
     if (cb23 && !cb23.checked) cb23.checked = true;
     if (cb21) cb21.checked = false;
+    if (cb232) cb232.checked = false;
   }
   updatePph21Detail();
   updatePph23Detail();
+  updatePph23_2Detail();
 }
 
 window.handlePPh21Toggle = function () {
   if (document.getElementById("cb_kena_pph21")?.checked) {
     const cb23 = document.getElementById("cb_kena_pph23");
     if (cb23) cb23.checked = false;
+    const cb232 = document.getElementById("cb_kena_pph23_2");
+    if (cb232) cb232.checked = false;
   }
   updatePph21Detail();
   updatePph23Detail();
+  updatePph23_2Detail();
 };
 
 window.handlePPh23Toggle = function () {
   if (document.getElementById("cb_kena_pph23")?.checked) {
     const cb21 = document.getElementById("cb_kena_pph21");
     if (cb21) cb21.checked = false;
+    const cb232 = document.getElementById("cb_kena_pph23_2");
+    if (cb232) cb232.checked = false;
   }
   updatePph21Detail();
   updatePph23Detail();
+  updatePph23_2Detail();
+};
+
+window.handlePPh23_2Toggle = function () {
+  if (document.getElementById("cb_kena_pph23_2")?.checked) {
+    const cb21 = document.getElementById("cb_kena_pph21");
+    if (cb21) cb21.checked = false;
+    const cb23 = document.getElementById("cb_kena_pph23");
+    if (cb23) cb23.checked = false;
+  }
+  updatePph21Detail();
+  updatePph23Detail();
+  updatePph23_2Detail();
 };
 
 // ========== KWITANSI INPUT ==========
@@ -246,6 +286,7 @@ window.handleJumlahInput = async function (el) {
   updateBpuDocsVisibility();
   updatePph21Detail();
   updatePph23Detail();
+  updatePph23_2Detail();
 };
 
 window.handleSimpanKwitansi = async function (e) {
@@ -258,6 +299,7 @@ window.handleSimpanKwitansi = async function (e) {
   const jumlahRaw = document.getElementById("jumlah").value.replace(/[^\d]/g, "");
   const kenaPph21 = document.getElementById("cb_kena_pph21")?.checked || false;
   const kenaPph23 = !kenaPph21 && (document.getElementById("cb_kena_pph23")?.checked || false);
+  const kenaPph23_2 = !kenaPph21 && !kenaPph23 && (document.getElementById("cb_kena_pph23_2")?.checked || false);
 
   const kwitansi = {
     id: null,
@@ -282,6 +324,7 @@ window.handleSimpanKwitansi = async function (e) {
     created_at: null,
     kena_pph21: kenaPph21,
     kena_pph23: kenaPph23,
+    kena_pph23_2: kenaPph23_2,
   };
 
   try {
@@ -317,8 +360,11 @@ window.resetForm = function () {
   document.getElementById("cb_kena_pph21").checked = false;
   const cb23 = document.getElementById("cb_kena_pph23");
   if (cb23) cb23.checked = false;
+  const cb232 = document.getElementById("cb_kena_pph23_2");
+  if (cb232) cb232.checked = false;
   document.getElementById("pph21-detail")?.classList.add("hidden");
   document.getElementById("pph23-detail")?.classList.add("hidden");
+  document.getElementById("pph23_2-detail")?.classList.add("hidden");
   fillPenandatangan();
   refreshPaymentPreview();
   updateBpuDocsVisibility();
@@ -522,7 +568,7 @@ function renderGrouped(data) {
                   let badge = "";
                   if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
                   else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
-                  const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : "");
+                  const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : (k.kena_pph23_2 ? '<span class="badge badge-warn">PPh23 2%</span>' : ""));
                   return `
                   <tr>
                     <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
@@ -601,7 +647,7 @@ function renderTable(data) {
             let badge = "";
             if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
             else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
-            const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : "");
+            const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : (k.kena_pph23_2 ? '<span class="badge badge-warn">PPh23 2%</span>' : ""));
             return `
             <tr>
               <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
@@ -679,6 +725,7 @@ window.openEditModal = async function (id) {
     set("e_pimpinan_toko", k.pimpinan_toko || "");
     document.getElementById("e_cb_pph21").checked = !!k.kena_pph21;
     document.getElementById("e_cb_pph23").checked = !!k.kena_pph23;
+    document.getElementById("e_cb_pph23_2").checked = !!k.kena_pph23_2;
     updateEditNetto();
     populateKegiatanDatalist();
     document.getElementById("modal-edit").classList.remove("hidden");
@@ -697,8 +744,10 @@ window.handleEditJumlahInput = function (el) {
 window.handleEditPajakToggle = function (which) {
   const cb21 = document.getElementById("e_cb_pph21");
   const cb23 = document.getElementById("e_cb_pph23");
-  if (which === "pph21" && cb21.checked) cb23.checked = false;
-  if (which === "pph23" && cb23.checked) cb21.checked = false;
+  const cb232 = document.getElementById("e_cb_pph23_2");
+  if (which === "pph21" && cb21.checked) { cb23.checked = false; cb232.checked = false; }
+  if (which === "pph23" && cb23.checked) { cb21.checked = false; cb232.checked = false; }
+  if (which === "pph23_2" && cb232.checked) { cb21.checked = false; cb23.checked = false; }
   updateEditNetto();
 };
 
@@ -706,7 +755,8 @@ function updateEditNetto() {
   const raw = (document.getElementById("e_jumlah")?.value || "0").replace(/[^\d]/g, "");
   const bruto = parseFloat(raw) || 0;
   const rate = document.getElementById("e_cb_pph21")?.checked ? 0.06
-    : (document.getElementById("e_cb_pph23")?.checked ? 0.04 : 0);
+    : (document.getElementById("e_cb_pph23")?.checked ? 0.04
+    : (document.getElementById("e_cb_pph23_2")?.checked ? 0.02 : 0));
   const netto = bruto - Math.round(bruto * rate);
   const info = document.getElementById("e_netto_info");
   if (info) info.textContent = rate > 0 ? `Netto: Rp ${formatRupiah(netto)}` : `Rp ${formatRupiah(bruto)}`;
@@ -737,6 +787,7 @@ window.handleUpdateKwitansi = async function () {
     pimpinan_toko: document.getElementById("e_pimpinan_toko")?.value || "",
     kena_pph21: kena21,
     kena_pph23: !kena21 && (document.getElementById("e_cb_pph23")?.checked || false),
+    kena_pph23_2: !kena21 && !(document.getElementById("e_cb_pph23")?.checked || false) && (document.getElementById("e_cb_pph23_2")?.checked || false),
   };
   try {
     await invoke("cmd_update_kwitansi", { kwitansi: kwitansi });
@@ -1147,10 +1198,10 @@ function renderFullTemplate(k) {
   const fs = s ? s.font_size : 12;
   const gap = s ? (s.sig_gap || 15) : 15;
 
-  // Blok pajak (PPh 21 honorarium 6% / PPh 23 makan minum 4%)
+  // Blok pajak (PPh 21 honorarium 6% / PPh 23 makan minum 4% / PPh 23 sewa-jasa 2%)
   let pphBlock = "";
-  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : 0);
-  const pphLabel = k.kena_pph21 ? "PPh 21 6%" : "PPh 23 4%";
+  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : (k.kena_pph23_2 ? 0.02 : 0));
+  const pphLabel = k.kena_pph21 ? "PPh 21 6%" : (k.kena_pph23 ? "PPh 23 4%" : "PPh 23 2%");
   if (pphRate > 0) {
     const bruto = k.jumlah;
     const pph = Math.round(bruto * pphRate);
@@ -1457,6 +1508,7 @@ window.updatePosStrukPreview = function () {
 function nettoJumlah(k) {
   if (k.kena_pph21) return k.jumlah - Math.round(k.jumlah * 0.06);
   if (k.kena_pph23) return k.jumlah - Math.round(k.jumlah * 0.04);
+  if (k.kena_pph23_2) return k.jumlah - Math.round(k.jumlah * 0.02);
   return k.jumlah;
 }
 

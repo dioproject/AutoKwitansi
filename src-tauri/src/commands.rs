@@ -41,6 +41,7 @@ pub fn cmd_simpan_kwitansi(mut kwitansi: Kwitansi) -> Result<i64, String> {
         kwitansi.jumlah,
         kwitansi.kena_pph21,
         kwitansi.kena_pph23,
+        kwitansi.kena_pph23_2,
     ));
     db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())
 }
@@ -54,24 +55,32 @@ pub fn cmd_update_kwitansi(mut kwitansi: Kwitansi) -> Result<(), String> {
         kwitansi.jumlah,
         kwitansi.kena_pph21,
         kwitansi.kena_pph23,
+        kwitansi.kena_pph23_2,
     ));
     db::update_kwitansi(id, &kwitansi).map_err(|e| e.to_string())
 }
 
-/// Tarif pajak: PPh 21 6% (honorarium) didahulukan, lalu PPh 23 4% (makan minum)
-pub(crate) fn pajak_rate(kena_pph21: bool, kena_pph23: bool) -> f64 {
+/// Tarif pajak: PPh 21 6% didahulukan, lalu PPh 23 4%, lalu PPh 23 2%
+pub(crate) fn pajak_rate(kena_pph21: bool, kena_pph23: bool, kena_pph23_2: bool) -> f64 {
     if kena_pph21 {
         0.06
     } else if kena_pph23 {
         0.04
+    } else if kena_pph23_2 {
+        0.02
     } else {
         0.0
     }
 }
 
 /// Netto setelah potongan pajak (bruto jika tidak kena)
-pub(crate) fn netto_pajak(jumlah: f64, kena_pph21: bool, kena_pph23: bool) -> f64 {
-    jumlah - (jumlah * pajak_rate(kena_pph21, kena_pph23)).round()
+pub(crate) fn netto_pajak(
+    jumlah: f64,
+    kena_pph21: bool,
+    kena_pph23: bool,
+    kena_pph23_2: bool,
+) -> f64 {
+    jumlah - (jumlah * pajak_rate(kena_pph21, kena_pph23, kena_pph23_2)).round()
 }
 
 #[command]

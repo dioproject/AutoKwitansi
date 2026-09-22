@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.4.2 (Current)
+### v3.5.0 (Current)
+- [NEW] PPh 23 2% (sewa/jasa, manual di form & modal edit, eksklusif vs PPh lain, kolom `kena_pph23_2`)
+
+### v3.4.2
 - [FIXED] Install baru di atas DB lama gagal import "has no column named bulan": index bulan_tahun dipindah setelah migrasi + regression test
 
 ### v3.4.1
