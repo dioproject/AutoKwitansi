@@ -132,7 +132,6 @@ pub fn init_db() -> Result<()> {
             footer_text TEXT NOT NULL DEFAULT '',
             last_pos_number INTEGER NOT NULL DEFAULT 0
         );
-        CREATE INDEX IF NOT EXISTS idx_kwitansi_bulan_tahun ON kwitansi(bulan, tahun_anggaran);
         ",
     )?;
 
@@ -163,6 +162,14 @@ pub fn init_db() -> Result<()> {
             Err(e) => eprintln!("Migrasi gagal {}.{} : {}", table, column, e),
         }
     }
+
+    // Index yang bergantung kolom hasil migrasi — WAJIB setelah migrasi.
+    // (Dulu index ini di dalam batch CREATE di atas sehingga DB lama yang belum
+    // punya kolom `bulan` membuat seluruh init_db abort sebelum migrasi jalan
+    // → import gagal "has no column named bulan".)
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_kwitansi_bulan_tahun ON kwitansi(bulan, tahun_anggaran);",
+    )?;
 
     // Insert default sekolah if empty
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM sekolah", [], |row| row.get(0))?;
@@ -682,4 +689,66 @@ pub fn update_kwitansi_toko(
         params![nama_toko, alamat_toko, pimpinan_toko, kwitansi_id],
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_init_db_migrates_old_db_without_bulan() {
+        // Simulasi DB lama (pra-bulan): init_db tidak boleh abort,
+        // migrasi harus menambahkan kolom, insert import harus sukses.
+        // APPDATA diisolasi ke temp dir agar tidak menyentuh DB asli.
+        let tmp = std::env::temp_dir().join(format!("autokwitansi-test-{}", std::process::id()));
+        let appdata = tmp.join("appdata");
+        std::fs::create_dir_all(&appdata).ok();
+        let old_appdata = std::env::var_os("APPDATA");
+        std::env::set_var("APPDATA", &appdata);
+
+        let result = (|| -> Result<()> {
+            // DB lama: tabel kwitansi TANPA bulan dan kolom-kolom baru
+            {
+                let dir = appdata.join("AutoKwitansi");
+                std::fs::create_dir_all(&dir).ok();
+                let conn = Connection::open(dir.join("auto_kwitansi.db"))?;
+                conn.execute_batch(
+                    "CREATE TABLE kwitansi (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nomor_kwitansi TEXT NOT NULL,
+                        tanggal TEXT NOT NULL,
+                        sudah_terima_dari TEXT NOT NULL,
+                        jumlah REAL NOT NULL DEFAULT 0,
+                        terbilang TEXT NOT NULL DEFAULT '',
+                        untuk_pembayaran TEXT NOT NULL DEFAULT '',
+                        kode_rekening TEXT NOT NULL DEFAULT '',
+                        tahun_anggaran TEXT NOT NULL DEFAULT ''
+                    );",
+                )?;
+            }
+
+            init_db()?;
+
+            let conn = get_connection()?;
+            assert!(column_exists(&conn, "kwitansi", "bulan")?);
+            assert!(column_exists(&conn, "kwitansi", "kena_pph23")?);
+            assert!(column_exists(&conn, "kwitansi", "kode_kegiatan")?);
+
+            // Insert ala import (pakai kolom bulan) — dulu gagal
+            // "table kwitansi has no column named bulan"
+            conn.execute(
+                "INSERT INTO kwitansi (nomor_kwitansi, tanggal, sudah_terima_dari, jumlah, terbilang, untuk_pembayaran, kode_rekening, tahun_anggaran, bulan) VALUES ('BPU99','2026-01-01','Bendahara',1000,'seribu','Uji','5.1','2026','JANUARI')",
+                [],
+            )?;
+            Ok(())
+        })();
+
+        match old_appdata {
+            Some(v) => std::env::set_var("APPDATA", v),
+            None => std::env::remove_var("APPDATA"),
+        }
+        std::fs::remove_dir_all(&tmp).ok();
+
+        result.expect("init_db harus sukses di DB lama + insert import harus bisa");
+    }
 }

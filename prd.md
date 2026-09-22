@@ -104,6 +104,7 @@
 
 ### v3.4.1 (Current)
 - [FIXED] Import & form otomatis ambil kepala sekolah/bendahara terbaru dari Data Sekolah (fallback ke nama di PDF bila kosong)
+- [FIXED] Install baru di atas DB lama gagal import "has no column named bulan": index bulan_tahun dipindah setelah migrasi + regression test
 
 ### v3.4.0
 - [NEW] Import ulang anti-duplikat: hanya data baru yang masuk (`{inserted, skipped}`), data lama dilewati & tidak diubah
