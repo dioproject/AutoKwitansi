@@ -264,6 +264,33 @@ window.handlePPh23_2Toggle = function () {
 };
 
 // ========== KWITANSI INPUT ==========
+/** PPN nominal rupiah dari form (0 = nonaktif) */
+function ppnNominalAktif() {
+  const raw = (document.getElementById("ppn_nominal")?.value || "0").replace(/[^\d]/g, "");
+  return parseFloat(raw) || 0;
+}
+
+function updatePpnDetail() {
+  const ppn = ppnNominalAktif();
+  const detail = document.getElementById("ppn-detail");
+  if (detail) detail.classList.toggle("hidden", !(ppn > 0));
+  const el = document.getElementById("ppn_rp");
+  if (el) el.textContent = `+ Rp ${formatRupiah(ppn)}`;
+}
+
+window.handlePpnInput = function (el) {
+  const raw = el.value.replace(/[^\d]/g, "");
+  if (raw === "") {
+    updatePpnDetail();
+  } else {
+    el.value = parseInt(raw).toLocaleString("id-ID");
+    updatePpnDetail();
+  }
+  const j = document.getElementById("jumlah");
+  if (j && j.value.replace(/[^\d]/g, "") !== "") handleJumlahInput(j);
+  else updatePpnDetail();
+};
+
 window.handleJumlahInput = async function (el) {
   let raw = el.value.replace(/[^\d]/g, "");
   if (raw === "") {
@@ -275,7 +302,7 @@ window.handleJumlahInput = async function (el) {
 
   const rate = pajakRateAktif();
   const bruto = parseInt(raw);
-  const jumlah = bruto - Math.round(bruto * rate);
+  const jumlah = bruto - Math.round(bruto * rate) + ppnNominalAktif();
 
   try {
     const result = await invoke("cmd_terbilang", { jumlah: jumlah });
@@ -287,6 +314,7 @@ window.handleJumlahInput = async function (el) {
   updatePph21Detail();
   updatePph23Detail();
   updatePph23_2Detail();
+  updatePpnDetail();
 };
 
 window.handleSimpanKwitansi = async function (e) {
@@ -300,6 +328,7 @@ window.handleSimpanKwitansi = async function (e) {
   const kenaPph21 = document.getElementById("cb_kena_pph21")?.checked || false;
   const kenaPph23 = !kenaPph21 && (document.getElementById("cb_kena_pph23")?.checked || false);
   const kenaPph23_2 = !kenaPph21 && !kenaPph23 && (document.getElementById("cb_kena_pph23_2")?.checked || false);
+  const ppnNominal = ppnNominalAktif();
 
   const kwitansi = {
     id: null,
@@ -325,6 +354,7 @@ window.handleSimpanKwitansi = async function (e) {
     kena_pph21: kenaPph21,
     kena_pph23: kenaPph23,
     kena_pph23_2: kenaPph23_2,
+    ppn_nominal: ppnNominal,
   };
 
   try {
@@ -365,6 +395,9 @@ window.resetForm = function () {
   document.getElementById("pph21-detail")?.classList.add("hidden");
   document.getElementById("pph23-detail")?.classList.add("hidden");
   document.getElementById("pph23_2-detail")?.classList.add("hidden");
+  const ppnEl = document.getElementById("ppn_nominal");
+  if (ppnEl) ppnEl.value = "";
+  document.getElementById("ppn-detail")?.classList.add("hidden");
   fillPenandatangan();
   refreshPaymentPreview();
   updateBpuDocsVisibility();
@@ -569,11 +602,12 @@ function renderGrouped(data) {
                   if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
                   else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
                   const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : (k.kena_pph23_2 ? '<span class="badge badge-warn">PPh23 2%</span>' : ""));
+const ppnBadge = (k.ppn_nominal || 0) > 0 ? ' <span class="badge badge-ok">PPN</span>' : "";
                   return `
                   <tr>
                     <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
                     <td>${i + 1}</td>
-                    <td>${esc(k.nomor_kwitansi)} ${badge} ${pphBadge}</td>
+                    <td>${esc(k.nomor_kwitansi)} ${badge} ${pphBadge}${ppnBadge}</td>
                     <td>${formatTanggal(k.tanggal)}</td>
                     <td>${esc(k.sudah_terima_dari)}</td>
                     <td class="rupiah">Rp ${formatRupiah(k.jumlah)}</td>
@@ -648,11 +682,12 @@ function renderTable(data) {
             if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
             else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
             const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : (k.kena_pph23_2 ? '<span class="badge badge-warn">PPh23 2%</span>' : ""));
+const ppnBadge = (k.ppn_nominal || 0) > 0 ? ' <span class="badge badge-ok">PPN</span>' : "";
             return `
             <tr>
               <td><input type="checkbox" class="riwayat-check" data-id="${k.id}" onchange="handleRiwayatCheck()" ${selectedKwitansiIds.has(k.id) ? 'checked' : ''} /></td>
               <td>${i + 1}</td>
-              <td>${esc(k.nomor_kwitansi)} ${badge} ${pphBadge}</td>
+              <td>${esc(k.nomor_kwitansi)} ${badge} ${pphBadge}${ppnBadge}</td>
               <td>${formatTanggal(k.tanggal)}</td>
               <td>${esc(k.sudah_terima_dari)}</td>
               <td class="rupiah">Rp ${formatRupiah(k.jumlah)}</td>
@@ -714,6 +749,7 @@ window.openEditModal = async function (id) {
     set("e_kode_kegiatan", k.kode_kegiatan || "");
     set("e_sudah_terima_dari", k.sudah_terima_dari);
     set("e_jumlah", Math.round(k.jumlah).toLocaleString("id-ID"));
+    set("e_ppn", (k.ppn_nominal || 0) > 0 ? Math.round(k.ppn_nominal).toLocaleString("id-ID") : "");
     set("e_untuk_pembayaran", k.untuk_pembayaran);
     set("e_penerima", k.penerima);
     set("e_mengetahui", k.mengetahui);
@@ -741,6 +777,13 @@ window.handleEditJumlahInput = function (el) {
   updateEditNetto();
 };
 
+window.handleEditPpnInput = function (el) {
+  const raw = el.value.replace(/[^\d]/g, "");
+  if (raw === "") { updateEditNetto(); return; }
+  el.value = parseInt(raw).toLocaleString("id-ID");
+  updateEditNetto();
+};
+
 window.handleEditPajakToggle = function (which) {
   const cb21 = document.getElementById("e_cb_pph21");
   const cb23 = document.getElementById("e_cb_pph23");
@@ -757,9 +800,11 @@ function updateEditNetto() {
   const rate = document.getElementById("e_cb_pph21")?.checked ? 0.06
     : (document.getElementById("e_cb_pph23")?.checked ? 0.04
     : (document.getElementById("e_cb_pph23_2")?.checked ? 0.02 : 0));
-  const netto = bruto - Math.round(bruto * rate);
+  const ppnRaw = (document.getElementById("e_ppn")?.value || "0").replace(/[^\d]/g, "");
+  const ppn = parseFloat(ppnRaw) || 0;
+  const netto = bruto - Math.round(bruto * rate) + ppn;
   const info = document.getElementById("e_netto_info");
-  if (info) info.textContent = rate > 0 ? `Netto: Rp ${formatRupiah(netto)}` : `Rp ${formatRupiah(bruto)}`;
+  if (info) info.textContent = (rate > 0 || ppn > 0) ? `Total: Rp ${formatRupiah(netto)}` : `Rp ${formatRupiah(bruto)}`;
 }
 
 window.handleUpdateKwitansi = async function () {
@@ -788,6 +833,7 @@ window.handleUpdateKwitansi = async function () {
     kena_pph21: kena21,
     kena_pph23: !kena21 && (document.getElementById("e_cb_pph23")?.checked || false),
     kena_pph23_2: !kena21 && !(document.getElementById("e_cb_pph23")?.checked || false) && (document.getElementById("e_cb_pph23_2")?.checked || false),
+    ppn_nominal: parseFloat((document.getElementById("e_ppn")?.value || "0").replace(/[^\d]/g, "")) || 0,
   };
   try {
     await invoke("cmd_update_kwitansi", { kwitansi: kwitansi });
@@ -1160,15 +1206,17 @@ function renderValuesOnlyTemplate(k) {
   const penerimaBlock = `<div class="kv multi-line" style="${pos('penerima')}">${esc(formatTanggalPanjang(k.tanggal))}<br>Yang Menerima,<div class="sig-space" style="height:${gap}mm"></div>${esc(k.penerima)}</div>`;
   const bendaharaBlock = `<div class="kv multi-line" style="${pos('bendahara')}">Bendahara,<div class="sig-space" style="height:${gap}mm"></div>${esc(k.bendahara)}<br>NIP. ${esc(k.nip_bendahara)}</div>`;
 
-  // Blok pajak (field draggable sendiri; kosong bila tidak kena pajak)
+  // Blok pajak (field draggable sendiri; kosong bila tidak kena pajak/PPN)
   let pajakBlock = "";
-  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : 0);
-  if (pphRate > 0) {
+  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : (k.kena_pph23_2 ? 0.02 : 0));
+  const ppn = (k.ppn_nominal || 0) > 0 ? Math.round(k.ppn_nominal) : 0;
+  if (pphRate > 0 || ppn > 0) {
     const bruto = k.jumlah;
     const pph = Math.round(bruto * pphRate);
-    const netto = bruto - pph;
-    const label = k.kena_pph21 ? "PPh 21 6%" : "PPh 23 4%";
-    pajakBlock = `<div class="kv multi-line" style="${pos('pajak')}">Bruto: Rp ${formatRupiah(bruto)}<br>${label}: - Rp ${formatRupiah(pph)}<br><b>Netto: Rp ${formatRupiah(netto)}</b></div>`;
+    const netto = bruto - pph + ppn;
+    const label = k.kena_pph21 ? "PPh 21 6%" : (k.kena_pph23 ? "PPh 23 4%" : "PPh 23 2%");
+    const ppnLine = ppn > 0 ? `<br>PPN: + Rp ${formatRupiah(ppn)}` : "";
+    pajakBlock = `<div class="kv multi-line" style="${pos('pajak')}">Bruto: Rp ${formatRupiah(bruto)}<br>${label}: - Rp ${formatRupiah(pph)}${ppnLine}<br><b>Netto: Rp ${formatRupiah(netto)}</b></div>`;
   }
 
   return `
@@ -1198,18 +1246,21 @@ function renderFullTemplate(k) {
   const fs = s ? s.font_size : 12;
   const gap = s ? (s.sig_gap || 15) : 15;
 
-  // Blok pajak (PPh 21 honorarium 6% / PPh 23 makan minum 4% / PPh 23 sewa-jasa 2%)
+  // Blok pajak (PPh 21 6% / PPh 23 4% / PPh 23 2% + PPN nominal opsional)
   let pphBlock = "";
   const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : (k.kena_pph23_2 ? 0.02 : 0));
   const pphLabel = k.kena_pph21 ? "PPh 21 6%" : (k.kena_pph23 ? "PPh 23 4%" : "PPh 23 2%");
-  if (pphRate > 0) {
+  const ppnFull = (k.ppn_nominal || 0) > 0 ? Math.round(k.ppn_nominal) : 0;
+  if (pphRate > 0 || ppnFull > 0) {
     const bruto = k.jumlah;
     const pph = Math.round(bruto * pphRate);
-    const netto = bruto - pph;
+    const netto = bruto - pph + ppnFull;
+    const ppnLine = ppnFull > 0 ? `<div>PPN      : <b style="color:var(--success);">+ Rp ${formatRupiah(ppnFull)}</b></div>` : "";
     pphBlock = `
       <div style="margin-top:3mm; font-size:10pt; color:#333;">
         <div>Bruto    : <b>Rp ${formatRupiah(bruto)}</b></div>
         <div>${pphLabel}: <b style="color:var(--danger);">- Rp ${formatRupiah(pph)}</b></div>
+        ${ppnLine}
         <div style="margin-top:1mm;"><b>Netto    : Rp ${formatRupiah(netto)}</b></div>
       </div>
     `;
@@ -1504,12 +1555,14 @@ window.updatePosStrukPreview = function () {
 
 // ========== UTILITIES ==========
 
-/** Netto setelah potongan pajak (bruto jika tidak kena) */
+/** Total bayar: bruto − PPh + PPN nominal (bruto jika tidak kena) */
 function nettoJumlah(k) {
-  if (k.kena_pph21) return k.jumlah - Math.round(k.jumlah * 0.06);
-  if (k.kena_pph23) return k.jumlah - Math.round(k.jumlah * 0.04);
-  if (k.kena_pph23_2) return k.jumlah - Math.round(k.jumlah * 0.02);
-  return k.jumlah;
+  let v = k.jumlah;
+  if (k.kena_pph21) v -= Math.round(k.jumlah * 0.06);
+  else if (k.kena_pph23) v -= Math.round(k.jumlah * 0.04);
+  else if (k.kena_pph23_2) v -= Math.round(k.jumlah * 0.02);
+  if ((k.ppn_nominal || 0) > 0) v += Math.round(k.ppn_nominal);
+  return v;
 }
 
 /** Gabung uraian + uraian resmi ARKAS + kode rekening + tahun anggaran jadi 1 kalimat.

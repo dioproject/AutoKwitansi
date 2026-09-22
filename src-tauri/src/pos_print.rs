@@ -125,7 +125,7 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) ->
     buf.extend_from_slice(LF);
 
     // ══════════════════════════
-    // TOTAL — netto jika kena pajak (PPh 21 6% / PPh 23 4% / PPh 23 2%)
+    // TOTAL — total bayar (bruto − PPh + PPN nominal opsional)
     // ══════════════════════════
     let (pph_label, pph_rate): (&str, f64) = if k.kena_pph21 {
         ("PPh 21 6%", 0.06)
@@ -137,7 +137,12 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) ->
         ("", 0.0)
     };
     let pph: f64 = (k.jumlah * pph_rate).round();
-    let netto = k.jumlah - pph;
+    let ppn: f64 = if k.ppn_nominal > 0.0 {
+        k.ppn_nominal.round()
+    } else {
+        0.0
+    };
+    let netto = k.jumlah - pph + ppn;
     if pph_rate > 0.0 {
         buf.extend_from_slice(
             line(&format!("Bruto  : Rp {}", format_currency(k.jumlah))).as_bytes(),
@@ -146,6 +151,10 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) ->
         buf.extend_from_slice(
             line(&format!("{} : Rp {}", pph_label, format_currency(pph))).as_bytes(),
         );
+        buf.extend_from_slice(LF);
+    }
+    if ppn > 0.0 {
+        buf.extend_from_slice(line(&format!("PPN    : + Rp {}", format_currency(ppn))).as_bytes());
         buf.extend_from_slice(LF);
     }
     buf.extend_from_slice(ESC_BOLD_ON);
@@ -476,6 +485,7 @@ mod tests {
             kena_pph21: false,
             kena_pph23: false,
             kena_pph23_2: false,
+            ppn_nominal: 0.0,
             kode_kegiatan: "".into(),
         };
         assert_eq!(
@@ -517,6 +527,7 @@ mod tests {
             kena_pph21: false,
             kena_pph23: false,
             kena_pph23_2: false,
+            ppn_nominal: 0.0,
             kode_kegiatan: "06.05.06".into(),
         };
         let s = compose_payment_sentence(&k);
@@ -542,7 +553,7 @@ mod tests {
 
     #[test]
     fn test_pajak_rate_dan_netto() {
-        use crate::commands::{is_makan_pph23, netto_pajak, pajak_rate};
+        use crate::commands::{is_makan_pph23, netto_pajak, pajak_rate, total_netto};
         assert_eq!(pajak_rate(true, false, false), 0.06);
         assert_eq!(pajak_rate(false, true, false), 0.04);
         assert_eq!(pajak_rate(false, false, true), 0.02);
@@ -553,6 +564,19 @@ mod tests {
         assert_eq!(netto_pajak(1_000_000.0, false, false, true), 980_000.0);
         assert_eq!(netto_pajak(1_000_000.0, true, false, false), 940_000.0);
         assert_eq!(netto_pajak(1_000_000.0, false, false, false), 1_000_000.0);
+        assert_eq!(
+            total_netto(1_000_000.0, false, false, false, 0.0),
+            1_000_000.0
+        );
+        assert_eq!(
+            total_netto(1_000_000.0, false, false, false, 110_000.0),
+            1_110_000.0
+        );
+        assert_eq!(
+            total_netto(1_000_000.0, false, true, false, 110_000.0),
+            1_070_000.0
+        );
+        assert_eq!(total_netto(1_000_000.0, true, false, false, 0.0), 940_000.0);
         assert!(is_makan_pph23("", "", "Belanja makan dan minum rapat"));
         assert!(is_makan_pph23("", "", "Konsumsi kegiatan MPLS"));
         assert!(is_makan_pph23("", "", "Jasa catering acara wisuda"));

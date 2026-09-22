@@ -42,6 +42,7 @@
 3. Auto-check PPh 23 jika: uraian mengandung makan/minum/konsumsi/catering/katering/snack/jamuan (**bukan** honorarium — PPh 21 didahulukan).
 4. Kedua checkbox **saling eksklusif** (hanya satu yang aktif): PPh 21 6% / PPh 23 4% / PPh 23 2% (sewa/jasa, manual — tanpa auto-detect).
 5. PPh 21 = 6% × bruto; PPh 23 = 4% × bruto; PPh 23 2% = 2% × bruto (dibulatkan); netto = bruto − PPh.
+6. PPN opsional = **nominal rupiah** (bukan persen), 0 = nonaktif; total bayar = bruto − PPh + PPN; terbilang mengikuti total.
 6. Tampilan bruto/PPh/netto hanya untuk kwitansi kena pajak (form, cetak kwitansi, struk POS).
 7. **BNU tidak punya tombol POS** dan **tidak wajib dokumen toko** (dokumen hanya untuk BPU >1jt).
 

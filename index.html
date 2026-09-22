@@ -36,7 +36,7 @@
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v3.5.0</p>
+        <p class="version">v3.6.0</p>
       </div>
     </aside>
 
@@ -158,6 +158,18 @@
                 <div><strong>Netto:</strong> <span id="pph23_2_netto" style="color:var(--success);font-weight:700;">Rp 0</span></div>
               </div>
               <p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Terbilang akan mencetak nilai netto (setelah potongan PPh 23 2%)</p>
+            </div>
+          </div>
+
+          <!-- PPN Opsional (nominal rupiah) -->
+          <div id="ppn-section" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
+            <div class="form-group" style="margin:0;">
+              <label for="ppn_nominal">PPN (Rp) — opsional, isi nominalnya bila ada</label>
+              <input type="text" id="ppn_nominal" placeholder="110.000" oninput="handlePpnInput(this)" />
+            </div>
+            <div id="ppn-detail" class="hidden" style="margin-top:10px;padding:10px;background:#fff;border-radius:6px;border:1px solid var(--border);">
+              <div style="font-size:13px;"><strong>PPN:</strong> <span id="ppn_rp" style="color:var(--success);font-weight:700;">+ Rp 0</span></div>
+              <p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Ditambahkan ke total bayar (bruto − PPh + PPN); terbilang mengikuti total</p>
             </div>
           </div>
 
@@ -740,6 +752,9 @@
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
           <input type="checkbox" id="e_cb_pph23_2" onchange="handleEditPajakToggle('pph23_2')" /> PPh 23 2%
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;">
+          PPN Rp <input type="text" id="e_ppn" placeholder="0" oninput="handleEditPpnInput(this)" style="width:110px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;" />
         </label>
         <span id="e_netto_info" style="margin-left:auto;font-weight:600;"></span>
       </div>

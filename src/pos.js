@@ -139,14 +139,18 @@ export function renderPosNotaTemplate(k, settings) {
   }
   lines.push(sep);
   
-  // TOTAL — netto jika kena pajak (PPh 21 6% / PPh 23 4% / PPh 23 2%)
+  // TOTAL — total bayar (bruto − PPh + PPN nominal opsional)
   const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : (k.kena_pph23_2 ? 0.02 : 0));
   const pphLabel = k.kena_pph21 ? "PPh 21 6%" : (k.kena_pph23 ? "PPh 23 4%" : "PPh 23 2%");
   const pph = Math.round(k.jumlah * pphRate);
-  const netto = k.jumlah - pph;
+  const ppn = (k.ppn_nominal || 0) > 0 ? Math.round(k.ppn_nominal) : 0;
+  const netto = k.jumlah - pph + ppn;
   if (pphRate > 0) {
     lines.push(`Bruto  : Rp ${formatRupiah(k.jumlah)}`);
     lines.push(`${pphLabel} : Rp ${formatRupiah(pph)}`);
+  }
+  if (ppn > 0) {
+    lines.push(`PPN    : + Rp ${formatRupiah(ppn)}`);
   }
   let totalLine = `TOTAL  : Rp ${formatRupiah(netto)}`;
   const pad = Math.max(0, maxChars - totalLine.length);

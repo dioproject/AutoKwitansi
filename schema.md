@@ -47,6 +47,7 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite, WAL mode, foreign_k
 | kena_pph21 | INTEGER | 0 | **[v3.0]** 1 = honorarium kena PPh 21 6% |
 | kena_pph23 | INTEGER | 0 | **[v3.1]** 1 = makan minum kena PPh 23 4% (saling eksklusif dengan PPh 21) |
 | kena_pph23_2 | INTEGER | 0 | **[v3.5]** 1 = sewa/jasa kena PPh 23 2% (manual, eksklusif) |
+| ppn_nominal | REAL | 0 | **[v3.6]** PPN nominal rupiah opsional (0 = nonaktif) |
 | kode_kegiatan | TEXT | "" | **[v3.2]** Kode referensi kegiatan ARKAS (06.05.06, 07.12.04) — patokan uraian resmi |
 
 **Index:**
@@ -57,9 +58,9 @@ Database: `%APPDATA%/AutoKwitansi/auto_kwitansi.db` (SQLite, WAL mode, foreign_k
 **Relasi:**
 - 1 kwitansi → 0..1 bpu_dokumen (via `kwitansi_id`)
 
-**Catatan pajak (kena_pph21=1 atau kena_pph23=1 atau kena_pph23_2=1):**
+**Catatan pajak (kena_pph21/23/23_2=1, plus ppn_nominal opsional):**
 - `jumlah` tetap menyimpan **bruto**.
-- PPh 21 = 6% × bruto; PPh 23 = 4% × bruto; PPh 23 2% = 2% × bruto; netto = bruto − PPh (dihitung saat render/print, tidak disimpan).
+- PPh 21 = 6% × bruto; PPh 23 = 4% × bruto; PPh 23 2% = 2% × bruto; PPN = nominal input; total = bruto − PPh + PPN (dihitung saat render/print, tidak disimpan).
 - `terbilang` digenerate dari **netto**.
 
 ---

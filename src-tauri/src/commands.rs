@@ -36,12 +36,14 @@ pub fn cmd_simpan_kwitansi(mut kwitansi: Kwitansi) -> Result<i64, String> {
         &kwitansi.bulan,
         &kwitansi.tahun_anggaran,
     );
-    // Terbilang mengikuti netto (setelah potongan pajak) jika kena PPh 21/23
-    kwitansi.terbilang = terbilang(netto_pajak(
+    // Terbilang mengikuti total bayar (bruto − PPh + PPN opsional)
+    sanitize_pajak(&mut kwitansi);
+    kwitansi.terbilang = terbilang(total_netto(
         kwitansi.jumlah,
         kwitansi.kena_pph21,
         kwitansi.kena_pph23,
         kwitansi.kena_pph23_2,
+        kwitansi.ppn_nominal,
     ));
     db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())
 }
@@ -50,12 +52,14 @@ pub fn cmd_simpan_kwitansi(mut kwitansi: Kwitansi) -> Result<i64, String> {
 pub fn cmd_update_kwitansi(mut kwitansi: Kwitansi) -> Result<(), String> {
     let id = kwitansi.id.ok_or("ID kwitansi kosong".to_string())?;
     // Teks untuk_pembayaran sudah final dari user — jangan expand ulang.
-    // Terbilang selalu dihitung ulang dari netto agar konsisten.
-    kwitansi.terbilang = terbilang(netto_pajak(
+    // Terbilang selalu dihitung ulang dari total bayar agar konsisten.
+    sanitize_pajak(&mut kwitansi);
+    kwitansi.terbilang = terbilang(total_netto(
         kwitansi.jumlah,
         kwitansi.kena_pph21,
         kwitansi.kena_pph23,
         kwitansi.kena_pph23_2,
+        kwitansi.ppn_nominal,
     ));
     db::update_kwitansi(id, &kwitansi).map_err(|e| e.to_string())
 }
@@ -81,6 +85,38 @@ pub(crate) fn netto_pajak(
     kena_pph23_2: bool,
 ) -> f64 {
     jumlah - (jumlah * pajak_rate(kena_pph21, kena_pph23, kena_pph23_2)).round()
+}
+
+/// Total bayar: bruto − PPh + PPN (PPN nominal rupiah opsional, 0 = nonaktif)
+pub(crate) fn total_netto(
+    jumlah: f64,
+    kena_pph21: bool,
+    kena_pph23: bool,
+    kena_pph23_2: bool,
+    ppn_nominal: f64,
+) -> f64 {
+    let pph = (jumlah * pajak_rate(kena_pph21, kena_pph23, kena_pph23_2)).round();
+    let ppn = if ppn_nominal > 0.0 {
+        ppn_nominal.round()
+    } else {
+        0.0
+    };
+    jumlah - pph + ppn
+}
+
+/// Normalisasi entri pajak dari frontend (PPh eksklusif + PPN wajar)
+fn sanitize_pajak(k: &mut Kwitansi) {
+    if k.kena_pph21 {
+        k.kena_pph23 = false;
+        k.kena_pph23_2 = false;
+    } else if k.kena_pph23 {
+        k.kena_pph23_2 = false;
+    }
+    if k.ppn_nominal.is_nan() || k.ppn_nominal < 0.0 {
+        k.ppn_nominal = 0.0;
+    } else {
+        k.ppn_nominal = k.ppn_nominal.round();
+    }
 }
 
 #[command]

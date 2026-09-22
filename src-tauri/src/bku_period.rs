@@ -69,6 +69,7 @@ pub fn import_bku_period(
                 kena_pph21: pph21,
                 kena_pph23: pph23,
                 kena_pph23_2: false,
+                ppn_nominal: 0.0,
                 kode_kegiatan: tx.kode_kegiatan.clone(),
             };
             // Import ulang BKU yang sama: lewati yang sudah ada (jangan ubah/timpa).
