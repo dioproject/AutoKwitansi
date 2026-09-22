@@ -104,6 +104,36 @@ pub(crate) fn total_netto(
     jumlah - pph - ppn
 }
 
+/// Perbaiki terbilang basi: hitung ulang dari total terkini untuk semua baris.
+/// Dijalankan tiap start agar "Uang sejumlah" selalu mengikuti total
+/// (bruto − PPh − PPN) walau datanya ditulis oleh versi lama.
+pub fn repair_terbilang() -> Result<usize, String> {
+    let all = db::get_all_kwitansi().map_err(|e| e.to_string())?;
+    let conn = db::get_connection().map_err(|e| e.to_string())?;
+    let mut fixed = 0;
+    for k in &all {
+        let id = match k.id {
+            Some(id) => id,
+            None => continue,
+        };
+        let expected = terbilang(total_netto(
+            k.jumlah,
+            k.kena_pph21,
+            k.kena_pph23,
+            k.kena_pph23_2,
+            k.ppn_nominal,
+        ));
+        if expected != k.terbilang {
+            conn.execute(
+                "UPDATE kwitansi SET terbilang=?1 WHERE id=?2",
+                rusqlite::params![expected, id],
+            )
+            .map_err(|e| e.to_string())?;
+            fixed += 1;
+        }
+    }
+    Ok(fixed)
+}
 /// Normalisasi entri pajak dari frontend (PPh eksklusif + PPN wajar)
 fn sanitize_pajak(k: &mut Kwitansi) {
     if k.kena_pph21 {
@@ -351,3 +381,4 @@ pub fn cmd_pos_test_print() -> Result<(), String> {
     let s = db::get_pos_settings().map_err(|e| e.to_string())?;
     crate::pos_print::test_print(&s).map_err(|e| e.to_string())
 }
+

@@ -32,7 +32,7 @@
 
 ### Kwitansi
 1. Field wajib: `nomor_kwitansi`, `tanggal`, `sudah_terima_dari`, `jumlah`, `untuk_pembayaran`, `penerima`.
-2. `terbilang` auto-generate via Rust — dari **netto** jika `kena_pph21`/`kena_pph23`, selain itu dari bruto.
+2. `terbilang` auto-generate via Rust — dari **total terkini** (bruto − PPh − PPN); baris lama diperbaiki otomatis tiap start (`repair_terbilang`).
 3. `bulan` diisi dari import BKU; kosong untuk input manual (masuk group "Tanpa BKU" di riwayat).
 4. Nomor kwitansi dicetak **lengkap apa adanya** (mis. `BPU12`, `BNU16`) **tanpa awalan "No:"** — kertas pre-print / layout sudah menyediakan posisinya.
 

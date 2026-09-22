@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.6.1 (Current)
+### v3.6.2 (Current)
+- [FIXED] Terbilang basi (masih bruto) di data lama: dihitung ulang otomatis tiap start mengikuti total terkini
+
+### v3.6.1
 - [FIXED] PPN mengurangi bruto (total = bruto − PPh − PPN), bukan menambah
 
 ### v3.6.0

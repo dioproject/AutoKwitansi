@@ -17,6 +17,12 @@ pub fn run() {
     }
     // Backup otomatis tiap start (pengaman data riwayat).
     db::backup_db();
+    // Perbaiki terbilang basi dari versi lama agar ikut total terkini.
+    match repair_terbilang() {
+        Ok(n) if n > 0 => eprintln!("Perbaiki terbilang {} kwitansi lama", n),
+        Ok(_) => {}
+        Err(e) => eprintln!("Gagal perbaiki terbilang: {}", e),
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
