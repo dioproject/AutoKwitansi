@@ -102,7 +102,16 @@
 
 ## Changelog
 
-### v3.0.0 (Current)
+### v3.1.0 (Current)
+- [NEW] PPh 23 4% makan minum (auto-detect konsumsi/catering/jamuan, eksklusif vs PPh 21, kolom `kena_pph23`)
+- [NEW] Filter periode per bulan di Riwayat (dropdown BKU {Bulan} {Tahun})
+- [NEW] Sortir kolom tabel Riwayat via klik header (nomor/tanggal/diterima/jumlah/uraian, asc/desc)
+- [NEW] Live preview "Kalimat cetak" di form Buat Kwitansi
+- [IMPROVED] Kalimat gabungan natural ("... dengan Kode Rekening X pada Tahun Anggaran Y")
+- [REMOVED] Menu Import Data duplikat + import CSV (digabung ke Import BKU Per Bulan)
+- [REMOVED] Field cetak redundan (kode/tahun/tanggal terpisah di values-only)
+
+### v3.0.0
 - [NEW] Satu aplikasi utuh — varian lite/full dihapus
 - [NEW] Cetak POS langsung ESC/POS via serialport (COM, baud rate)
 - [NEW] Halaman Printer Thermal: port, baud, lebar kertas, header/footer kustom, test print, preview struk live

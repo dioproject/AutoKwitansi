@@ -1,5 +1,10 @@
 # Rules — AutoKwitansi v3.0
 
+## Versioning (wajib tiap ada perubahan)
+1. Setiap perubahan (fitur/fix) **wajib naik versi** di 4 tempat: `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, dan label versi sidebar `index.html`.
+2. Semver: fitur baru → **minor** (3.x.0); fix/refactor tanpa fitur → **patch** (3.0.x); breaking/migrasi besar → **major**.
+3. Tiap bump versi wajib tambah entri di `## Changelog` prd.md (`[NEW]`/`[IMPROVED]`/`[FIXED]`/`[REMOVED]`).
+
 ## Coding Rules
 
 ### Backend (Rust)
