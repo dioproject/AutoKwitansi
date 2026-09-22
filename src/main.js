@@ -961,7 +961,39 @@ function renderPaperPreview() {
   if (mode === "values_only") {
     initDraggers(container);
   }
+
+  // Preview hasil cetak live (contoh data) — ukuran font & wrap persis hasil cetak
+  const sampleEl = document.getElementById("live-sample-preview");
+  if (sampleEl && currentPrintSettings) {
+    sampleEl.innerHTML = renderKwitansiTemplate(SAMPLE_KWITANSI);
+  }
 }
+
+/** Contoh data untuk preview live di Pengaturan Cetak */
+const SAMPLE_KWITANSI = {
+  id: null,
+  nomor_kwitansi: "BPU12",
+  tanggal: "2026-06-21",
+  sudah_terima_dari: "Bendahara BOS SDN 1 Contoh",
+  jumlah: 1500000,
+  terbilang: "satu juta lima ratus ribu rupiah",
+  untuk_pembayaran: "Belanja ATK dan tinta printer",
+  kode_rekening: "5.1.02.01.01.0001",
+  kode_kegiatan: "06.05.08",
+  tahun_anggaran: "2026",
+  bulan: "JUNI",
+  mengetahui: "Dr. Contoh, M.Pd",
+  nip_mengetahui: "19700101 199903 1 001",
+  bendahara: "Nama Bendahara",
+  nip_bendahara: "19800202 200501 2 002",
+  penerima: "Toko Makmur Jaya",
+  nama_toko: "",
+  alamat_toko: "",
+  pimpinan_toko: "",
+  created_at: null,
+  kena_pph21: false,
+  kena_pph23: true,
+};
 
 function initDraggers(container) {
   const scale = 400 / currentPrintSettings.paper_width;

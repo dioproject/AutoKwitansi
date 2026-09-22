@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.3.0 (Current)
+### v3.3.1 (Current)
+- [FIXED] Preview hasil cetak live di Pengaturan Cetak (contoh data, ikut font/posisi/mode) — atur angka font & lihat langsung hasilnya
+
+### v3.3.0
 - [NEW] Edit kwitansi per baris via modal (terbilang netto dihitung ulang otomatis)
 - [NEW] Hapus massal kwitansi yang dicentang di Riwayat
 - [NEW] Field Pajak (Bruto/PPh/Netto) yang bisa digeser di Pengaturan Cetak values-only
