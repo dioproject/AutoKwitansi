@@ -4,7 +4,7 @@ Aplikasi desktop pembuatan kwitansi SPJ (Surat Pertanggungjawaban) untuk lembaga
 
 ## Fitur
 
-- **Buat Kwitansi** — form input dengan auto-terbilang (bahasa Indonesia) dan auto-fill dari data sekolah.
+- **Import BKU Per Bulan** — alur utama: multi-PDF sekaligus, group per bulan, merge manual, auto-detect pajak, anti-duplikat.
 - **PPh 21 6% Honorarium** — checkbox otomatis untuk BNU / kode 07.12.04 / uraian honor & instruktur; cetak bruto → PPh → netto; terbilang mengikuti netto.
 - **PPh 21 5% Narasumber** — checkbox manual di form & modal edit (eksklusif).
 - **PPh 23 4% Makan Minum** — checkbox otomatis untuk uraian makan/minum/konsumsi/catering/jamuan; eksklusif terhadap PPh 21.
@@ -66,7 +66,7 @@ AutoKwitansi/
 │   └── styles.css             # Styling + accordion + print media queries
 ├── src-tauri/
 │   ├── src/
-│   │   ├── lib.rs             # Module registration (9 mod) + 23 command
+│   │   ├── lib.rs             # Module registration (9 mod) + 22 command
 │   │   ├── commands.rs        # 23 Tauri commands + deteksi PPh 21 + expand BNU
 │   │   ├── db.rs              # SQLite CRUD + migrations + generate_pos_number()
 │   │   ├── models.rs          # Data models (8 structs)

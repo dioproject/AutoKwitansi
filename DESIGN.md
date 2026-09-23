@@ -21,24 +21,18 @@ Aplikasi desktop pembuatan kwitansi SPJ sekolah — **satu aplikasi utuh** (tanp
 │  1. Data Sekolah → isi nama, alamat, kepsek, bendahara      │
 │  2. Printer Thermal → set COM port, baud, lebar kertas,     │
 │     header/footer struk → Test Print → Simpan               │
-│  3. Buat Kwitansi → isi form                                │
-│     ├─ Nomor BNU / kode 07.12.04 / uraian honor             │
-│     │    → checkbox PPh 21 auto-tercentang                  │
-│     │    → terbilang & preview = netto (bruto − 6%)         │
-│     ├─ Nomor BPU >1jt → section dokumen toko muncul         │
-│     └─ Simpan & Preview → cetak kwitansi (printer biasa)    │
-│  4. Import PDF BKU → parse → preview                        │
-│     ├─ (opsional) centang 2+ baris → Gabungkan → 1 kwitansi │
-│     ├─ (opsional) Gabung Otomatis per Kode Rekening         │
-│     └─ Import yang Dipilih                                  │
-│  5. Import BKU Per Bulan → multi-PDF → group per bulan      │
-│     └─ merge manual per bulan (sama seperti #4)             │
-│  6. Riwayat → accordion per "BKU {Bulan} {Tahun}"           │
+│  3. Import BKU Per Bulan → multi-PDF → group per bulan      │
+│     ├─ merge manual per bulan (centang 2+ → gabung)         │
+│     ├─ auto-detect pajak (PPh 21/23) + badge                │
+│     └─ Import yang Dipilih (anti-duplikat)                  │
+│  4. Riwayat → accordion per "BKU {Bulan} {Tahun}"           │
 │     ├─ Cetak → preview kwitansi → 🖨️ PRINTER               │
+│     ├─ Edit → modal (pajak/PPN, terbilang netto otomatis)   │
+│     ├─ Hapus (satuan/massal)                                │
 │     └─ POS (BPU saja) → modal preview struk                 │
 │        ├─ 🖨️ Thermal → ESC/POS langsung (status inline)     │
 │        └─ 🖨️ Printer → dialog print biasa (fallback)        │
-│  7. Pengaturan Cetak → mode, kertas, margin, drag-drop      │
+│  5. Pengaturan Cetak → mode, kertas, margin, drag-drop      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,7 +40,7 @@ Aplikasi desktop pembuatan kwitansi SPJ sekolah — **satu aplikasi utuh** (tanp
 
 | Module | Fungsi | Export |
 |--------|--------|--------|
-| `main.js` | State, navigasi, form + pajak (PPh 21/23), riwayat accordion, merge PDF, print kwitansi, POS setup page | `window.*` handlers |
+| `main.js` | State, navigasi, riwayat accordion + sortir/filter, merge PDF, edit modal, print kwitansi, POS setup page | `window.*` handlers |
 | `pos.js` | Modal preview nota, template struk, cetak thermal/browser, settings POS | `isBpu()`, `cetakNotaPos()`, `cetakPosThermal()`, `cetakPosBrowser()`, `renderPosNotaTemplate()`, `loadPosSettings()`, `getPosSettings()` |
 | `bpu-docs.js` | Dokumen BPU: 4 template A4, checklist status, data toko | `needsDocuments()`, `loadDocStatus()`, `allDocsComplete()`, `window.cetakDokumen()` |
 | `bku-period.js` | Import multi-PDF per bulan + merge manual per group | `window.openBkuPeriodDialog()`, `window.handleImportBkuPeriod()`, merge handlers |
@@ -57,7 +51,7 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 
 | Module | Fungsi | Commands |
 |--------|--------|----------|
-| `commands.rs` | 23 command + deteksi pajak (`is_honor_pph21()`, `is_makan_pph23()`) + `expand_bnu_description()` | semua `cmd_*` |
+| `commands.rs` | 22 command + deteksi pajak + `expand_bnu_description()` | semua `cmd_*` |
 | `db.rs` | SQLite CRUD + migrations + `generate_pos_number()` (rand) | — |
 | `pdf_import.rs` | Parse 1 PDF BKU → BkuData | `cmd_parse_bku_pdf` |
 | `bku_period.rs` | Parse N PDF + import per bulan (pajak & expand BNU per tx) | `cmd_parse_bku_pdfs`, `cmd_import_bku_period` |
@@ -67,8 +61,7 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 ## UI Components
 
 ### Navigation (sidebar)
-- **Buat Kwitansi** — form + checkbox PPh 21 / PPh 23 (eksklusif) + section dokumen BPU (kondisional)
-- **Riwayat** — accordion per BKU bulan; badge BPU (biru) / BNU (pink) / PPh21/PPh23 (kuning); tombol Cetak/Edit/POS/Hapus per baris; hapus massal yang dicentang
+- **Riwayat** — accordion per BKU bulan + filter periode + sortir header; badge BPU/BNU/pajak/PPN; tombol Cetak/Edit/POS/Hapus + hapus massal
 - **Import BKU Per Bulan** — multi-PDF, grouped preview, toolbar merge per bulan (Gabungkan yang Dicentang / Gabung Otomatis per Kode / Uraikan Semua)
 - **Data Sekolah** — form identitas
 - **Pengaturan Cetak** — kwitansi: mode, kertas, margin, font, drag-drop editor

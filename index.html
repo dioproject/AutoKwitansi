@@ -15,10 +15,7 @@
         <p class="subtitle">Kwitansi SPJ Sekolah</p>
       </div>
       <nav>
-        <button class="nav-btn active" data-page="input" onclick="showPage('input')">
-          <span class="nav-icon">+</span> Buat Kwitansi
-        </button>
-        <button class="nav-btn" data-page="riwayat" onclick="showPage('riwayat')">
+        <button class="nav-btn active" data-page="riwayat" onclick="showPage('riwayat')">
           <span class="nav-icon">&#9776;</span> Riwayat
         </button>
         <button class="nav-btn" data-page="import-period" onclick="showPage('import-period')">
@@ -36,206 +33,12 @@
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v3.7.0</p>
+        <p class="version">v3.8.0</p>
       </div>
     </aside>
 
     <!-- MAIN CONTENT -->
     <main id="main-content">
-
-      <!-- PAGE: INPUT KWITANSI -->
-      <section id="page-input" class="page active">
-        <div class="page-header">
-          <h2>Buat Kwitansi Baru</h2>
-        </div>
-        <form id="form-kwitansi" onsubmit="return handleSimpanKwitansi(event)">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="nomor_kwitansi">Nomor Kwitansi</label>
-              <input type="text" id="nomor_kwitansi" required placeholder="001/KWT/2026" oninput="updateBpuDocsVisibility()" />
-            </div>
-            <div class="form-group">
-              <label for="tanggal">Tanggal</label>
-              <input type="date" id="tanggal" required />
-            </div>
-            <div class="form-group">
-              <label for="tahun_anggaran">Tahun Anggaran</label>
-              <input type="text" id="tahun_anggaran" required placeholder="2026" oninput="refreshPaymentPreview()" />
-            </div>
-            <div class="form-group">
-              <label for="kode_rekening">Kode Rekening</label>
-              <input type="text" id="kode_rekening" placeholder="5.1.02.01.01.0001" oninput="refreshPaymentPreview()" />
-            </div>
-            <div class="form-group">
-              <label for="kode_kegiatan">Kode Kegiatan (ARKAS)</label>
-              <input type="text" id="kode_kegiatan" list="kode_kegiatan_list" placeholder="06.05.06" oninput="refreshPaymentPreview()" />
-              <datalist id="kode_kegiatan_list"></datalist>
-              <span style="font-size:10px;color:var(--text-muted);margin-top:2px;">Saran dari referensi resmi ARKAS 2026 — dipakai untuk kalimat cetak</span>
-            </div>
-            <div class="form-group full-width">
-              <label for="sudah_terima_dari">Sudah Terima Dari</label>
-              <input type="text" id="sudah_terima_dari" required placeholder="Bendahara BOS / Nama Bendahara" />
-            </div>
-            <div class="form-group">
-              <label for="jumlah">Jumlah (Rp)</label>
-              <input type="text" id="jumlah" required placeholder="1.500.000" oninput="handleJumlahInput(this)" />
-            </div>
-            <div class="form-group">
-              <label for="terbilang_preview">Terbilang</label>
-              <input type="text" id="terbilang_preview" readonly class="readonly" />
-            </div>
-            <div class="form-group full-width">
-              <label for="untuk_pembayaran">Untuk Pembayaran</label>
-              <textarea id="untuk_pembayaran" required rows="2" placeholder="Pembelian ATK untuk kegiatan..." oninput="refreshPaymentPreview()"></textarea>
-              <div style="margin-top:6px;padding:8px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;font-size:12px;color:#166534;">
-                <strong>Kalimat cetak:</strong> <span id="payment_sentence_preview" style="font-style:italic;">—</span>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="penerima">Yang Menerima</label>
-              <input type="text" id="penerima" required placeholder="Nama penerima uang" />
-            </div>
-            <div class="form-group">
-              <label for="mengetahui">Mengetahui / Lunas Dibayar</label>
-              <input type="text" id="mengetahui" placeholder="Kepala Sekolah (auto dari data sekolah)" />
-            </div>
-            <div class="form-group">
-              <label for="nip_mengetahui">NIP Mengetahui</label>
-              <input type="text" id="nip_mengetahui" placeholder="NIP" />
-            </div>
-            <div class="form-group">
-              <label for="bendahara">Bendahara</label>
-              <input type="text" id="bendahara" placeholder="Bendahara (auto dari data sekolah)" />
-            </div>
-            <div class="form-group">
-              <label for="nip_bendahara">NIP Bendahara</label>
-              <input type="text" id="nip_bendahara" placeholder="NIP" />
-            </div>
-          </div>
-
-          <!-- PPh 21 Honorarium -->
-          <div id="pph21-section" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
-              <input type="checkbox" id="cb_kena_pph21" onchange="handlePPh21Toggle()" />
-              Honorarium — potong PPh 21 6% (tenaga ahli 07.12.04 / instruktur pelatih)
-            </label>
-            <div id="pph21-detail" class="hidden" style="margin-top:10px;padding:10px;background:#fff;border-radius:6px;border:1px solid var(--border);">
-              <div style="display:flex;gap:20px;font-size:13px;">
-                <div><strong>Bruto:</strong> <span id="pph21_bruto">Rp 0</span></div>
-                <div><strong>PPh 21 6%:</strong> <span id="pph21_pph" style="color:var(--danger);">- Rp 0</span></div>
-                <div><strong>Netto:</strong> <span id="pph21_netto" style="color:var(--success);font-weight:700;">Rp 0</span></div>
-              </div>
-              <p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Terbilang akan mencetak nilai netto (setelah potongan PPh 21)</p>
-            </div>
-          </div>
-
-          <!-- PPh 21 5% Narasumber -->
-          <div id="pph21_5-section" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
-              <input type="checkbox" id="cb_kena_pph21_5" onchange="handlePPh21_5Toggle()" />
-              Narasumber — potong PPh 21 5%
-            </label>
-            <div id="pph21_5-detail" class="hidden" style="margin-top:10px;padding:10px;background:#fff;border-radius:6px;border:1px solid var(--border);">
-              <div style="display:flex;gap:20px;font-size:13px;">
-                <div><strong>Bruto:</strong> <span id="pph21_5_bruto">Rp 0</span></div>
-                <div><strong>PPh 21 5%:</strong> <span id="pph21_5_pph" style="color:var(--danger);">- Rp 0</span></div>
-                <div><strong>Netto:</strong> <span id="pph21_5_netto" style="color:var(--success);font-weight:700;">Rp 0</span></div>
-              </div>
-              <p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Terbilang akan mencetak nilai netto (setelah potongan PPh 21 5%)</p>
-            </div>
-          </div>
-
-          <!-- PPh 23 Makan Minum -->
-          <div id="pph23-section" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
-              <input type="checkbox" id="cb_kena_pph23" onchange="handlePPh23Toggle()" />
-              Makan minum — potong PPh 23 4% (konsumsi / catering / jamuan)
-            </label>
-            <div id="pph23-detail" class="hidden" style="margin-top:10px;padding:10px;background:#fff;border-radius:6px;border:1px solid var(--border);">
-              <div style="display:flex;gap:20px;font-size:13px;">
-                <div><strong>Bruto:</strong> <span id="pph23_bruto">Rp 0</span></div>
-                <div><strong>PPh 23 4%:</strong> <span id="pph23_pph" style="color:var(--danger);">- Rp 0</span></div>
-                <div><strong>Netto:</strong> <span id="pph23_netto" style="color:var(--success);font-weight:700;">Rp 0</span></div>
-              </div>
-              <p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Terbilang akan mencetak nilai netto (setelah potongan PPh 23)</p>
-            </div>
-          </div>
-
-          <!-- PPh 23 2% Sewa/Jasa -->
-          <div id="pph23_2-section" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
-              <input type="checkbox" id="cb_kena_pph23_2" onchange="handlePPh23_2Toggle()" />
-              Sewa / jasa lain — potong PPh 23 2%
-            </label>
-            <div id="pph23_2-detail" class="hidden" style="margin-top:10px;padding:10px;background:#fff;border-radius:6px;border:1px solid var(--border);">
-              <div style="display:flex;gap:20px;font-size:13px;">
-                <div><strong>Bruto:</strong> <span id="pph23_2_bruto">Rp 0</span></div>
-                <div><strong>PPh 23 2%:</strong> <span id="pph23_2_pph" style="color:var(--danger);">- Rp 0</span></div>
-                <div><strong>Netto:</strong> <span id="pph23_2_netto" style="color:var(--success);font-weight:700;">Rp 0</span></div>
-              </div>
-              <p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Terbilang akan mencetak nilai netto (setelah potongan PPh 23 2%)</p>
-            </div>
-          </div>
-
-          <!-- PPN Opsional (nominal rupiah) -->
-          <div id="ppn-section" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
-            <div class="form-group" style="margin:0;">
-              <label for="ppn_nominal">PPN (Rp) — opsional, isi nominalnya bila ada</label>
-              <input type="text" id="ppn_nominal" placeholder="110.000" oninput="handlePpnInput(this)" />
-            </div>
-            <div id="ppn-detail" class="hidden" style="margin-top:10px;padding:10px;background:#fff;border-radius:6px;border:1px solid var(--border);">
-              <div style="font-size:13px;"><strong>PPN:</strong> <span id="ppn_rp" style="color:var(--danger);font-weight:700;">- Rp 0</span></div>
-              <p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Dikurangkan dari total bayar (bruto − PPh − PPN); terbilang mengikuti total</p>
-            </div>
-          </div>
-
-          <!-- BPU Dokumen Checklist (hidden by default, shown via JS) -->
-          <div id="bpu-docs-section" class="hidden" style="margin-top:15px;padding:15px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border);">
-            <h3 style="margin-bottom:10px;color:var(--accent);">Dokumen Wajib BPU &gt; Rp1.000.000</h3>
-            <p class="hint" style="margin-bottom:10px;">Lengkapi data toko dan centang status dokumen sebelum cetak nota POS.</p>
-            <div class="form-grid">
-              <div class="form-group">
-                <label for="doc_nama_toko">Nama Toko/Tempat Belanja</label>
-                <input type="text" id="doc_nama_toko" placeholder="Toko ABC" />
-              </div>
-              <div class="form-group">
-                <label for="doc_alamat_toko">Alamat Toko</label>
-                <input type="text" id="doc_alamat_toko" placeholder="Jl. ..." />
-              </div>
-              <div class="form-group">
-                <label for="doc_pimpinan_toko">Pimpinan Toko</label>
-                <input type="text" id="doc_pimpinan_toko" placeholder="Nama Pimpinan" />
-              </div>
-            </div>
-            <div style="display:flex;gap:15px;flex-wrap:wrap;margin-top:10px;">
-              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
-                <input type="checkbox" id="doc_cb_bast" onchange="updateBpuDocBadge()" /> BAST
-              </label>
-              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
-                <input type="checkbox" id="doc_cb_surat_pesanan" onchange="updateBpuDocBadge()" /> Surat Pesanan
-              </label>
-              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
-                <input type="checkbox" id="doc_cb_invoice" onchange="updateBpuDocBadge()" /> Invoice
-              </label>
-              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
-                <input type="checkbox" id="doc_cb_bap" onchange="updateBpuDocBadge()" /> BAP
-              </label>
-              <span id="doc-status-badge" class="badge badge-warn">0/4 dokumen</span>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:10px;">
-              <button type="button" class="btn btn-sm btn-secondary" onclick="cetakDokumen('bast')">Preview BAST</button>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="cetakDokumen('surat_pesanan')">Preview Surat Pesanan</button>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="cetakDokumen('invoice')">Preview Invoice</button>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="cetakDokumen('bap')">Preview BAP</button>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Simpan & Preview</button>
-            <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
-          </div>
-        </form>
-      </section>
 
       <!-- PAGE: IMPORT BKU PER BULAN -->
       <section id="page-import-period" class="page">
@@ -317,7 +120,7 @@
       </section>
 
       <!-- PAGE: RIWAYAT -->
-      <section id="page-riwayat" class="page">
+      <section id="page-riwayat" class="page active">
         <div class="page-header">
           <h2>Riwayat Kwitansi</h2>
           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">

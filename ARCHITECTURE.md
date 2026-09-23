@@ -37,7 +37,7 @@ AutoKwitansi/
 │   ├── capabilities/default.json # Permissions (core, dialog)
 │   └── src/
 │       ├── main.rs               # Entry point → lib::run()
-│       ├── lib.rs                # Module registration (9 mod) + 23 command
+│       ├── lib.rs                # Module registration (9 mod) + 22 command
 │       ├── commands.rs           # 23 #[tauri::command] + deteksi pajak + expand_bnu_description
 │       ├── db.rs                 # SQLite init, migrations, CRUD (5 tabel) + generate_pos_number
 │       ├── models.rs             # 8 structs (serde)
@@ -76,10 +76,10 @@ AutoKwitansi/
 ┌──────────────────────────────────────────────────────────────────┐
 │                  Backend (Rust / Tauri)                          │
 │                                                                  │
-│  commands.rs   → 23 #[command] functions                         │
+│  commands.rs   → 22 #[command] functions                         │
 │  ├── cmd_terbilang                                               │
 │  ├── cmd_get_sekolah / cmd_update_sekolah                        │
-│  ├── cmd_simpan_kwitansi (terbilang netto + expand BNU)          │
+│  ├── cmd_update_kwitansi (terbilang total ulang, tanpa expand)   │
 │  ├── cmd_get_all / cmd_get / cmd_delete / cmd_search             │
 │  ├── cmd_parse_bku_pdfs / cmd_import_bku_period (pajak + expand BNU)       │
 │  ├── cmd_get_print_settings / cmd_save_print_settings            │

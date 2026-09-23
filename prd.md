@@ -26,7 +26,7 @@
 - DB v2.0 lama otomatis dimigrasikan (ALTER TABLE aman).
 
 ### F2: Kwitansi SPJ (Enhanced)
-- Buat kwitansi manual atau import dari BKU.
+- Sumber data tunggal: import BKU Per Bulan (form Buat manual dihapus v3.8.0); koreksi via Edit modal di Riwayat.
 - Layout cetak full **disederhanakan**: No. (label BPU/BNU saja), Sudah Terima Dari, Sejumlah (terbilang), Untuk Pembayaran, box Rp, Mengetahui, Bendahara, Penerima + Tgl (format "21 Juni 2026"). Tanpa merk/materai/tahun anggaran/kode rekening.
 - Mode `values_only` (kertas pre-print) dengan drag-drop editor tetap ada.
 - Batch print multi-select.
@@ -102,7 +102,11 @@
 
 ## Changelog
 
-### v3.7.0 (Current)
+### v3.8.0 (Current)
+- [REMOVED] Halaman Buat Kwitansi (form manual + `cmd_simpan_kwitansi`); alur tunggal via Import BKU Per Bulan + Edit modal; Riwayat jadi halaman awal
+- [IMPROVED] Responsif: sidebar rel ikon ≤720px, grid 1 kolom, modal & preview scroll horizontal, kolom TTD 30% (dulu 120% overflow)
+
+### v3.7.0
 - [NEW] PPh 21 5% narasumber (manual di form & modal edit, eksklusif, kolom `kena_pph21_5`, badge PPh21 5%)
 
 ### v3.6.2

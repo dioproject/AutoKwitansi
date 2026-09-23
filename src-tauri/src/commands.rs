@@ -27,29 +27,6 @@ pub fn cmd_update_sekolah(sekolah: Sekolah) -> Result<(), String> {
 // ============ KWITANSI ============
 
 #[command]
-pub fn cmd_simpan_kwitansi(mut kwitansi: Kwitansi) -> Result<i64, String> {
-    // Expand BNU description
-    kwitansi.untuk_pembayaran = expand_bnu_description(
-        &kwitansi.nomor_kwitansi,
-        &kwitansi.kode_rekening,
-        &kwitansi.untuk_pembayaran,
-        &kwitansi.bulan,
-        &kwitansi.tahun_anggaran,
-    );
-    // Terbilang mengikuti total bayar (bruto − PPh − PPN opsional)
-    sanitize_pajak(&mut kwitansi);
-    kwitansi.terbilang = terbilang(total_netto(
-        kwitansi.jumlah,
-        kwitansi.kena_pph21,
-        kwitansi.kena_pph21_5,
-        kwitansi.kena_pph23,
-        kwitansi.kena_pph23_2,
-        kwitansi.ppn_nominal,
-    ));
-    db::insert_kwitansi(&kwitansi).map_err(|e| e.to_string())
-}
-
-#[command]
 pub fn cmd_update_kwitansi(mut kwitansi: Kwitansi) -> Result<(), String> {
     let id = kwitansi.id.ok_or("ID kwitansi kosong".to_string())?;
     // Teks untuk_pembayaran sudah final dari user — jangan expand ulang.

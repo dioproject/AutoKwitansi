@@ -30,7 +30,6 @@ pub fn run() {
             cmd_terbilang,
             cmd_get_sekolah,
             cmd_update_sekolah,
-            cmd_simpan_kwitansi,
             cmd_update_kwitansi,
             cmd_get_all_kwitansi,
             cmd_get_kwitansi,
