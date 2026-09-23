@@ -36,11 +36,12 @@ pub fn cmd_simpan_kwitansi(mut kwitansi: Kwitansi) -> Result<i64, String> {
         &kwitansi.bulan,
         &kwitansi.tahun_anggaran,
     );
-    // Terbilang mengikuti total bayar (bruto − PPh + PPN opsional)
+    // Terbilang mengikuti total bayar (bruto − PPh − PPN opsional)
     sanitize_pajak(&mut kwitansi);
     kwitansi.terbilang = terbilang(total_netto(
         kwitansi.jumlah,
         kwitansi.kena_pph21,
+        kwitansi.kena_pph21_5,
         kwitansi.kena_pph23,
         kwitansi.kena_pph23_2,
         kwitansi.ppn_nominal,
@@ -57,6 +58,7 @@ pub fn cmd_update_kwitansi(mut kwitansi: Kwitansi) -> Result<(), String> {
     kwitansi.terbilang = terbilang(total_netto(
         kwitansi.jumlah,
         kwitansi.kena_pph21,
+        kwitansi.kena_pph21_5,
         kwitansi.kena_pph23,
         kwitansi.kena_pph23_2,
         kwitansi.ppn_nominal,
@@ -64,10 +66,18 @@ pub fn cmd_update_kwitansi(mut kwitansi: Kwitansi) -> Result<(), String> {
     db::update_kwitansi(id, &kwitansi).map_err(|e| e.to_string())
 }
 
-/// Tarif pajak: PPh 21 6% didahulukan, lalu PPh 23 4%, lalu PPh 23 2%
-pub(crate) fn pajak_rate(kena_pph21: bool, kena_pph23: bool, kena_pph23_2: bool) -> f64 {
+/// Tarif pajak: PPh 21 6% didahulukan, lalu PPh 21 5% (narasumber),
+/// lalu PPh 23 4%, lalu PPh 23 2%
+pub(crate) fn pajak_rate(
+    kena_pph21: bool,
+    kena_pph21_5: bool,
+    kena_pph23: bool,
+    kena_pph23_2: bool,
+) -> f64 {
     if kena_pph21 {
         0.06
+    } else if kena_pph21_5 {
+        0.05
     } else if kena_pph23 {
         0.04
     } else if kena_pph23_2 {
@@ -81,21 +91,23 @@ pub(crate) fn pajak_rate(kena_pph21: bool, kena_pph23: bool, kena_pph23_2: bool)
 pub(crate) fn netto_pajak(
     jumlah: f64,
     kena_pph21: bool,
+    kena_pph21_5: bool,
     kena_pph23: bool,
     kena_pph23_2: bool,
 ) -> f64 {
-    jumlah - (jumlah * pajak_rate(kena_pph21, kena_pph23, kena_pph23_2)).round()
+    jumlah - (jumlah * pajak_rate(kena_pph21, kena_pph21_5, kena_pph23, kena_pph23_2)).round()
 }
 
 /// Total bayar: bruto − PPh − PPN (PPN nominal rupiah opsional, 0 = nonaktif)
 pub(crate) fn total_netto(
     jumlah: f64,
     kena_pph21: bool,
+    kena_pph21_5: bool,
     kena_pph23: bool,
     kena_pph23_2: bool,
     ppn_nominal: f64,
 ) -> f64 {
-    let pph = (jumlah * pajak_rate(kena_pph21, kena_pph23, kena_pph23_2)).round();
+    let pph = (jumlah * pajak_rate(kena_pph21, kena_pph21_5, kena_pph23, kena_pph23_2)).round();
     let ppn = if ppn_nominal > 0.0 {
         ppn_nominal.round()
     } else {
@@ -119,6 +131,7 @@ pub fn repair_terbilang() -> Result<usize, String> {
         let expected = terbilang(total_netto(
             k.jumlah,
             k.kena_pph21,
+            k.kena_pph21_5,
             k.kena_pph23,
             k.kena_pph23_2,
             k.ppn_nominal,
@@ -137,6 +150,10 @@ pub fn repair_terbilang() -> Result<usize, String> {
 /// Normalisasi entri pajak dari frontend (PPh eksklusif + PPN wajar)
 fn sanitize_pajak(k: &mut Kwitansi) {
     if k.kena_pph21 {
+        k.kena_pph21_5 = false;
+        k.kena_pph23 = false;
+        k.kena_pph23_2 = false;
+    } else if k.kena_pph21_5 {
         k.kena_pph23 = false;
         k.kena_pph23_2 = false;
     } else if k.kena_pph23 {
@@ -381,4 +398,3 @@ pub fn cmd_pos_test_print() -> Result<(), String> {
     let s = db::get_pos_settings().map_err(|e| e.to_string())?;
     crate::pos_print::test_print(&s).map_err(|e| e.to_string())
 }
-

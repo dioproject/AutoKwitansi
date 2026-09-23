@@ -40,6 +40,8 @@ pub struct Kwitansi {
     #[serde(default)]
     pub kena_pph21: bool,
     #[serde(default)]
+    pub kena_pph21_5: bool,
+    #[serde(default)]
     pub kena_pph23: bool,
     #[serde(default)]
     pub kena_pph23_2: bool,

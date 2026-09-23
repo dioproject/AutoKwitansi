@@ -139,6 +139,7 @@ window.handleSimpanSekolah = async function (e) {
 // ========== PAJAK (PPh 21 & PPh 23, saling eksklusif) ==========
 function pajakRateAktif() {
   if (document.getElementById("cb_kena_pph21")?.checked) return 0.06;
+  if (document.getElementById("cb_kena_pph21_5")?.checked) return 0.05;
   if (document.getElementById("cb_kena_pph23")?.checked) return 0.04;
   if (document.getElementById("cb_kena_pph23_2")?.checked) return 0.02;
   return 0;
@@ -159,6 +160,23 @@ function updatePph21Detail() {
   document.getElementById("pph21_bruto").textContent = `Rp ${formatRupiah(bruto)}`;
   document.getElementById("pph21_pph").textContent = `- Rp ${formatRupiah(pph)}`;
   document.getElementById("pph21_netto").textContent = `Rp ${formatRupiah(netto)}`;
+}
+
+function updatePph21_5Detail() {
+  const checked = document.getElementById("cb_kena_pph21_5")?.checked;
+  const detail = document.getElementById("pph21_5-detail");
+  if (detail) detail.classList.toggle("hidden", !checked);
+
+  if (!checked) return;
+
+  const jumlahRaw = (document.getElementById("jumlah")?.value || "0").replace(/[^\d]/g, "");
+  const bruto = parseFloat(jumlahRaw) || 0;
+  const pph = Math.round(bruto * 0.05);
+  const netto = bruto - pph;
+
+  document.getElementById("pph21_5_bruto").textContent = `Rp ${formatRupiah(bruto)}`;
+  document.getElementById("pph21_5_pph").textContent = `- Rp ${formatRupiah(pph)}`;
+  document.getElementById("pph21_5_netto").textContent = `Rp ${formatRupiah(netto)}`;
 }
 
 function updatePph23Detail() {
@@ -211,56 +229,60 @@ function autoDetectPPh21() {
   const isMakan = !isHonor && (kodeRek === "06.05.06" || kodeKeg === "06.05.06" || isMakanUraian(uraian));
 
   const cb21 = document.getElementById("cb_kena_pph21");
+  const cb215 = document.getElementById("cb_kena_pph21_5");
   const cb23 = document.getElementById("cb_kena_pph23");
   const cb232 = document.getElementById("cb_kena_pph23_2");
   if (isHonor) {
     if (cb21 && !cb21.checked) cb21.checked = true;
+    if (cb215) cb215.checked = false;
     if (cb23) cb23.checked = false;
     if (cb232) cb232.checked = false;
   } else if (isMakan) {
     if (cb23 && !cb23.checked) cb23.checked = true;
     if (cb21) cb21.checked = false;
+    if (cb215) cb215.checked = false;
     if (cb232) cb232.checked = false;
   }
   updatePph21Detail();
+  updatePph21_5Detail();
+  updatePph23Detail();
+  updatePph23_2Detail();
+}
+
+function uncheckOthersPajak(exceptId) {
+  for (const id of ["cb_kena_pph21", "cb_kena_pph21_5", "cb_kena_pph23", "cb_kena_pph23_2"]) {
+    if (id !== exceptId) {
+      const el = document.getElementById(id);
+      if (el) el.checked = false;
+    }
+  }
+}
+
+function refreshAllPajakDetails() {
+  updatePph21Detail();
+  updatePph21_5Detail();
   updatePph23Detail();
   updatePph23_2Detail();
 }
 
 window.handlePPh21Toggle = function () {
-  if (document.getElementById("cb_kena_pph21")?.checked) {
-    const cb23 = document.getElementById("cb_kena_pph23");
-    if (cb23) cb23.checked = false;
-    const cb232 = document.getElementById("cb_kena_pph23_2");
-    if (cb232) cb232.checked = false;
-  }
-  updatePph21Detail();
-  updatePph23Detail();
-  updatePph23_2Detail();
+  if (document.getElementById("cb_kena_pph21")?.checked) uncheckOthersPajak("cb_kena_pph21");
+  refreshAllPajakDetails();
+};
+
+window.handlePPh21_5Toggle = function () {
+  if (document.getElementById("cb_kena_pph21_5")?.checked) uncheckOthersPajak("cb_kena_pph21_5");
+  refreshAllPajakDetails();
 };
 
 window.handlePPh23Toggle = function () {
-  if (document.getElementById("cb_kena_pph23")?.checked) {
-    const cb21 = document.getElementById("cb_kena_pph21");
-    if (cb21) cb21.checked = false;
-    const cb232 = document.getElementById("cb_kena_pph23_2");
-    if (cb232) cb232.checked = false;
-  }
-  updatePph21Detail();
-  updatePph23Detail();
-  updatePph23_2Detail();
+  if (document.getElementById("cb_kena_pph23")?.checked) uncheckOthersPajak("cb_kena_pph23");
+  refreshAllPajakDetails();
 };
 
 window.handlePPh23_2Toggle = function () {
-  if (document.getElementById("cb_kena_pph23_2")?.checked) {
-    const cb21 = document.getElementById("cb_kena_pph21");
-    if (cb21) cb21.checked = false;
-    const cb23 = document.getElementById("cb_kena_pph23");
-    if (cb23) cb23.checked = false;
-  }
-  updatePph21Detail();
-  updatePph23Detail();
-  updatePph23_2Detail();
+  if (document.getElementById("cb_kena_pph23_2")?.checked) uncheckOthersPajak("cb_kena_pph23_2");
+  refreshAllPajakDetails();
 };
 
 // ========== KWITANSI INPUT ==========
@@ -312,6 +334,7 @@ window.handleJumlahInput = async function (el) {
   }
   updateBpuDocsVisibility();
   updatePph21Detail();
+  updatePph21_5Detail();
   updatePph23Detail();
   updatePph23_2Detail();
   updatePpnDetail();
@@ -326,8 +349,9 @@ window.handleSimpanKwitansi = async function (e) {
   const nipBendahara = document.getElementById("nip_bendahara").value || (sekolahData ? sekolahData.nip_bendahara : "");
   const jumlahRaw = document.getElementById("jumlah").value.replace(/[^\d]/g, "");
   const kenaPph21 = document.getElementById("cb_kena_pph21")?.checked || false;
-  const kenaPph23 = !kenaPph21 && (document.getElementById("cb_kena_pph23")?.checked || false);
-  const kenaPph23_2 = !kenaPph21 && !kenaPph23 && (document.getElementById("cb_kena_pph23_2")?.checked || false);
+  const kenaPph21_5 = !kenaPph21 && (document.getElementById("cb_kena_pph21_5")?.checked || false);
+  const kenaPph23 = !kenaPph21 && !kenaPph21_5 && (document.getElementById("cb_kena_pph23")?.checked || false);
+  const kenaPph23_2 = !kenaPph21 && !kenaPph21_5 && !kenaPph23 && (document.getElementById("cb_kena_pph23_2")?.checked || false);
   const ppnNominal = ppnNominalAktif();
 
   const kwitansi = {
@@ -352,6 +376,7 @@ window.handleSimpanKwitansi = async function (e) {
     pimpinan_toko: document.getElementById("doc_pimpinan_toko")?.value || "",
     created_at: null,
     kena_pph21: kenaPph21,
+    kena_pph21_5: kenaPph21_5,
     kena_pph23: kenaPph23,
     kena_pph23_2: kenaPph23_2,
     ppn_nominal: ppnNominal,
@@ -388,11 +413,14 @@ window.resetForm = function () {
   document.getElementById("tanggal").value = today;
   document.getElementById("tahun_anggaran").value = new Date().getFullYear().toString();
   document.getElementById("cb_kena_pph21").checked = false;
+  const cb215 = document.getElementById("cb_kena_pph21_5");
+  if (cb215) cb215.checked = false;
   const cb23 = document.getElementById("cb_kena_pph23");
   if (cb23) cb23.checked = false;
   const cb232 = document.getElementById("cb_kena_pph23_2");
   if (cb232) cb232.checked = false;
   document.getElementById("pph21-detail")?.classList.add("hidden");
+  document.getElementById("pph21_5-detail")?.classList.add("hidden");
   document.getElementById("pph23-detail")?.classList.add("hidden");
   document.getElementById("pph23_2-detail")?.classList.add("hidden");
   const ppnEl = document.getElementById("ppn_nominal");
@@ -601,7 +629,7 @@ function renderGrouped(data) {
                   let badge = "";
                   if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
                   else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
-                  const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : (k.kena_pph23_2 ? '<span class="badge badge-warn">PPh23 2%</span>' : ""));
+                  const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph21_5 ? '<span class="badge badge-warn">PPh21 5%</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : (k.kena_pph23_2 ? '<span class="badge badge-warn">PPh23 2%</span>' : "")));
 const ppnBadge = (k.ppn_nominal || 0) > 0 ? ' <span class="badge badge-ok">PPN</span>' : "";
                   return `
                   <tr>
@@ -681,7 +709,7 @@ function renderTable(data) {
             let badge = "";
             if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
             else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
-            const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : (k.kena_pph23_2 ? '<span class="badge badge-warn">PPh23 2%</span>' : ""));
+            const pphBadge = k.kena_pph21 ? '<span class="badge badge-warn">PPh21</span>' : (k.kena_pph21_5 ? '<span class="badge badge-warn">PPh21 5%</span>' : (k.kena_pph23 ? '<span class="badge badge-warn">PPh23</span>' : (k.kena_pph23_2 ? '<span class="badge badge-warn">PPh23 2%</span>' : "")));
 const ppnBadge = (k.ppn_nominal || 0) > 0 ? ' <span class="badge badge-ok">PPN</span>' : "";
             return `
             <tr>
@@ -760,6 +788,7 @@ window.openEditModal = async function (id) {
     set("e_alamat_toko", k.alamat_toko || "");
     set("e_pimpinan_toko", k.pimpinan_toko || "");
     document.getElementById("e_cb_pph21").checked = !!k.kena_pph21;
+    document.getElementById("e_cb_pph21_5").checked = !!k.kena_pph21_5;
     document.getElementById("e_cb_pph23").checked = !!k.kena_pph23;
     document.getElementById("e_cb_pph23_2").checked = !!k.kena_pph23_2;
     updateEditNetto();
@@ -785,12 +814,11 @@ window.handleEditPpnInput = function (el) {
 };
 
 window.handleEditPajakToggle = function (which) {
-  const cb21 = document.getElementById("e_cb_pph21");
-  const cb23 = document.getElementById("e_cb_pph23");
-  const cb232 = document.getElementById("e_cb_pph23_2");
-  if (which === "pph21" && cb21.checked) { cb23.checked = false; cb232.checked = false; }
-  if (which === "pph23" && cb23.checked) { cb21.checked = false; cb232.checked = false; }
-  if (which === "pph23_2" && cb232.checked) { cb21.checked = false; cb23.checked = false; }
+  const cb = (id) => document.getElementById(id);
+  if (which === "pph21" && cb("e_cb_pph21").checked) { cb("e_cb_pph23").checked = false; cb("e_cb_pph23_2").checked = false; cb("e_cb_pph21_5").checked = false; }
+  if (which === "pph21_5" && cb("e_cb_pph21_5").checked) { cb("e_cb_pph21").checked = false; cb("e_cb_pph23").checked = false; cb("e_cb_pph23_2").checked = false; }
+  if (which === "pph23" && cb("e_cb_pph23").checked) { cb("e_cb_pph21").checked = false; cb("e_cb_pph21_5").checked = false; cb("e_cb_pph23_2").checked = false; }
+  if (which === "pph23_2" && cb("e_cb_pph23_2").checked) { cb("e_cb_pph21").checked = false; cb("e_cb_pph21_5").checked = false; cb("e_cb_pph23").checked = false; }
   updateEditNetto();
 };
 
@@ -798,8 +826,9 @@ function updateEditNetto() {
   const raw = (document.getElementById("e_jumlah")?.value || "0").replace(/[^\d]/g, "");
   const bruto = parseFloat(raw) || 0;
   const rate = document.getElementById("e_cb_pph21")?.checked ? 0.06
+    : (document.getElementById("e_cb_pph21_5")?.checked ? 0.05
     : (document.getElementById("e_cb_pph23")?.checked ? 0.04
-    : (document.getElementById("e_cb_pph23_2")?.checked ? 0.02 : 0));
+    : (document.getElementById("e_cb_pph23_2")?.checked ? 0.02 : 0)));
   const ppnRaw = (document.getElementById("e_ppn")?.value || "0").replace(/[^\d]/g, "");
   const ppn = parseFloat(ppnRaw) || 0;
   const netto = bruto - Math.round(bruto * rate) - ppn;
@@ -831,8 +860,9 @@ window.handleUpdateKwitansi = async function () {
     alamat_toko: document.getElementById("e_alamat_toko")?.value || "",
     pimpinan_toko: document.getElementById("e_pimpinan_toko")?.value || "",
     kena_pph21: kena21,
-    kena_pph23: !kena21 && (document.getElementById("e_cb_pph23")?.checked || false),
-    kena_pph23_2: !kena21 && !(document.getElementById("e_cb_pph23")?.checked || false) && (document.getElementById("e_cb_pph23_2")?.checked || false),
+    kena_pph21_5: !kena21 && (document.getElementById("e_cb_pph21_5")?.checked || false),
+    kena_pph23: !kena21 && !(document.getElementById("e_cb_pph21_5")?.checked || false) && (document.getElementById("e_cb_pph23")?.checked || false),
+    kena_pph23_2: !kena21 && !(document.getElementById("e_cb_pph21_5")?.checked || false) && !(document.getElementById("e_cb_pph23")?.checked || false) && (document.getElementById("e_cb_pph23_2")?.checked || false),
     ppn_nominal: parseFloat((document.getElementById("e_ppn")?.value || "0").replace(/[^\d]/g, "")) || 0,
   };
   try {
@@ -1208,13 +1238,13 @@ function renderValuesOnlyTemplate(k) {
 
   // Blok pajak (field draggable sendiri; kosong bila tidak kena pajak/PPN)
   let pajakBlock = "";
-  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : (k.kena_pph23_2 ? 0.02 : 0));
+  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph21_5 ? 0.05 : (k.kena_pph23 ? 0.04 : (k.kena_pph23_2 ? 0.02 : 0)));
   const ppn = (k.ppn_nominal || 0) > 0 ? Math.round(k.ppn_nominal) : 0;
   if (pphRate > 0 || ppn > 0) {
     const bruto = k.jumlah;
     const pph = Math.round(bruto * pphRate);
     const netto = bruto - pph - ppn;
-    const label = k.kena_pph21 ? "PPh 21 6%" : (k.kena_pph23 ? "PPh 23 4%" : "PPh 23 2%");
+    const label = k.kena_pph21 ? "PPh 21 6%" : (k.kena_pph21_5 ? "PPh 21 5%" : (k.kena_pph23 ? "PPh 23 4%" : "PPh 23 2%"));
     const ppnLine = ppn > 0 ? `<br>PPN: - Rp ${formatRupiah(ppn)}` : "";
     pajakBlock = `<div class="kv multi-line" style="${pos('pajak')}">Bruto: Rp ${formatRupiah(bruto)}<br>${label}: - Rp ${formatRupiah(pph)}${ppnLine}<br><b>Netto: Rp ${formatRupiah(netto)}</b></div>`;
   }
@@ -1246,10 +1276,10 @@ function renderFullTemplate(k) {
   const fs = s ? s.font_size : 12;
   const gap = s ? (s.sig_gap || 15) : 15;
 
-  // Blok pajak (PPh 21 6% / PPh 23 4% / PPh 23 2% + PPN nominal opsional)
+  // Blok pajak (PPh 21 6% / PPh 21 5% / PPh 23 4% / PPh 23 2% + PPN nominal opsional)
   let pphBlock = "";
-  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph23 ? 0.04 : (k.kena_pph23_2 ? 0.02 : 0));
-  const pphLabel = k.kena_pph21 ? "PPh 21 6%" : (k.kena_pph23 ? "PPh 23 4%" : "PPh 23 2%");
+  const pphRate = k.kena_pph21 ? 0.06 : (k.kena_pph21_5 ? 0.05 : (k.kena_pph23 ? 0.04 : (k.kena_pph23_2 ? 0.02 : 0)));
+  const pphLabel = k.kena_pph21 ? "PPh 21 6%" : (k.kena_pph21_5 ? "PPh 21 5%" : (k.kena_pph23 ? "PPh 23 4%" : "PPh 23 2%"));
   const ppnFull = (k.ppn_nominal || 0) > 0 ? Math.round(k.ppn_nominal) : 0;
   if (pphRate > 0 || ppnFull > 0) {
     const bruto = k.jumlah;
@@ -1559,6 +1589,7 @@ window.updatePosStrukPreview = function () {
 function nettoJumlah(k) {
   let v = k.jumlah;
   if (k.kena_pph21) v -= Math.round(k.jumlah * 0.06);
+  else if (k.kena_pph21_5) v -= Math.round(k.jumlah * 0.05);
   else if (k.kena_pph23) v -= Math.round(k.jumlah * 0.04);
   else if (k.kena_pph23_2) v -= Math.round(k.jumlah * 0.02);
   if ((k.ppn_nominal || 0) > 0) v -= Math.round(k.ppn_nominal);

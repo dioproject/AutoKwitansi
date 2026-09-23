@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.6.2 (Current)
+### v3.7.0 (Current)
+- [NEW] PPh 21 5% narasumber (manual di form & modal edit, eksklusif, kolom `kena_pph21_5`, badge PPh21 5%)
+
+### v3.6.2
 - [FIXED] Terbilang basi (masih bruto) di data lama: dihitung ulang otomatis tiap start mengikuti total terkini
 
 ### v3.6.1

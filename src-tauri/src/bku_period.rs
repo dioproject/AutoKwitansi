@@ -44,6 +44,7 @@ pub fn import_bku_period(
                 terbilang: terbilang(crate::commands::netto_pajak(
                     tx.pengeluaran,
                     pph21,
+                    false,
                     pph23,
                     false,
                 )),
@@ -67,6 +68,7 @@ pub fn import_bku_period(
                 pimpinan_toko: String::new(),
                 created_at: None,
                 kena_pph21: pph21,
+                kena_pph21_5: false,
                 kena_pph23: pph23,
                 kena_pph23_2: false,
                 ppn_nominal: 0.0,
