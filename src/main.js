@@ -189,7 +189,8 @@ window.handleRiwayatSort = function (key) {
 
 function sortArrow(key) {
   if (riwayatSortKey !== key) return "";
-  return riwayatSortDir === "asc" ? " ▲" : " ▼";
+  const arrow = riwayatSortDir === "asc" ? "▲" : "▼";
+  return ` <span style="color:var(--primary);">${arrow}</span>`;
 }
 
 function tanggalSortVal(s) {
@@ -557,11 +558,11 @@ function updateBatchButton() {
   const btnDel = document.getElementById("btn-hapus-batch");
   if (btnPrint) {
     btnPrint.style.display = n >= 1 ? "inline-flex" : "none";
-    btnPrint.textContent = `Cetak yang Dipilih (${n})`;
+    btnPrint.textContent = `🖨️ Cetak yang Dipilih (${n})`;
   }
   if (btnDel) {
     btnDel.style.display = n >= 1 ? "inline-flex" : "none";
-    btnDel.textContent = `Hapus yang Dipilih (${n})`;
+    btnDel.textContent = `🗑️ Hapus yang Dipilih (${n})`;
   }
 }
 

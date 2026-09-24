@@ -973,6 +973,7 @@ td .uraian-wrap {
 .accordion-header .chevron {
   transition: transform 0.2s;
   font-size: 12px;
+  color: var(--primary);
 }
 .accordion-header.open .chevron {
   transform: rotate(90deg);

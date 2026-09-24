@@ -262,7 +262,7 @@ function renderPeriodPreview(grouped) {
       const pph23 = !pph21 && (kodeKeg === '06.05.06' || uRendah.match(/makan|minum|konsumsi|catering|katering|snack|jamuan/));
       const pphBadgeHtml = pph21 ? '<span class="badge badge-warn" style="font-size:10px;">PPh21</span>' : (pph23 ? '<span class="badge badge-warn" style="font-size:10px;">PPh23</span>' : '');
       const gabBadge = row.count > 1
-        ? ` <span class="badge badge-period" title="Gabungan ${row.count} transaksi">${row.count}x</span> <button type="button" class="btn btn-sm btn-secondary" style="padding:1px 7px;font-size:11px;" title="Uraikan gabungan ini" onclick="handleUraiPeriodRow('${group.id}', ${row.rid})">&#10006;</button>`
+        ? ` <span class="badge badge-period" title="Gabungan ${row.count} transaksi">${row.count}x</span> <button type="button" class="btn btn-sm btn-secondary" style="padding:1px 7px;font-size:11px;" title="Uraikan gabungan ini" onclick="handleUraiPeriodRow('${group.id}', ${row.rid})">❌</button>`
         : "";
       html += `
         <tr${row.count > 1 ? ' style="background:#fffbeb;"' : ""}>
