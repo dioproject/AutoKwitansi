@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { needsDocuments, loadDocStatus, allDocsComplete } from "./bpu-docs.js";
 
 // ========== REKAP SPJ ==========
 // Modul mandiri (_HELPER lokal mengikuti pola bku-period.js_):
@@ -103,6 +104,65 @@ function renderRekap() {
     </div>`).join("");
   }
 }
+
+window.handleValidasiLPJ = async function () {
+  const box = document.getElementById("rekap-validasi");
+  const rows = filteredRows();
+  const issues = []; // {id, nomor, pesan}
+
+  // Hitung duplikat nomor dalam cakupan ini
+  const countNomor = {};
+  for (const k of rows) {
+    const key = (k.nomor_kwitansi || "").trim();
+    if (key) countNomor[key] = (countNomor[key] || 0) + 1;
+  }
+
+  for (const k of rows) {
+    const ref = `${k.nomor_kwitansi || "(tanpa nomor)"}`;
+    if (!(k.penerima || "").trim()) issues.push({ id: k.id, nomor: ref, pesan: "Penerima kosong" });
+    if (!(k.jumlah > 0)) issues.push({ id: k.id, nomor: ref, pesan: "Nominal nol/kosong" });
+    if (!(k.untuk_pembayaran || "").trim()) issues.push({ id: k.id, nomor: ref, pesan: "Uraian kosong" });
+    if (!parseTanggalParts(k.tanggal)) issues.push({ id: k.id, nomor: ref, pesan: `Tanggal tidak valid (${k.tanggal || "kosong"})` });
+    if ((k.nomor_kwitansi || "").trim() && countNomor[k.nomor_kwitansi.trim()] > 1) {
+      issues.push({ id: k.id, nomor: ref, pesan: "Nomor duplikat" });
+    }
+  }
+  // Dokumen BPU >1jt (async, hanya yang butuh)
+  for (const k of rows) {
+    try {
+      if (needsDocuments(k)) {
+        const st = await loadDocStatus(k.id);
+        if (!allDocsComplete(st)) {
+          issues.push({ id: k.id, nomor: k.nomor_kwitansi, pesan: "Dokumen BPU belum lengkap" });
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (!box) return;
+  const scope = rekapFilter || "Semua periode";
+  if (issues.length === 0) {
+    box.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;color:#065f46;font-weight:600;">
+      ✅ Siap LPJ — ${rows.length} kwitansi (${esc(scope)}) tidak ada masalah.</div>`;
+    return;
+  }
+  // Kelompokkan per jenis masalah
+  const byPesan = {};
+  for (const it of issues) {
+    if (!byPesan[it.pesan]) byPesan[it.pesan] = [];
+    byPesan[it.pesan].push(it);
+  }
+  box.innerHTML = `<div style="padding:10px 14px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;color:#92400e;font-weight:600;margin-bottom:10px;">
+      ⚠️ ${issues.length} temuan di ${esc(scope)} — klik Perbaiki untuk betulkan via modal Edit.</div>` +
+    Object.entries(byPesan).map(([pesan, items]) => `
+      <div style="margin-bottom:8px;">
+        <div style="font-weight:700;margin-bottom:4px;">${esc(pesan)} (${items.length})</div>
+        ${items.map(it => `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px dashed var(--border);">
+          <span style="font-family:monospace;">${esc(it.nomor)}</span>
+          <button class="btn btn-sm btn-secondary" onclick="openEditModal(${it.id})">Perbaiki</button>
+        </div>`).join("")}
+      </div>`).join("");
+};
 
 window.handleExportRekapCsv = function () {
   const rows = filteredRows();

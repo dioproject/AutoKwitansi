@@ -62,7 +62,7 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 
 ### Navigation (sidebar)
 - **Riwayat** — accordion per BKU bulan + filter periode + sortir header; badge BPU/BNU/pajak/PPN; tombol Cetak/Edit/POS/Hapus + hapus massal
-- **Rekap SPJ** — filter periode, kartu + tabel total (bruto/PPh/PPN/total), cetak rekapitulasi kop + TTD, export CSV
+- **Rekap SPJ** — filter periode, kartu + tabel total (bruto/PPh/PPN/total), cetak rekapitulasi kop + TTD, export CSV, panel Kesiapan LPJ (validasi + Perbaiki, riwayat tak disentuh)
 - **Dashboard** — kartu total/BPU/BNU, pajak per jenis, diagram per periode via `cmd_dashboard_stats`
 - **Backup** — folder pilihan user (`app_settings`), daftar + pulihkan via `cmd_*_backup*`, otomatis tiap start
 - **Import BKU Per Bulan** — multi-PDF, grouped preview, toolbar merge per bulan (Gabungkan yang Dicentang / Gabung Otomatis per Kode / Uraikan Semua)

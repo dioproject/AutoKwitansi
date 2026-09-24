@@ -39,7 +39,7 @@
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v3.12.0</p>
+        <p class="version">v3.13.0</p>
       </div>
     </aside>
 
@@ -176,6 +176,14 @@
           </div>
         </div>
         <div id="rekap-summary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+        <div style="background:var(--bg-card);padding:16px 20px;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <h3 style="margin:0;font-size:14px;">✅ Kesiapan LPJ</h3>
+            <button class="btn btn-secondary btn-sm" onclick="handleValidasiLPJ()">🔍 Periksa Periode Ini</button>
+            <span class="hint" style="font-size:11px;color:var(--text-muted);">Cek penerima, nominal, tanggal, duplikat & dokumen BPU — riwayat tidak diganggu</span>
+          </div>
+          <div id="rekap-validasi" style="margin-top:10px;font-size:13px;color:var(--text-muted);">Belum diperiksa.</div>
+        </div>
         <div class="table-container" style="max-height:55vh;overflow-y:auto;">
           <table>
             <thead>

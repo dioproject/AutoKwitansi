@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.12.0 (Current)
+### v3.13.0 (Current)
+- [NEW] Panel Kesiapan LPJ di Rekap: validasi per periode (penerima/nominal/uraian/tanggal/duplikat/dokumen BPU) + tombol Perbaiki via modal Edit
+
+### v3.12.0
 - [NEW] Backup folder pilihan user: pilih folder, daftar backup, pulihkan tervalidasi (cadangan darurat otomatis), backup manual + otomatis tiap start
 
 ### v3.11.0
