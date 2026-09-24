@@ -16,6 +16,7 @@ Aplikasi desktop pembuatan kwitansi SPJ (Surat Pertanggungjawaban) untuk lembaga
 - **Riwayat Group per Bulan** — accordion "BKU {Bulan} {Tahun}", terbaru terbuka; badge BPU/BNU/PPh21/PPh21 5%/PPh23/PPh23 2%/PPN; pencarian flat.
 - **Rekap SPJ** — tabel + kartu total per periode (bruto/PPh/PPN/total), cetak rekapitulasi (kop + TTD), export CSV.
 - **Dashboard** — kartu total, BPU vs BNU, pajak terkumpul per jenis, diagram per periode (agregat backend).
+- **Backup pilihan folder** — folder backup bisa dipilih user + daftar + pulihkan (otomatis tiap start).
 - **Dokumen BPU >Rp1jt** — BAST, Surat Pesanan, Invoice, BAP otomatis.
 - **Pengaturan Cetak** — mode "Isi Nilai Saja" (kertas pre-print) atau "Kwitansi Lengkap", ukuran kertas custom, margin, font, jarak TTD, **visual drag & drop editor**.
 - **Data Sekolah** — nama, alamat, kepala sekolah + NIP, bendahara + NIP.

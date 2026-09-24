@@ -39,7 +39,7 @@
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v3.11.0</p>
+        <p class="version">v3.12.0</p>
       </div>
     </aside>
 
@@ -258,6 +258,24 @@
             <button type="submit" class="btn btn-primary">Simpan Data Sekolah</button>
           </div>
         </form>
+
+        <div style="background:var(--bg-card);padding:24px;border-radius:var(--radius);box-shadow:var(--shadow);margin-top:24px;">
+          <h3 style="margin:0 0 4px;font-size:15px;">💾 Cadangan Data</h3>
+          <p class="hint" style="margin:0 0 14px;font-size:12px;color:var(--text-muted);">Pilih folder backup sendiri. Backup otomatis tiap aplikasi dibuka + tombol manual. Pulihkan dari daftar bila data bermasalah.</p>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+            <code id="backup-dir-label" style="flex:1;min-width:200px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">…</code>
+            <button class="btn btn-secondary btn-sm" onclick="handlePilihBackupDir()">📁 Pilih Folder</button>
+            <button class="btn btn-primary btn-sm" onclick="handleBackupNow()">💾 Backup Sekarang</button>
+          </div>
+          <div class="table-container" style="max-height:240px;overflow-y:auto;">
+            <table>
+              <thead><tr><th>File Backup</th><th>Tanggal</th><th>Ukuran</th><th>Aksi</th></tr></thead>
+              <tbody id="backup-tbody">
+                <tr><td colspan="4" class="empty">Belum ada backup</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- PAGE: PENGATURAN CETAK -->

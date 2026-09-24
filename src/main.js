@@ -5,6 +5,7 @@ import { needsDocuments, loadDocStatus, allDocsComplete } from "./bpu-docs.js";
 import "./bku-period.js";
 import "./rekap.js";
 import "./dashboard.js";
+import "./backup.js";
 
 function isBnu(nomor) {
   return (nomor || "").trim().toUpperCase().includes("BNU");
@@ -63,6 +64,7 @@ function showPage(pageName) {
   document.querySelector(`.nav-btn[data-page="${pageName}"]`)?.classList.add("active");
 
   if (pageName === "riwayat") loadRiwayat();
+  if (pageName === "sekolah") { loadSekolahForm(); if (window._loadBackups) window._loadBackups(); }
   if (pageName === "rekap" && window._loadRekap) window._loadRekap();
   if (pageName === "dashboard" && window._loadDashboard) window._loadDashboard();
   if (pageName === "sekolah") loadSekolahForm();

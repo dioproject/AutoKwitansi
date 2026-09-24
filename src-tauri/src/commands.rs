@@ -454,3 +454,43 @@ pub fn cmd_pos_test_print() -> Result<(), String> {
     let s = db::get_pos_settings().map_err(|e| e.to_string())?;
     crate::pos_print::test_print(&s).map_err(|e| e.to_string())
 }
+
+// ============ BACKUP & RESTORE ============
+
+#[command]
+pub fn cmd_get_backup_dir() -> Result<String, String> {
+    Ok(db::default_backup_dir().to_string_lossy().to_string())
+}
+
+#[command]
+pub fn cmd_set_backup_dir(dir: String) -> Result<String, String> {
+    let p = std::path::PathBuf::from(dir.trim());
+    if p.as_os_str().is_empty() {
+        return Err("Folder belum dipilih".into());
+    }
+    std::fs::create_dir_all(&p).map_err(|e| format!("Folder tidak bisa dipakai: {}", e))?;
+    // Uji tulis agar kegagalan ketahuan di awal.
+    let probe = p.join(".tulis-uji.tmp");
+    std::fs::write(&probe, b"ok").map_err(|e| format!("Folder tidak bisa ditulisi: {}", e))?;
+    let _ = std::fs::remove_file(&probe);
+    db::set_app_setting("backup_dir", &p.to_string_lossy()).map_err(|e| e.to_string())?;
+    Ok(p.to_string_lossy().to_string())
+}
+
+#[command]
+pub fn cmd_backup_now() -> Result<String, String> {
+    let dir = db::default_backup_dir();
+    db::backup_db_to(&dir)
+        .map(|p| p.to_string_lossy().to_string())
+        .ok_or("Backup gagal — periksa folder tujuan".to_string())
+}
+
+#[command]
+pub fn cmd_list_backups() -> Result<Vec<db::BackupInfo>, String> {
+    db::list_backups().map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_restore_backup(path: String) -> Result<String, String> {
+    db::restore_backup(&path).map_err(|e| e.to_string())
+}

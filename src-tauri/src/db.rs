@@ -177,6 +177,14 @@ pub fn init_db() -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_kwitansi_bulan_tahun ON kwitansi(bulan, tahun_anggaran);",
     )?;
 
+    // Setting aplikasi (key-value): folder backup pilihan user, dll.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL DEFAULT ''
+        );",
+    )?;
+
     // Insert default sekolah if empty
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM sekolah", [], |row| row.get(0))?;
     if count == 0 {
@@ -384,39 +392,166 @@ pub fn update_kwitansi(id: i64, k: &Kwitansi) -> Result<()> {
 /// Backup DB ke %APPDATA%/AutoKwitansi/backup/ tiap start (pertahankan 5 terbaru).
 /// Pengaman bila riwayat "hilang" — file backup bisa dicopy manual kembali.
 pub fn backup_db() {
+    if backup_db_to(&default_backup_dir()).is_none() {
+        return;
+    }
+    // Prune: sisakan 5 file terbaru.
+    prune_backups(&default_backup_dir(), 5);
+}
+
+/// Folder backup: pilihan user (app_settings.backup_dir) atau fallback bawaan.
+pub fn default_backup_dir() -> PathBuf {
+    if let Ok(Some(custom)) = get_app_setting("backup_dir") {
+        let p = PathBuf::from(custom.trim());
+        if !p.as_os_str().is_empty() {
+            return p;
+        }
+    }
+    get_db_path()
+        .parent()
+        .map(|p| p.join("backup"))
+        .unwrap_or_else(|| PathBuf::from("backup"))
+}
+
+pub fn get_app_setting(key: &str) -> Result<Option<String>> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare("SELECT value FROM app_settings WHERE key=?1")?;
+    let mut rows = stmt.query_map(params![key], |row| row.get::<_, String>(0))?;
+    if let Some(row) = rows.next() {
+        return Ok(Some(row?));
+    }
+    Ok(None)
+}
+
+pub fn set_app_setting(key: &str, value: &str) -> Result<()> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        params![key, value],
+    )?;
+    Ok(())
+}
+
+/// Salin DB (setelah WAL checkpoint) ke folder tujuan. Kembalikan path file.
+pub fn backup_db_to(dir: &PathBuf) -> Option<PathBuf> {
     let path = get_db_path();
     if path.exists() == false {
-        return;
+        return None;
     }
     // Checkpoint WAL dulu agar semua transaksi masuk ke file utama.
     if let Ok(conn) = get_connection() {
         let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
     }
-    let backup_dir = path
-        .parent()
-        .map(|p| p.join("backup"))
-        .unwrap_or_else(|| PathBuf::from("backup"));
-    if std::fs::create_dir_all(&backup_dir).is_err() {
-        return;
+    if std::fs::create_dir_all(dir).is_err() {
+        return None;
     }
     let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
-    let dest = backup_dir.join(format!("auto_kwitansi-{}.db", ts));
-    let _ = std::fs::copy(&path, &dest);
-    // Prune: sisakan 5 file terbaru.
-    if let Ok(entries) = std::fs::read_dir(&backup_dir) {
+    let dest = dir.join(format!("auto_kwitansi-{}.db", ts));
+    std::fs::copy(&path, &dest).ok()?;
+    Some(dest)
+}
+
+fn prune_backups(dir: &PathBuf, keep: usize) {
+    if let Ok(entries) = std::fs::read_dir(dir) {
         let mut files: Vec<_> = entries
             .filter_map(|e| e.ok())
             .map(|e| e.path())
             .filter(|p| p.extension().map(|x| x == "db").unwrap_or(false))
             .collect();
         files.sort();
-        while files.len() > 5 {
+        while files.len() > keep {
             if let Some(old) = files.first() {
                 let _ = std::fs::remove_file(old);
             }
             files.remove(0);
         }
     }
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct BackupInfo {
+    pub name: String,
+    pub path: String,
+    pub size: u64,
+    pub modified: String,
+}
+
+pub fn list_backups() -> Result<Vec<BackupInfo>> {
+    let dir = default_backup_dir();
+    let mut out = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for e in entries.filter_map(|e| e.ok()) {
+            let p = e.path();
+            if p.extension().map(|x| x == "db").unwrap_or(false) {
+                if let Ok(meta) = std::fs::metadata(&p) {
+                    let modified = meta
+                        .modified()
+                        .map(|t| {
+                            chrono::DateTime::<chrono::Local>::from(t)
+                                .format("%d-%m-%Y %H:%M")
+                                .to_string()
+                        })
+                        .unwrap_or_default();
+                    out.push(BackupInfo {
+                        name: p
+                            .file_name()
+                            .map(|s| s.to_string_lossy().to_string())
+                            .unwrap_or_default(),
+                        path: p.to_string_lossy().to_string(),
+                        size: meta.len(),
+                        modified,
+                    });
+                }
+            }
+        }
+    }
+    out.sort_by(|a, b| b.name.cmp(&a.name));
+    Ok(out)
+}
+
+/// Pulihkan DB dari file backup: validasi dulu, amankan DB aktif, baru timpa.
+pub fn restore_backup(src: &str) -> Result<String, String> {
+    let src_path = PathBuf::from(src);
+    let bytes = std::fs::read(&src_path).map_err(|e| format!("baca file: {}", e))?;
+    if bytes.len() < 100 || &bytes[0..16] != b"SQLite format 3\x00" {
+        return Err("File bukan database SQLite".into());
+    }
+    // Validasi isi: tabel kwitansi harus ada.
+    {
+        let conn = Connection::open(&src_path).map_err(|e| format!("buka db: {}", e))?;
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='kwitansi'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|_| "Tabel kwitansi tidak ditemukan".to_string())?;
+        if n == 0 {
+            return Err("Tabel kwitansi tidak ditemukan".into());
+        }
+    }
+    // Amankan DB aktif sebagai cadangan darurat.
+    let _ = backup_db_to(&default_backup_dir()).map(|p| {
+        let _ = std::fs::rename(
+            &p,
+            p.with_file_name(format!(
+                "pra-pulihkan-{}.db",
+                chrono::Local::now().format("%Y%m%d-%H%M%S")
+            )),
+        );
+    });
+    // Checkpoint + timpa.
+    if let Ok(conn) = get_connection() {
+        let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+    }
+    let dest = get_db_path();
+    std::fs::copy(&src_path, &dest).map_err(|e| format!("tulis db: {}", e))?;
+    // Bersihkan -wal/-shm basi agar SQLite baca file baru yang utuh.
+    let _ = std::fs::remove_file(dest.with_extension("db-wal"));
+    let _ = std::fs::remove_file(dest.with_extension("db-shm"));
+    init_db().map_err(|e| e.to_string())?;
+    Ok(dest.to_string_lossy().to_string())
 }
 
 pub fn search_kwitansi(query: &str) -> Result<Vec<Kwitansi>> {

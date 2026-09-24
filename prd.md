@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.11.0 (Current)
+### v3.12.0 (Current)
+- [NEW] Backup folder pilihan user: pilih folder, daftar backup, pulihkan tervalidasi (cadangan darurat otomatis), backup manual + otomatis tiap start
+
+### v3.11.0
 - [NEW] Halaman Dashboard: kartu total/BPU/BNU, pajak terkumpul per jenis, diagram per periode (sumber tunggal `cmd_dashboard_stats`)
 
 ### v3.10.0
