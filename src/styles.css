@@ -754,15 +754,6 @@ td .uraian-wrap {
 }
 
 /* ========== VISUAL EDITOR (PAPER PREVIEW) ========== */
-#live-sample-preview {
-  width: 100%;
-  overflow-x: auto;
-  margin-top: 4px;
-}
-
-#live-sample-preview .kwitansi-page {
-  margin: 0 auto;
-}
 .paper-preview {
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   cursor: default;

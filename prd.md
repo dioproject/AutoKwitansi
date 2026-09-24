@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.9.1 (Current)
+### v3.9.2 (Current)
+- [IMPROVED] Hapus preview inline di bawah preview kertas (cukup via tombol Lihat Preview) — halaman lebih clean
+
+### v3.9.1
 - [IMPROVED] Aksi riwayat jadi ikon + tooltip (🖨️✏️🧾🗑️); nav & simbol ber-emoji warna
 
 ### v3.9.0

@@ -1,6 +1,6 @@
 {
   "name": "auto-kwitansi",
-  "version": "3.9.1",
+  "version": "3.9.2",
   "description": "Aplikasi Desktop Pembuatan Kwitansi SPJ Lembaga Sekolah",
   "scripts": {
     "dev": "bun run --bun vite",

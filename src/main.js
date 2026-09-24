@@ -757,16 +757,12 @@ function renderPaperPreview() {
     initDraggers(container);
   }
 
-  // Preview hasil cetak live (contoh data) — ukuran font & wrap persis hasil cetak
-  const sampleEl = document.getElementById("live-sample-preview");
-  if (sampleEl && currentPrintSettings) {
-    const html = renderKwitansiTemplate(SAMPLE_KWITANSI);
-    sampleEl.innerHTML = html;
-    // Ikut update modal preview bila sedang terbuka (biar sinkron saat angka diubah)
+  // Sinkronkan modal preview bila sedang terbuka (biar ikut angka terkini)
+  if (currentPrintSettings) {
     const modal = document.getElementById("modal-cetak-preview");
     const modalContent = document.getElementById("modal-cetak-content");
     if (modal && modalContent && !modal.classList.contains("hidden")) {
-      modalContent.innerHTML = html;
+      modalContent.innerHTML = renderKwitansiTemplate(SAMPLE_KWITANSI);
     }
   }
 }
