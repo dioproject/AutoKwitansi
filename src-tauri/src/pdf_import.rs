@@ -378,23 +378,41 @@ fn parse_transactions(lines: &[&str]) -> Result<Vec<RawTransaction>, String> {
                     let mut uraian = rest.clone();
 
                     // Remove the kode_keg + kode_rek suffix from the end
-                    if let Some(rek_match) = re_kode_rek_end.find(&uraian) {
+                    let kode_ok = if let Some(rek_match) = re_kode_rek_end.find(&uraian) {
                         uraian = uraian[..rek_match.start()].to_string();
-                    }
+                        true
+                    } else {
+                        false
+                    };
 
-                    // Extract amounts (PENERIMAAN PENGELUARAN SALDO)
-                    let amounts = extract_amounts_from_line(&uraian);
-
-                    // Remove amounts from uraian
-                    uraian = remove_amounts_from_end(&uraian);
+                    // Ambil (penerimaan, pengeluaran, saldo) dari 3 token terakhir.
+                    // WAJIB oleh posisi (bukan regex kumpul-semua) karena:
+                    // (1) nominal kecil tanpa titik ("500") tak cocok regex jumlah;
+                    // (2) sisa saldo bisa LEBIH KECIL dari pengeluaran sehingga
+                    //     heuristik "ambil yang terkecil" salah ambil saldo.
+                    let toks: Vec<&str> = uraian.split_whitespace().collect();
+                    let parsed = if kode_ok {
+                        parse_tiga_angka(&toks)
+                    } else {
+                        None
+                    };
+                    let (pengeluaran, uraian) = match parsed {
+                        Some((_, out_, _)) => {
+                            let u = toks[..toks.len() - 3].join(" ");
+                            (out_, u.trim().to_string())
+                        }
+                        None => {
+                            // Fallback lama untuk baris tanpa kode di ujung
+                            let amounts = extract_amounts_from_line(&uraian);
+                            let out_ = extract_pengeluaran(&amounts);
+                            (out_, remove_amounts_from_end(&uraian))
+                        }
+                    };
 
                     // Also remove leading/trailing zeros used as penerimaan marker
-                    uraian = uraian.trim().to_string();
+                    let uraian = uraian.trim().to_string();
                     // Remove trailing " 0" that represents penerimaan=0
-                    uraian = re_trailing_zero.replace(&uraian, "").trim().to_string();
-
-                    // Get pengeluaran (first amount in most cases)
-                    let pengeluaran = extract_pengeluaran(&amounts);
+                    let uraian = re_trailing_zero.replace(&uraian, "").trim().to_string();
 
                     if pengeluaran > 0.0 && !uraian.is_empty() {
                         transactions.push(RawTransaction {
@@ -424,21 +442,26 @@ fn parse_transactions(lines: &[&str]) -> Result<Vec<RawTransaction>, String> {
 
 /// Extract pengeluaran from parsed amounts.
 /// In BKU format: PENERIMAAN PENGELUARAN SALDO
-/// For expense lines: penerimaan=0, so amounts = [PENGELUARAN, SALDO]
-/// We want the first (smaller) amount = pengeluaran
+/// For expense lines: penerimaan=0, so amounts = [PENGELUARAN, SALDO].
+/// Ambil posisi PERTAMA — JANGAN nilai terkecil, karena sisa saldo
+/// bisa lebih kecil dari pengeluaran (salah ambil saldo).
 fn extract_pengeluaran(amounts: &[f64]) -> f64 {
-    if amounts.len() >= 2 {
-        // First amount is pengeluaran, second (larger) is saldo
-        // The pengeluaran is always smaller than saldo
-        if amounts[0] < amounts[1] {
-            return amounts[0];
-        }
-        return amounts[1];
-    }
-    if amounts.len() == 1 {
+    if !amounts.is_empty() {
         return amounts[0];
     }
     0.0
+}
+
+/// Parse 3 token terakhir sebagai (penerimaan, pengeluaran, saldo).
+/// Titik = pemisah ribuan ("100.000"→100000, "500"→500, "0"→0).
+/// Token bukan-angka (mis. "(2026-0)") → None.
+fn parse_tiga_angka(toks: &[&str]) -> Option<(f64, f64, f64)> {
+    if toks.len() < 3 {
+        return None;
+    }
+    let n = toks.len();
+    let num = |t: &str| t.replace('.', "").parse::<f64>().ok();
+    Some((num(toks[n - 3])?, num(toks[n - 2])?, num(toks[n - 1])?))
 }
 
 fn extract_amounts_from_line(line: &str) -> Vec<f64> {
@@ -636,5 +659,41 @@ mod tests {
             "BPU14 kode rekening should be completed from suffix, got: {}",
             bpu14.kode_rekening
         );
+    }
+
+    #[test]
+    fn test_parse_saldo_lebih_kecil_dari_pengeluaran() {
+        // Sisa saldo (50.000) < pengeluaran (100.000) — nominal harus
+        // tetap pengeluaran, bukan saldo.
+        let lines = vec![
+            "29-04-2026 Belanja ATK  0 100.000 50.00008.04.13. 5.1.02.02.01.00",
+            "09 BPU99",
+        ];
+        let txs = parse_transactions(&lines).unwrap();
+        assert_eq!(txs.len(), 1);
+        assert_eq!(txs[0].no_bukti, "BPU99");
+        assert_eq!(
+            txs[0].pengeluaran, 100000.0,
+            "harus pengeluaran, bukan saldo, got: {}",
+            txs[0].pengeluaran
+        );
+        assert_eq!(txs[0].kode_rekening, "5.1.02.02.01.0009");
+    }
+
+    #[test]
+    fn test_parse_nominal_kecil_tanpa_titik() {
+        // Pengeluaran "500" tanpa pemisah ribuan tetap terbaca.
+        let lines = vec![
+            "30-04-2026 Fotokopi kecil  0 500 43.275.38208.04.13. 5.1.02.01.01.00",
+            "26 BPU98",
+        ];
+        let txs = parse_transactions(&lines).unwrap();
+        assert_eq!(txs.len(), 1);
+        assert_eq!(
+            txs[0].pengeluaran, 500.0,
+            "harus 500, bukan saldo, got: {}",
+            txs[0].pengeluaran
+        );
+        assert_eq!(txs[0].uraian, "Fotokopi kecil");
     }
 }

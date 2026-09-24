@@ -102,7 +102,11 @@
 
 ## Changelog
 
-### v3.8.0 (Current)
+### v3.8.1 (Current)
+- [FIXED] Edit modal: `populateKegiatanDatalist` ikut terhapus kemarin → ReferenceError saat buka Edit (fungsi dikembalikan)
+- [FIXED] Nominal import ambil dari saldo: ekstraksi kini dari 3 token terakhir (posisi) + dukung nominal kecil tanpa titik; 2 regression test
+
+### v3.8.0
 - [REMOVED] Halaman Buat Kwitansi (form manual + `cmd_simpan_kwitansi`); alur tunggal via Import BKU Per Bulan + Edit modal; Riwayat jadi halaman awal
 - [IMPROVED] Responsif: sidebar rel ikon ≤720px, grid 1 kolom, modal & preview scroll horizontal, kolom TTD 30% (dulu 120% overflow)
 

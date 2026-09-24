@@ -1268,6 +1268,14 @@ function composePaymentSentence(k) {
   return base;
 }
 
+/** Isi datalist saran kode kegiatan resmi ARKAS (dipakai modal edit) */
+function populateKegiatanDatalist() {
+  const dl = document.getElementById("kode_kegiatan_list");
+  if (!dl || dl.dataset.filled) return;
+  dl.innerHTML = DAFTAR_KEGIATAN.map(([c, u]) => `<option value="${c}">${u}</option>`).join("");
+  dl.dataset.filled = "1";
+}
+
 function defaultSudahTerimaDari() {
   const nama = sekolahData?.nama_sekolah?.trim() || "";
   return nama ? `Bendahara BOS ${nama}` : "Bendahara BOS";
