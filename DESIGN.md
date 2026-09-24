@@ -62,6 +62,7 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 
 ### Navigation (sidebar)
 - **Riwayat** — accordion per BKU bulan + filter periode + sortir header; badge BPU/BNU/pajak/PPN; tombol Cetak/Edit/POS/Hapus + hapus massal
+- **Rekap SPJ** — filter periode, kartu + tabel total (bruto/PPh/PPN/total), cetak rekapitulasi kop + TTD, export CSV
 - **Import BKU Per Bulan** — multi-PDF, grouped preview, toolbar merge per bulan (Gabungkan yang Dicentang / Gabung Otomatis per Kode / Uraikan Semua)
 - **Data Sekolah** — form identitas
 - **Pengaturan Cetak** — kwitansi: mode, kertas, margin, font, drag-drop editor

@@ -3,6 +3,7 @@ import { isBpu, loadPosSettings as loadPosSettingsMod, getPosSettings, cetakNota
 import { cariUraianKegiatan, DAFTAR_KEGIATAN } from "./kode-referensi.js";
 import { needsDocuments, loadDocStatus, allDocsComplete } from "./bpu-docs.js";
 import "./bku-period.js";
+import "./rekap.js";
 
 function isBnu(nomor) {
   return (nomor || "").trim().toUpperCase().includes("BNU");
@@ -61,6 +62,7 @@ function showPage(pageName) {
   document.querySelector(`.nav-btn[data-page="${pageName}"]`)?.classList.add("active");
 
   if (pageName === "riwayat") loadRiwayat();
+  if (pageName === "rekap" && window._loadRekap) window._loadRekap();
   if (pageName === "sekolah") loadSekolahForm();
   if (pageName === "print-settings") loadPrintSettingsForm();
   if (pageName === "pos-settings") loadPosSetupPage();

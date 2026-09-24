@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.9.2 (Current)
+### v3.10.0 (Current)
+- [NEW] Halaman Rekap SPJ: filter periode, kartu + tabel total (bruto/PPh/PPN/total), cetak rekapitulasi (kop + TTD, A4), export CSV
+
+### v3.9.2
 - [IMPROVED] Hapus preview inline di bawah preview kertas (cukup via tombol Lihat Preview) — halaman lebih clean
 
 ### v3.9.1

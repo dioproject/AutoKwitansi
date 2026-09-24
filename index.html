@@ -18,6 +18,9 @@
         <button class="nav-btn active" data-page="riwayat" onclick="showPage('riwayat')">
           <span class="nav-icon">🧾</span> Riwayat
         </button>
+        <button class="nav-btn" data-page="rekap" onclick="showPage('rekap')">
+          <span class="nav-icon">📊</span> Rekap SPJ
+        </button>
         <button class="nav-btn" data-page="import-period" onclick="showPage('import-period')">
           <span class="nav-icon">📥</span> Import BKU Per Bulan
         </button>
@@ -33,7 +36,7 @@
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v3.9.2</p>
+        <p class="version">v3.10.0</p>
       </div>
     </aside>
 
@@ -154,6 +157,41 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- PAGE: REKAP SPJ -->
+      <section id="page-rekap" class="page">
+        <div class="page-header">
+          <h2>Rekap SPJ</h2>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <select id="rekap-periode-filter" onchange="handleRekapPeriodeChange(this.value)" title="Filter periode BKU" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;">
+              <option value="">Semua periode</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="handleCetakRekap()">🖨️ Cetak Rekap</button>
+            <button class="btn btn-secondary btn-sm" onclick="handleExportRekapCsv()">📥 Export CSV</button>
+          </div>
+        </div>
+        <div id="rekap-summary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+        <div class="table-container" style="max-height:55vh;overflow-y:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Nomor</th>
+                <th>Tanggal</th>
+                <th>Untuk Pembayaran</th>
+                <th style="text-align:right;">Bruto</th>
+                <th style="text-align:right;">PPh</th>
+                <th style="text-align:right;">PPN</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody id="rekap-tbody">
+              <tr><td colspan="8" class="empty">Belum ada data</td></tr>
+            </tbody>
+            <tfoot id="rekap-tfoot"></tfoot>
+          </table>
         </div>
       </section>
 
