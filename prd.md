@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.9.0 (Current)
+### v3.9.1 (Current)
+- [IMPROVED] Aksi riwayat jadi ikon + tooltip (🖨️✏️🧾🗑️); nav & simbol ber-emoji warna
+
+### v3.9.0
 - [NEW] Tombol Lihat Preview di Pengaturan Cetak: modal khusus hasil cetak (sinkron live saat angka diubah, nyaman di layar kecil)
 - [IMPROVED] Field PPN di modal Edit pindah ke grid form sejajar field lain + label (Opsional)
 

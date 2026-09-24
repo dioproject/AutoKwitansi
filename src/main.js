@@ -273,7 +273,7 @@ function renderGrouped(data) {
                 ${sortRiwayatRows(items).map((k, i) => {
                   const bpu = isBpu(k.nomor_kwitansi);
                   const bnu = isBnu(k.nomor_kwitansi);
-                  const posBtn = bpu ? `<button class="btn btn-sm btn-pos" onclick="handleCetakPosRiwayat(${k.id})">POS</button>` : "";
+                  const posBtn = bpu ? `<button class="btn btn-sm btn-pos" title="Cetak nota POS" onclick="handleCetakPosRiwayat(${k.id})">🧾</button>` : "";
                   let badge = "";
                   if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
                   else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
@@ -290,10 +290,10 @@ const ppnBadge = (k.ppn_nominal || 0) > 0 ? ' <span class="badge badge-ok">PPN</
                     <td title="${esc(composePaymentSentence(k))}"><div class="uraian-wrap">${esc(truncatePayment(composePaymentSentence(k)))}</div></td>
                     <td>
                       <div class="actions">
-                        <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
-                        <button class="btn btn-sm btn-secondary" onclick="openEditModal(${k.id})">Edit</button>
+                        <button class="btn btn-sm btn-primary" title="Cetak kwitansi" onclick="previewKwitansi(${k.id})">🖨️</button>
+                        <button class="btn btn-sm btn-secondary" title="Edit kwitansi" onclick="openEditModal(${k.id})">✏️</button>
                         ${posBtn}
-                        <button class="btn btn-sm btn-danger" onclick="hapusKwitansi(${k.id})">Hapus</button>
+                        <button class="btn btn-sm btn-danger" title="Hapus kwitansi" onclick="hapusKwitansi(${k.id})">🗑️</button>
                       </div>
                     </td>
                   </tr>`;
@@ -353,7 +353,7 @@ function renderTable(data) {
           ${sortRiwayatRows(data).map((k, i) => {
             const bpu = isBpu(k.nomor_kwitansi);
             const bnu = isBnu(k.nomor_kwitansi);
-            const posBtn = bpu ? `<button class="btn btn-sm btn-pos" onclick="handleCetakPosRiwayat(${k.id})">POS</button>` : "";
+            const posBtn = bpu ? `<button class="btn btn-sm btn-pos" title="Cetak nota POS" onclick="handleCetakPosRiwayat(${k.id})">🧾</button>` : "";
             let badge = "";
             if (bnu) badge = '<span class="badge badge-bnu">BNU</span>';
             else if (bpu) badge = '<span class="badge badge-bpu">BPU</span>';
@@ -370,10 +370,10 @@ const ppnBadge = (k.ppn_nominal || 0) > 0 ? ' <span class="badge badge-ok">PPN</
               <td title="${esc(composePaymentSentence(k))}"><div class="uraian-wrap">${esc(truncatePayment(composePaymentSentence(k)))}</div></td>
               <td>
                 <div class="actions">
-                  <button class="btn btn-sm btn-primary" onclick="previewKwitansi(${k.id})">Cetak</button>
-                        <button class="btn btn-sm btn-secondary" onclick="openEditModal(${k.id})">Edit</button>
+                  <button class="btn btn-sm btn-primary" title="Cetak kwitansi" onclick="previewKwitansi(${k.id})">🖨️</button>
+                        <button class="btn btn-sm btn-secondary" title="Edit kwitansi" onclick="openEditModal(${k.id})">✏️</button>
                   ${posBtn}
-                  <button class="btn btn-sm btn-danger" onclick="hapusKwitansi(${k.id})">Hapus</button>
+                  <button class="btn btn-sm btn-danger" title="Hapus kwitansi" onclick="hapusKwitansi(${k.id})">🗑️</button>
                 </div>
               </td>
             </tr>`;
