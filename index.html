@@ -21,6 +21,9 @@
         <button class="nav-btn" data-page="rekap" onclick="showPage('rekap')">
           <span class="nav-icon">📊</span> Rekap SPJ
         </button>
+        <button class="nav-btn" data-page="dashboard" onclick="showPage('dashboard')">
+          <span class="nav-icon">📈</span> Dashboard
+        </button>
         <button class="nav-btn" data-page="import-period" onclick="showPage('import-period')">
           <span class="nav-icon">📥</span> Import BKU Per Bulan
         </button>
@@ -36,7 +39,7 @@
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v3.10.0</p>
+        <p class="version">v3.11.0</p>
       </div>
     </aside>
 
@@ -192,6 +195,24 @@
             </tbody>
             <tfoot id="rekap-tfoot"></tfoot>
           </table>
+        </div>
+      </section>
+
+      <!-- PAGE: DASHBOARD -->
+      <section id="page-dashboard" class="page">
+        <div class="page-header">
+          <h2>Dashboard</h2>
+        </div>
+        <div id="dashboard-cards" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="dashboard-grid">
+          <div style="background:var(--bg-card);padding:18px 20px;border-radius:var(--radius);box-shadow:var(--shadow);">
+            <h3 style="margin:0 0 12px;font-size:14px;">Total per Periode</h3>
+            <div id="dashboard-bars"></div>
+          </div>
+          <div style="background:var(--bg-card);padding:18px 20px;border-radius:var(--radius);box-shadow:var(--shadow);">
+            <h3 style="margin:0 0 12px;font-size:14px;">Pajak Terkumpul</h3>
+            <div id="dashboard-tax"></div>
+          </div>
         </div>
       </section>
 

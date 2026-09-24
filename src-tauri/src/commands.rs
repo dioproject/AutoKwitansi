@@ -163,6 +163,85 @@ pub fn cmd_search_kwitansi(query: String) -> Result<Vec<Kwitansi>, String> {
     db::search_kwitansi(&query).map_err(|e| e.to_string())
 }
 
+#[command]
+pub fn cmd_dashboard_stats() -> Result<crate::models::DashboardStats, String> {
+    use crate::models::{DashboardStats, PeriodStat};
+    use std::collections::BTreeMap;
+
+    let all = db::get_all_kwitansi().map_err(|e| e.to_string())?;
+    let mut st = DashboardStats {
+        total_n: 0,
+        total_bruto: 0.0,
+        total_pph: 0.0,
+        total_ppn: 0.0,
+        total_netto: 0.0,
+        bpu_n: 0,
+        bpu_total: 0.0,
+        bnu_n: 0,
+        bnu_total: 0.0,
+        pph21_total: 0.0,
+        pph21_5_total: 0.0,
+        pph23_total: 0.0,
+        pph23_2_total: 0.0,
+        periods: Vec::new(),
+    };
+    let mut per: BTreeMap<String, PeriodStat> = BTreeMap::new();
+    for k in &all {
+        let rate = pajak_rate(k.kena_pph21, k.kena_pph21_5, k.kena_pph23, k.kena_pph23_2);
+        let pph = (k.jumlah * rate).round();
+        let ppn = if k.ppn_nominal > 0.0 {
+            k.ppn_nominal.round()
+        } else {
+            0.0
+        };
+        let total = k.jumlah - pph - ppn;
+        st.total_n += 1;
+        st.total_bruto += k.jumlah;
+        st.total_pph += pph;
+        st.total_ppn += ppn;
+        st.total_netto += total;
+        let upper = k.nomor_kwitansi.to_uppercase();
+        if upper.contains("BNU") {
+            st.bnu_n += 1;
+            st.bnu_total += total;
+        } else if upper.contains("BPU") {
+            st.bpu_n += 1;
+            st.bpu_total += total;
+        }
+        if k.kena_pph21 {
+            st.pph21_total += pph;
+        } else if k.kena_pph21_5 {
+            st.pph21_5_total += pph;
+        } else if k.kena_pph23 {
+            st.pph23_total += pph;
+        } else if k.kena_pph23_2 {
+            st.pph23_2_total += pph;
+        }
+        let label = if k.bulan.is_empty() {
+            "Tanpa BKU".to_string()
+        } else {
+            format!("BKU {} {}", k.bulan, k.tahun_anggaran)
+                .trim()
+                .to_string()
+        };
+        let e = per.entry(label.clone()).or_insert(PeriodStat {
+            label,
+            n: 0,
+            bruto: 0.0,
+            pph: 0.0,
+            ppn: 0.0,
+            total: 0.0,
+        });
+        e.n += 1;
+        e.bruto += k.jumlah;
+        e.pph += pph;
+        e.ppn += ppn;
+        e.total += total;
+    }
+    st.periods = per.into_values().collect();
+    Ok(st)
+}
+
 /// Deteksi otomatis apakah transaksi makan minum kena PPh 23 4%.
 /// Patokan: kode kegiatan 06.05.06 = Konsumsi Rapat Kedinasan dan Tamu
 /// (Kode-Rekening-ARKAS-2026-Lengkap.pdf) + kata kunci uraian.

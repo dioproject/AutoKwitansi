@@ -125,6 +125,36 @@ pub struct BpuDokumen {
     pub updated_at: Option<String>,
 }
 
+// ============ DASHBOARD STATS ============
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PeriodStat {
+    pub label: String,
+    pub n: usize,
+    pub bruto: f64,
+    pub pph: f64,
+    pub ppn: f64,
+    pub total: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DashboardStats {
+    pub total_n: usize,
+    pub total_bruto: f64,
+    pub total_pph: f64,
+    pub total_ppn: f64,
+    pub total_netto: f64,
+    pub bpu_n: usize,
+    pub bpu_total: f64,
+    pub bnu_n: usize,
+    pub bnu_total: f64,
+    pub pph21_total: f64,
+    pub pph21_5_total: f64,
+    pub pph23_total: f64,
+    pub pph23_2_total: f64,
+    pub periods: Vec<PeriodStat>,
+}
+
 // ============ BKU PERIOD ============
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

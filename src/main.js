@@ -4,6 +4,7 @@ import { cariUraianKegiatan, DAFTAR_KEGIATAN } from "./kode-referensi.js";
 import { needsDocuments, loadDocStatus, allDocsComplete } from "./bpu-docs.js";
 import "./bku-period.js";
 import "./rekap.js";
+import "./dashboard.js";
 
 function isBnu(nomor) {
   return (nomor || "").trim().toUpperCase().includes("BNU");
@@ -63,6 +64,7 @@ function showPage(pageName) {
 
   if (pageName === "riwayat") loadRiwayat();
   if (pageName === "rekap" && window._loadRekap) window._loadRekap();
+  if (pageName === "dashboard" && window._loadDashboard) window._loadDashboard();
   if (pageName === "sekolah") loadSekolahForm();
   if (pageName === "print-settings") loadPrintSettingsForm();
   if (pageName === "pos-settings") loadPosSetupPage();

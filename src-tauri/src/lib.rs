@@ -35,6 +35,7 @@ pub fn run() {
             cmd_get_kwitansi,
             cmd_delete_kwitansi,
             cmd_search_kwitansi,
+            cmd_dashboard_stats,
             cmd_get_print_settings,
             cmd_save_print_settings,
             cmd_get_pos_settings,

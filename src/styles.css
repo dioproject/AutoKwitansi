@@ -1048,6 +1048,10 @@ td .uraian-wrap {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   #main-content {
     padding: 20px 16px;
   }

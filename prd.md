@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.10.0 (Current)
+### v3.11.0 (Current)
+- [NEW] Halaman Dashboard: kartu total/BPU/BNU, pajak terkumpul per jenis, diagram per periode (sumber tunggal `cmd_dashboard_stats`)
+
+### v3.10.0
 - [NEW] Halaman Rekap SPJ: filter periode, kartu + tabel total (bruto/PPh/PPN/total), cetak rekapitulasi (kop + TTD, A4), export CSV
 
 ### v3.9.2
