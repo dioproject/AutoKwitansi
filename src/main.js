@@ -759,9 +759,37 @@ function renderPaperPreview() {
   // Preview hasil cetak live (contoh data) — ukuran font & wrap persis hasil cetak
   const sampleEl = document.getElementById("live-sample-preview");
   if (sampleEl && currentPrintSettings) {
-    sampleEl.innerHTML = renderKwitansiTemplate(SAMPLE_KWITANSI);
+    const html = renderKwitansiTemplate(SAMPLE_KWITANSI);
+    sampleEl.innerHTML = html;
+    // Ikut update modal preview bila sedang terbuka (biar sinkron saat angka diubah)
+    const modal = document.getElementById("modal-cetak-preview");
+    const modalContent = document.getElementById("modal-cetak-content");
+    if (modal && modalContent && !modal.classList.contains("hidden")) {
+      modalContent.innerHTML = html;
+    }
   }
 }
+
+/** Buka modal preview cetak (khusus layar kecil — tampil penuh, bisa scroll) */
+window.openCetakPreviewModal = function () {
+  if (currentPrintSettings) {
+    currentPrintSettings.mode = document.getElementById("ps_mode")?.value || currentPrintSettings.mode;
+    currentPrintSettings.paper_width = parseFloat(document.getElementById("ps_paper_width")?.value) || currentPrintSettings.paper_width;
+    currentPrintSettings.paper_height = parseFloat(document.getElementById("ps_paper_height")?.value) || currentPrintSettings.paper_height;
+    currentPrintSettings.margin_top = parseFloat(document.getElementById("ps_margin_top")?.value) || currentPrintSettings.margin_top;
+    currentPrintSettings.margin_bottom = parseFloat(document.getElementById("ps_margin_bottom")?.value) || currentPrintSettings.margin_bottom;
+    currentPrintSettings.margin_left = parseFloat(document.getElementById("ps_margin_left")?.value) || currentPrintSettings.margin_left;
+    currentPrintSettings.margin_right = parseFloat(document.getElementById("ps_margin_right")?.value) || currentPrintSettings.margin_right;
+    currentPrintSettings.font_size = parseFloat(document.getElementById("ps_font_size")?.value) || currentPrintSettings.font_size;
+    currentPrintSettings.sig_gap = parseFloat(document.getElementById("ps_sig_gap")?.value) || currentPrintSettings.sig_gap;
+  }
+  renderPaperPreview();
+  const modalContent = document.getElementById("modal-cetak-content");
+  if (modalContent && currentPrintSettings) {
+    modalContent.innerHTML = renderKwitansiTemplate(SAMPLE_KWITANSI);
+  }
+  document.getElementById("modal-cetak-preview")?.classList.remove("hidden");
+};
 
 /** Contoh data untuk preview live di Pengaturan Cetak */
 const SAMPLE_KWITANSI = {

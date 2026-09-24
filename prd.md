@@ -102,7 +102,11 @@
 
 ## Changelog
 
-### v3.8.1 (Current)
+### v3.9.0 (Current)
+- [NEW] Tombol Lihat Preview di Pengaturan Cetak: modal khusus hasil cetak (sinkron live saat angka diubah, nyaman di layar kecil)
+- [IMPROVED] Field PPN di modal Edit pindah ke grid form sejajar field lain + label (Opsional)
+
+### v3.8.1
 - [FIXED] Edit modal: `populateKegiatanDatalist` ikut terhapus kemarin → ReferenceError saat buka Edit (fungsi dikembalikan)
 - [FIXED] Nominal import ambil dari saldo: ekstraksi kini dari 3 token terakhir (posisi) + dukung nominal kecil tanpa titik; 2 regression test
 
