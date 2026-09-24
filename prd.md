@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.13.0 (Current)
+### v3.13.1 (Current)
+- [IMPROVED] Menu Dashboard pindah ke paling atas sidebar
+
+### v3.13.0
 - [NEW] Panel Kesiapan LPJ di Rekap: validasi per periode (penerima/nominal/uraian/tanggal/duplikat/dokumen BPU) + tombol Perbaiki via modal Edit
 
 ### v3.12.0
