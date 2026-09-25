@@ -7,6 +7,7 @@ import "./rekap.js";
 import "./dashboard.js";
 import "./backup.js";
 import "./produk.js";
+import "./kasir.js";
 
 function isBnu(nomor) {
   return (nomor || "").trim().toUpperCase().includes("BNU");
@@ -69,6 +70,7 @@ function showPage(pageName) {
   if (pageName === "rekap" && window._loadRekap) window._loadRekap();
   if (pageName === "dashboard" && window._loadDashboard) window._loadDashboard();
   if (pageName === "produk" && window._loadProduk) window._loadProduk();
+  if (pageName === "kasir" && window._loadKasir) window._loadKasir();
   if (pageName === "sekolah") loadSekolahForm();
   if (pageName === "print-settings") loadPrintSettingsForm();
   if (pageName === "pos-settings") loadPosSetupPage();

@@ -1,5 +1,5 @@
 use crate::db;
-use crate::models::{Kwitansi, PosSettings};
+use crate::models::{Kwitansi, Penjualan, PosSettings};
 
 // ============ SETTINGS ============
 
@@ -233,6 +233,184 @@ fn build_test_print(paper_width: i32) -> Vec<u8> {
 
 // ============ PUBLIC API ============
 
+fn send_bytes(settings: &PosSettings, bytes: &[u8], ctx: &str) -> Result<(), String> {
+    if settings.port.is_empty() {
+        return Err("Port printer belum diatur".into());
+    }
+    match serialport::new(&settings.port, settings.baud_rate as u32)
+        .timeout(std::time::Duration::from_secs(5))
+        .open()
+    {
+        Ok(mut port) => {
+            port.write_all(bytes)
+                .map_err(|e| format!("Gagal kirim {} ke printer: {}", ctx, e))?;
+            port.flush()
+                .map_err(|e| format!("Gagal flush printer: {}", e))?;
+            Ok(())
+        }
+        Err(e) => Err(format!("Tidak bisa buka port {}: {}", settings.port, e)),
+    }
+}
+
+/// Struk nota toko untuk penjualan POS kasir (mandiri, bukan kwitansi).
+/// Header: custom header_text → nama_toko/alamat → "NOTA PEMBAYARAN".
+fn build_escpos_struk(p: &Penjualan, settings: &PosSettings) -> Vec<u8> {
+    let paper_width = settings.paper_width;
+    let max_chars = if paper_width >= 80 { 48 } else { 32 };
+    let line = |s: &str| truncate_per_line(&sanitize_ascii(s), max_chars);
+    let sep = "-".repeat(max_chars);
+    let double_sep = "=".repeat(max_chars);
+    // "kiri .... kanan" dalam satu baris
+    let row_2col = |left: &str, right: &str| -> String {
+        let l: String = sanitize_ascii(left).chars().take(max_chars).collect();
+        let r: String = sanitize_ascii(right).chars().take(max_chars).collect();
+        if l.len() + 1 + r.len() <= max_chars {
+            format!("{}{}{}", l, " ".repeat(max_chars - l.len() - r.len()), r)
+        } else {
+            format!("{} {}", l, r)
+        }
+    };
+
+    let mut buf = Vec::new();
+
+    // HEADER toko
+    buf.extend_from_slice(ESC_ALIGN_CENTER);
+    let custom_header = settings.header_text.trim();
+    if !custom_header.is_empty() {
+        for hline in custom_header.lines() {
+            buf.extend_from_slice(line(hline).as_bytes());
+            buf.extend_from_slice(LF);
+        }
+    } else if !p.nama_toko.trim().is_empty() {
+        buf.extend_from_slice(ESC_BOLD_ON);
+        buf.extend_from_slice(line(&p.nama_toko).as_bytes());
+        buf.extend_from_slice(LF);
+        buf.extend_from_slice(ESC_BOLD_OFF);
+        if !p.alamat_toko.trim().is_empty() {
+            buf.extend_from_slice(line(&p.alamat_toko).as_bytes());
+            buf.extend_from_slice(LF);
+        }
+        if !p.pimpinan_toko.trim().is_empty() {
+            buf.extend_from_slice(line(&format!("Telp: {}", p.pimpinan_toko)).as_bytes());
+            buf.extend_from_slice(LF);
+        }
+    } else {
+        buf.extend_from_slice(ESC_BOLD_ON);
+        buf.extend_from_slice(line("NOTA PEMBAYARAN").as_bytes());
+        buf.extend_from_slice(LF);
+        buf.extend_from_slice(ESC_BOLD_OFF);
+    }
+    buf.extend_from_slice(line(&double_sep).as_bytes());
+    buf.extend_from_slice(LF);
+
+    // No & Tanggal
+    buf.extend_from_slice(ESC_ALIGN_LEFT);
+    buf.extend_from_slice(line(&format!("No  : {}", p.no_nota)).as_bytes());
+    buf.extend_from_slice(LF);
+    buf.extend_from_slice(line(&format!("Tgl : {}", format_tanggal_cetak(&p.tanggal))).as_bytes());
+    buf.extend_from_slice(LF);
+    buf.extend_from_slice(line(&sep).as_bytes());
+    buf.extend_from_slice(LF);
+
+    // ITEMS
+    let mut subtotal = 0.0;
+    for it in &p.items {
+        let sub = (it.harga * it.qty as f64).round();
+        subtotal += sub;
+        for wl in wrap_text(&it.nama, max_chars) {
+            buf.extend_from_slice(line(&wl).as_bytes());
+            buf.extend_from_slice(LF);
+        }
+        let kiri = format!("  {} x {}", it.qty, format_currency(it.harga));
+        buf.extend_from_slice(line(&row_2col(&kiri, &format_currency(sub))).as_bytes());
+        buf.extend_from_slice(LF);
+    }
+    buf.extend_from_slice(line(&sep).as_bytes());
+    buf.extend_from_slice(LF);
+
+    // TOTAL
+    let diskon = p.diskon.max(0.0).min(subtotal);
+    let total = subtotal - diskon;
+    buf.extend_from_slice(
+        line(&row_2col(
+            "Subtotal",
+            &format!("Rp {}", format_currency(subtotal)),
+        ))
+        .as_bytes(),
+    );
+    buf.extend_from_slice(LF);
+    if diskon > 0.0 {
+        buf.extend_from_slice(
+            line(&row_2col(
+                "Diskon",
+                &format!("-Rp {}", format_currency(diskon)),
+            ))
+            .as_bytes(),
+        );
+        buf.extend_from_slice(LF);
+    }
+    buf.extend_from_slice(ESC_BOLD_ON);
+    buf.extend_from_slice(
+        line(&row_2col(
+            "TOTAL",
+            &format!("Rp {}", format_currency(total)),
+        ))
+        .as_bytes(),
+    );
+    buf.extend_from_slice(ESC_BOLD_OFF);
+    buf.extend_from_slice(LF);
+    buf.extend_from_slice(
+        line(&row_2col(
+            "Tunai",
+            &format!("Rp {}", format_currency(p.tunai)),
+        ))
+        .as_bytes(),
+    );
+    buf.extend_from_slice(LF);
+    buf.extend_from_slice(
+        line(&row_2col(
+            "Kembali",
+            &format!("Rp {}", format_currency(p.kembalian)),
+        ))
+        .as_bytes(),
+    );
+    buf.extend_from_slice(LF);
+    buf.extend_from_slice(line(&sep).as_bytes());
+    buf.extend_from_slice(LF);
+
+    if !p.penerima.trim().is_empty() {
+        buf.extend_from_slice(line(&format!("Kasir: {}", p.penerima)).as_bytes());
+        buf.extend_from_slice(LF);
+        buf.extend_from_slice(line(&sep).as_bytes());
+        buf.extend_from_slice(LF);
+    }
+
+    // FOOTER
+    let footer_raw = settings.footer_text.trim();
+    buf.extend_from_slice(ESC_ALIGN_CENTER);
+    if !footer_raw.is_empty() {
+        for fline in footer_raw.lines() {
+            buf.extend_from_slice(line(fline).as_bytes());
+            buf.extend_from_slice(LF);
+        }
+    } else {
+        buf.extend_from_slice(line("Terima kasih").as_bytes());
+        buf.extend_from_slice(LF);
+    }
+
+    buf.extend_from_slice(LF);
+    buf.extend_from_slice(&[0x1B, 0x64, 0x03]);
+    buf.extend_from_slice(GS_CUT);
+
+    buf
+}
+
+/// Print struk penjualan POS kasir ke printer thermal
+pub fn print_penjualan(penjualan: &Penjualan, settings: &PosSettings) -> Result<(), String> {
+    let bytes = build_escpos_struk(penjualan, settings);
+    send_bytes(settings, &bytes, "struk penjualan")
+}
+
 /// Print kwitansi nota directly to POS thermal printer via ESC/POS
 pub fn print_nota(kwitansi: &Kwitansi, settings: &PosSettings) -> Result<(), String> {
     if settings.port.is_empty() {
@@ -434,6 +612,50 @@ fn format_tanggal_cetak(tanggal: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{Penjualan, PenjualanItem};
+
+    #[test]
+    fn test_build_escpos_struk() {
+        let p = Penjualan {
+            id: None,
+            no_nota: "20260924-1234".into(),
+            tanggal: "2026-09-24".into(),
+            total: 19000.0,
+            diskon: 1000.0,
+            tunai: 20000.0,
+            kembalian: 1000.0,
+            penerima: "Kasir".into(),
+            nama_toko: "Toko Makmur".into(),
+            alamat_toko: "Jl. Sudirman 1".into(),
+            pimpinan_toko: "".into(),
+            created_at: None,
+            items: vec![PenjualanItem {
+                id: None,
+                penjualan_id: None,
+                produk_id: 1,
+                nama: "Pensil 2B".into(),
+                harga: 5000.0,
+                qty: 4,
+                subtotal: 20000.0,
+            }],
+        };
+        let settings = PosSettings {
+            id: None,
+            paper_width: 58,
+            port: "".into(),
+            baud_rate: 9600,
+            header_text: "".into(),
+            footer_text: "".into(),
+            last_pos_number: 0,
+        };
+        let out = String::from_utf8_lossy(&build_escpos_struk(&p, &settings)).to_string();
+        assert!(out.contains("Toko Makmur"), "header toko:\n{}", out);
+        assert!(out.contains("20260924-1234"), "no nota:\n{}", out);
+        assert!(out.contains("Pensil 2B"), "item:\n{}", out);
+        assert!(out.contains("TOTAL"), "total:\n{}", out);
+        assert!(out.contains("20.000"), "subtotal:\n{}", out);
+        assert!(out.contains("Kembali"), "kembalian:\n{}", out);
+    }
 
     #[test]
     fn test_label_nomor_cetak_bpu() {

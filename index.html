@@ -38,13 +38,16 @@
         <button class="nav-btn" data-page="produk" onclick="showPage('produk')">
           <span class="nav-icon">📦</span> Produk
         </button>
+        <button class="nav-btn" data-page="kasir" onclick="showPage('kasir')">
+          <span class="nav-icon">🛒</span> POS Kasir
+        </button>
         <button class="nav-btn" data-page="pos-settings" onclick="showPage('pos-settings')">
           <span class="nav-icon">🖨️</span> Printer Thermal
         </button>
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v3.14.0</p>
+        <p class="version">v3.15.0</p>
       </div>
     </aside>
 
@@ -257,6 +260,74 @@
             </thead>
             <tbody id="produk-tbody">
               <tr><td colspan="6" class="empty">Belum ada produk</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- PAGE: POS KASIR -->
+      <section id="page-kasir" class="page">
+        <div class="page-header">
+          <h2>POS Kasir</h2>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div class="search-bar">
+              <input type="text" id="kasir-search" placeholder="Cari produk..." oninput="renderKatalog()" />
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px;align-items:start;" class="kasir-grid">
+          <div>
+            <div id="kasir-kategori" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+            <div id="kasir-katalog" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;"></div>
+          </div>
+          <div style="background:var(--bg-card);padding:18px;border-radius:var(--radius);box-shadow:var(--shadow);">
+            <h3 style="margin:0 0 12px;font-size:14px;">🧾 Keranjang</h3>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr;box-shadow:none;padding:0;margin-bottom:12px;">
+              <div class="form-group">
+                <label for="kasir-tanggal">Tanggal</label>
+                <input type="date" id="kasir-tanggal" />
+              </div>
+              <div class="form-group">
+                <label for="kasir-nota">No. Nota</label>
+                <div style="display:flex;gap:6px;">
+                  <input type="text" id="kasir-nota" readonly class="readonly" style="flex:1;min-width:0;" />
+                  <button class="btn btn-sm btn-secondary" title="Nomor baru" onclick="regenKasirNota()">🎲</button>
+                </div>
+              </div>
+              <div class="form-group full-width">
+                <label for="kasir-penerima">Kasir / Penerima (opsional)</label>
+                <input type="text" id="kasir-penerima" placeholder="Nama kasir" />
+              </div>
+            </div>
+            <div id="kasir-cart" style="max-height:220px;overflow-y:auto;margin-bottom:12px;"></div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <label for="kasir-diskon" style="font-size:12px;font-weight:600;">Diskon Rp</label>
+              <input type="text" id="kasir-diskon" placeholder="0" oninput="handleKasirDiskonInput(this)" style="width:110px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;" />
+              <button class="btn btn-sm btn-secondary" onclick="setKasirDiskonPersen(0)">0%</button>
+              <button class="btn btn-sm btn-secondary" onclick="setKasirDiskonPersen(5)">5%</button>
+              <button class="btn btn-sm btn-secondary" onclick="setKasirDiskonPersen(10)">10%</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+              <label for="kasir-tunai" style="font-size:12px;font-weight:600;">Tunai Rp</label>
+              <input type="text" id="kasir-tunai" placeholder="0" oninput="handleKasirTunaiInput(this)" style="flex:1;min-width:0;padding:6px 10px;border:1px solid var(--border);border-radius:6px;" />
+              <button class="btn btn-sm btn-secondary" onclick="setKasirTunaiPas()">Uang Pas</button>
+            </div>
+            <div id="kasir-total" style="background:var(--bg-secondary);border-radius:6px;padding:10px 12px;font-size:13px;margin-bottom:12px;"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" id="btn-kasir-bayar" onclick="handleKasirCheckout(false)">💾 Simpan</button>
+              <button class="btn btn-pos btn-sm" id="btn-kasir-cetak" onclick="handleKasirCheckout(true)">💾🖨️ Simpan & Cetak</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearKasirCart()">Batal</button>
+            </div>
+            <h3 style="margin:16px 0 8px;font-size:13px;">Preview Nota</h3>
+            <div id="kasir-preview" style="background:#fff;border:1px dashed var(--border);border-radius:6px;padding:10px;max-height:260px;overflow-y:auto;font-family:'Courier New',monospace;font-size:11px;white-space:pre-wrap;"></div>
+          </div>
+        </div>
+        <h3 style="margin:20px 0 10px;font-size:14px;">Riwayat Penjualan</h3>
+        <div class="table-container" style="max-height:300px;overflow-y:auto;">
+          <table>
+            <thead><tr><th>No. Nota</th><th>Tanggal</th><th style="text-align:right;">Total</th><th>Aksi</th></tr></thead>
+            <tbody id="kasir-riwayat-tbody">
+              <tr><td colspan="4" class="empty">Belum ada penjualan</td></tr>
             </tbody>
           </table>
         </div>

@@ -198,6 +198,39 @@ pub fn init_db() -> Result<()> {
     )?;
     conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_produk_nama ON produk(nama);")?;
 
+    // Riwayat penjualan POS kasir (nota toko, terpisah dari kwitansi/BKU).
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS penjualan (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            no_nota TEXT NOT NULL DEFAULT '',
+            tanggal TEXT NOT NULL DEFAULT '',
+            total REAL NOT NULL DEFAULT 0,
+            diskon REAL NOT NULL DEFAULT 0,
+            tunai REAL NOT NULL DEFAULT 0,
+            kembalian REAL NOT NULL DEFAULT 0,
+            penerima TEXT NOT NULL DEFAULT '',
+            nama_toko TEXT NOT NULL DEFAULT '',
+            alamat_toko TEXT NOT NULL DEFAULT '',
+            pimpinan_toko TEXT NOT NULL DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        );",
+    )?;
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS penjualan_item (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            penjualan_id INTEGER NOT NULL,
+            produk_id INTEGER NOT NULL,
+            nama TEXT NOT NULL DEFAULT '',
+            harga REAL NOT NULL DEFAULT 0,
+            qty INTEGER NOT NULL DEFAULT 1,
+            subtotal REAL NOT NULL DEFAULT 0,
+            FOREIGN KEY (penjualan_id) REFERENCES penjualan(id) ON DELETE CASCADE
+        );",
+    )?;
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_penjualan_item_pid ON penjualan_item(penjualan_id);",
+    )?;
+
     // Insert default sekolah if empty
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM sekolah", [], |row| row.get(0))?;
     if count == 0 {
@@ -403,6 +436,100 @@ pub fn update_produk(id: i64, p: &crate::models::Produk) -> Result<()> {
 pub fn delete_produk(id: i64) -> Result<()> {
     let conn = get_connection()?;
     conn.execute("DELETE FROM produk WHERE id=?1", params![id])?;
+    Ok(())
+}
+
+// ============ PENJUALAN POS KASIR ============
+
+fn row_to_penjualan(row: &rusqlite::Row) -> Result<crate::models::Penjualan> {
+    Ok(crate::models::Penjualan {
+        id: row.get(0)?,
+        no_nota: row.get(1)?,
+        tanggal: row.get(2)?,
+        total: row.get(3)?,
+        diskon: row.get(4)?,
+        tunai: row.get(5)?,
+        kembalian: row.get(6)?,
+        penerima: row.get(7)?,
+        nama_toko: row.get(8)?,
+        alamat_toko: row.get(9)?,
+        pimpinan_toko: row.get(10)?,
+        created_at: row.get(11)?,
+        items: Vec::new(),
+    })
+}
+
+pub fn insert_penjualan(p: &crate::models::Penjualan) -> Result<i64> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT INTO penjualan (no_nota, tanggal, total, diskon, tunai, kembalian, penerima, nama_toko, alamat_toko, pimpinan_toko)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+        params![
+            p.no_nota, p.tanggal, p.total, p.diskon, p.tunai, p.kembalian,
+            p.penerima, p.nama_toko, p.alamat_toko, p.pimpinan_toko,
+        ],
+    )?;
+    let pid = conn.last_insert_rowid();
+    for it in &p.items {
+        let subtotal = (it.harga * it.qty as f64).round();
+        conn.execute(
+            "INSERT INTO penjualan_item (penjualan_id, produk_id, nama, harga, qty, subtotal)
+             VALUES (?1,?2,?3,?4,?5,?6)",
+            params![pid, it.produk_id, it.nama, it.harga, it.qty, subtotal],
+        )?;
+    }
+    Ok(pid)
+}
+
+pub fn get_all_penjualan() -> Result<Vec<crate::models::Penjualan>> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, no_nota, tanggal, total, diskon, tunai, kembalian, penerima, nama_toko, alamat_toko, pimpinan_toko, created_at
+         FROM penjualan ORDER BY id DESC LIMIT 200",
+    )?;
+    let mut out = Vec::new();
+    let rows = stmt.query_map([], row_to_penjualan)?;
+    for row in rows {
+        let mut p = row?;
+        if let Some(pid) = p.id {
+            let mut istmt = conn.prepare(
+                "SELECT id, penjualan_id, produk_id, nama, harga, qty, subtotal
+                 FROM penjualan_item WHERE penjualan_id=?1 ORDER BY id ASC",
+            )?;
+            let irows = istmt.query_map(params![pid], |r| {
+                Ok(crate::models::PenjualanItem {
+                    id: r.get(0)?,
+                    penjualan_id: r.get(1)?,
+                    produk_id: r.get(2)?,
+                    nama: r.get(3)?,
+                    harga: r.get(4)?,
+                    qty: r.get(5)?,
+                    subtotal: r.get(6)?,
+                })
+            })?;
+            for ir in irows {
+                p.items.push(ir?);
+            }
+        }
+        out.push(p);
+    }
+    Ok(out)
+}
+
+pub fn get_penjualan_by_id(id: i64) -> Result<crate::models::Penjualan> {
+    let all = get_all_penjualan()?;
+    all.into_iter()
+        .find(|p| p.id == Some(id))
+        .ok_or(rusqlite::Error::QueryReturnedNoRows)
+}
+
+pub fn delete_penjualan(id: i64) -> Result<()> {
+    let conn = get_connection()?;
+    conn.execute(
+        "DELETE FROM penjualan_item WHERE penjualan_id=?1",
+        params![id],
+    )?;
+    conn.execute("DELETE FROM penjualan WHERE id=?1", params![id])?;
     Ok(())
 }
 
@@ -965,4 +1092,3 @@ mod tests {
         result.expect("init_db harus sukses di DB lama + insert import harus bisa");
     }
 }
-

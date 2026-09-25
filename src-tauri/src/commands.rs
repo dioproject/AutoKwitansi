@@ -1,6 +1,6 @@
 use crate::db;
 use crate::models::{
-    BkuData, BkuPeriodItem, BpuDokumen, Kwitansi, PosSettings, PrintSettings, Sekolah,
+    BkuData, BkuPeriodItem, BpuDokumen, Kwitansi, Penjualan, PosSettings, PrintSettings, Sekolah,
 };
 use crate::terbilang::terbilang;
 use tauri::command;
@@ -536,4 +536,65 @@ pub fn cmd_list_backups() -> Result<Vec<db::BackupInfo>, String> {
 #[command]
 pub fn cmd_restore_backup(path: String) -> Result<String, String> {
     db::restore_backup(&path).map_err(|e| e.to_string())
+}
+
+// ============ PENJUALAN POS KASIR (nota toko, mandiri) ============
+
+#[command]
+pub fn cmd_pos_checkout(mut p: Penjualan) -> Result<i64, String> {
+    if p.items.is_empty() {
+        return Err("Keranjang kosong".into());
+    }
+    // Hitung ulang di server agar struk & DB konsisten.
+    let mut subtotal = 0.0;
+    for it in &mut p.items {
+        if it.qty < 1 {
+            return Err(format!("Qty {} tidak valid", it.nama));
+        }
+        if it.harga < 0.0 || it.harga.is_nan() {
+            return Err(format!("Harga {} tidak valid", it.nama));
+        }
+        it.subtotal = (it.harga * it.qty as f64).round();
+        subtotal += it.subtotal;
+    }
+    let diskon = p.diskon.clamp(0.0, subtotal);
+    let total = (subtotal - diskon).round();
+    if p.tunai < total {
+        return Err(format!(
+            "Tunai kurang: Rp {} < Rp {}",
+            p.tunai as i64, total as i64
+        ));
+    }
+    p.diskon = diskon;
+    p.total = total;
+    p.kembalian = (p.tunai - total).round();
+    if p.no_nota.trim().is_empty() {
+        p.no_nota = db::generate_pos_number().map_err(|e| e.to_string())?;
+    }
+    if p.tanggal.trim().is_empty() {
+        p.tanggal = chrono::Local::now().format("%Y-%m-%d").to_string();
+    }
+    db::insert_penjualan(&p).map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_get_all_penjualan() -> Result<Vec<Penjualan>, String> {
+    db::get_all_penjualan().map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_get_penjualan(id: i64) -> Result<Penjualan, String> {
+    db::get_penjualan_by_id(id).map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_delete_penjualan(id: i64) -> Result<(), String> {
+    db::delete_penjualan(id).map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_print_penjualan(penjualan_id: i64) -> Result<(), String> {
+    let p = db::get_penjualan_by_id(penjualan_id).map_err(|e| e.to_string())?;
+    let s = db::get_pos_settings().map_err(|e| e.to_string())?;
+    crate::pos_print::print_penjualan(&p, &s).map_err(|e| e.to_string())
 }

@@ -18,6 +18,7 @@ Aplikasi desktop pembuatan kwitansi SPJ (Surat Pertanggungjawaban) untuk lembaga
 - **Dashboard** — kartu total, BPU vs BNU, pajak terkumpul per jenis, diagram per periode (agregat backend).
 - **Backup pilihan folder** — folder backup bisa dipilih user + daftar + pulihkan (otomatis tiap start).
 - **Produk (POS Kasir)** — master mandiri: nama, harga, kategori, satuan bebas isi; CRUD + cari + filter kategori.
+- **POS Kasir** — katalog, keranjang (qty/diskon/tunai/kembalian), tanggal bebas, simpan, cetak struk thermal, riwayat + cetak ulang. Terpisah dari kwitansi/BKU.
 - **Dokumen BPU >Rp1jt** — BAST, Surat Pesanan, Invoice, BAP otomatis.
 - **Pengaturan Cetak** — mode "Isi Nilai Saja" (kertas pre-print) atau "Kwitansi Lengkap", ukuran kertas custom, margin, font, jarak TTD, **visual drag & drop editor**.
 - **Data Sekolah** — nama, alamat, kepala sekolah + NIP, bendahara + NIP.
@@ -70,7 +71,7 @@ AutoKwitansi/
 │   └── styles.css             # Styling + accordion + print media queries
 ├── src-tauri/
 │   ├── src/
-│   │   ├── lib.rs             # Module registration (9 mod) + 29 command
+│   │   ├── lib.rs             # Module registration (9 mod) + 34 command
 │   │   ├── commands.rs        # 23 Tauri commands + deteksi PPh 21 + expand BNU
 │   │   ├── db.rs              # SQLite CRUD + migrations + generate_pos_number()
 │   │   ├── models.rs          # Data models (8 structs)

@@ -181,3 +181,33 @@ pub struct Produk {
     pub satuan: String,
     pub created_at: Option<String>,
 }
+
+// ============ PENJUALAN POS KASIR (nota toko, mandiri) ============
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PenjualanItem {
+    pub id: Option<i64>,
+    pub penjualan_id: Option<i64>,
+    pub produk_id: i64,
+    pub nama: String,
+    pub harga: f64,
+    pub qty: i64,
+    pub subtotal: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Penjualan {
+    pub id: Option<i64>,
+    pub no_nota: String,
+    pub tanggal: String,
+    pub total: f64,
+    pub diskon: f64,
+    pub tunai: f64,
+    pub kembalian: f64,
+    pub penerima: String,
+    pub nama_toko: String,
+    pub alamat_toko: String,
+    pub pimpinan_toko: String,
+    pub created_at: Option<String>,
+    pub items: Vec<PenjualanItem>,
+}

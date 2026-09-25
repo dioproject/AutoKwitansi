@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.14.0 (Current)
+### v3.15.0 (Current)
+- [NEW] POS Kasir mandiri: katalog + keranjang + diskon/tunai/kembalian + tanggal bebas, simpan ke `penjualan`, cetak struk thermal, riwayat + cetak ulang (terpisah dari kwitansi/BKU)
+
+### v3.14.0
 - [NEW] Master Produk mandiri (nama/harga/kategori/satuan bebas, CRUD + cari + filter) + sidebar 2 grup (AUTO KWITANSI / POS KASIR)
 
 ### v3.13.1
