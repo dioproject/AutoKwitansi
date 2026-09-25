@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.13.1 (Current)
+### v3.14.0 (Current)
+- [NEW] Master Produk mandiri (nama/harga/kategori/satuan bebas, CRUD + cari + filter) + sidebar 2 grup (AUTO KWITANSI / POS KASIR)
+
+### v3.13.1
 - [IMPROVED] Menu Dashboard pindah ke paling atas sidebar
 
 ### v3.13.0

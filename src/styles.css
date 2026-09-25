@@ -80,6 +80,14 @@ html, body {
   gap: 2px;
 }
 
+.nav-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 12px 14px 4px;
+}
+
 .nav-btn {
   display: flex;
   align-items: center;
@@ -1075,7 +1083,8 @@ td .uraian-wrap {
 
   #sidebar .sidebar-header h1,
   #sidebar .sidebar-header .subtitle,
-  #sidebar .sidebar-footer {
+  #sidebar .sidebar-footer,
+  #sidebar .nav-group-label {
     display: none;
   }
 

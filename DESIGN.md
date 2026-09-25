@@ -51,7 +51,7 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 
 | Module | Fungsi | Commands |
 |--------|--------|----------|
-| `commands.rs` | 22 command + deteksi pajak + `expand_bnu_description()` | semua `cmd_*` |
+| `commands.rs` | 29 command (kwitansi, produk, backup, dashboard, POS, docs) | semua `cmd_*` |
 | `db.rs` | SQLite CRUD + migrations + `generate_pos_number()` (rand) | — |
 | `pdf_import.rs` | Parse 1 PDF BKU → BkuData | `cmd_parse_bku_pdf` |
 | `bku_period.rs` | Parse N PDF + import per bulan (pajak & expand BNU per tx) | `cmd_parse_bku_pdfs`, `cmd_import_bku_period` |
@@ -65,6 +65,7 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 - **Rekap SPJ** — filter periode, kartu + tabel total (bruto/PPh/PPN/total), cetak rekapitulasi kop + TTD, export CSV, panel Kesiapan LPJ (validasi + Perbaiki, riwayat tak disentuh)
 - **Dashboard** — kartu total/BPU/BNU, pajak per jenis, diagram per periode via `cmd_dashboard_stats`
 - **Backup** — folder pilihan user (`app_settings`), daftar + pulihkan via `cmd_*_backup*`, otomatis tiap start
+- **Produk** — master mandiri POS kasir (nama/harga/kategori/satuan), CRUD via modal
 - **Import BKU Per Bulan** — multi-PDF, grouped preview, toolbar merge per bulan (Gabungkan yang Dicentang / Gabung Otomatis per Kode / Uraikan Semua)
 - **Data Sekolah** — form identitas
 - **Pengaturan Cetak** — kwitansi: mode, kertas, margin, font, drag-drop editor

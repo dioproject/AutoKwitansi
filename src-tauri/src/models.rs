@@ -169,3 +169,15 @@ pub struct ImportResult {
     pub inserted: usize,
     pub skipped: usize,
 }
+
+// ============ PRODUK (master POS kasir, mandiri) ============
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Produk {
+    pub id: Option<i64>,
+    pub nama: String,
+    pub harga: f64,
+    pub kategori: String,
+    pub satuan: String,
+    pub created_at: Option<String>,
+}

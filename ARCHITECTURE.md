@@ -37,9 +37,9 @@ AutoKwitansi/
 │   ├── capabilities/default.json # Permissions (core, dialog)
 │   └── src/
 │       ├── main.rs               # Entry point → lib::run()
-│       ├── lib.rs                # Module registration (9 mod) + 22 command
-│       ├── commands.rs           # 23 #[tauri::command] + deteksi pajak + expand_bnu_description
-│       ├── db.rs                 # SQLite init, migrations, CRUD (5 tabel) + generate_pos_number
+│       ├── lib.rs                # Module registration (9 mod) + 29 command
+│       ├── commands.rs           # 29 #[tauri::command]: kwitansi, produk, backup, dashboard, POS, docs
+│       ├── db.rs                 # SQLite init, migrations, CRUD (7 tabel) + generate_pos_number
 │       ├── models.rs             # 8 structs (serde)
 │       ├── terbilang.rs          # Number → Indonesian words
 │       ├── pdf_import.rs         # PDF BKU parser → BkuData
@@ -76,7 +76,7 @@ AutoKwitansi/
 ┌──────────────────────────────────────────────────────────────────┐
 │                  Backend (Rust / Tauri)                          │
 │                                                                  │
-│  commands.rs   → 22 #[command] functions                         │
+│  commands.rs   → 29 #[command] functions                         │
 │  ├── cmd_terbilang                                               │
 │  ├── cmd_get_sekolah / cmd_update_sekolah                        │
 │  ├── cmd_update_kwitansi (terbilang total ulang, tanpa expand)   │
@@ -89,7 +89,7 @@ AutoKwitansi/
 │  ├── cmd_update_toko                                  [DOCS]     │
 │  └── cmd_parse_bku_pdfs / cmd_import_bku_period       [PERIOD]   │
 │                                                                  │
-│  db.rs         → SQLite CRUD + migrations (5 tabel)              │
+│  db.rs         → SQLite CRUD + migrations (7 tabel)              │
 │                  + generate_pos_number() (rand, YYYYMMDD-NNNN)   │
 │  terbilang.rs  → angka → huruf Indonesia                         │
 │  pdf_import.rs → pdf-extract text → grouping → BkuData           │

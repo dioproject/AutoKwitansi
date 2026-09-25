@@ -455,6 +455,49 @@ pub fn cmd_pos_test_print() -> Result<(), String> {
     crate::pos_print::test_print(&s).map_err(|e| e.to_string())
 }
 
+// ============ PRODUK (master POS kasir, mandiri) ============
+
+#[command]
+pub fn cmd_get_all_produk() -> Result<Vec<crate::models::Produk>, String> {
+    db::get_all_produk().map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_simpan_produk(mut produk: crate::models::Produk) -> Result<i64, String> {
+    produk.nama = produk.nama.trim().to_string();
+    if produk.nama.is_empty() {
+        return Err("Nama produk wajib diisi".into());
+    }
+    if produk.harga < 0.0 || produk.harga.is_nan() {
+        produk.harga = 0.0;
+    }
+    if produk.satuan.trim().is_empty() {
+        produk.satuan = "pcs".to_string();
+    }
+    db::insert_produk(&produk).map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_update_produk(mut produk: crate::models::Produk) -> Result<(), String> {
+    let id = produk.id.ok_or("ID produk kosong".to_string())?;
+    produk.nama = produk.nama.trim().to_string();
+    if produk.nama.is_empty() {
+        return Err("Nama produk wajib diisi".into());
+    }
+    if produk.harga < 0.0 || produk.harga.is_nan() {
+        produk.harga = 0.0;
+    }
+    if produk.satuan.trim().is_empty() {
+        produk.satuan = "pcs".to_string();
+    }
+    db::update_produk(id, &produk).map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_delete_produk(id: i64) -> Result<(), String> {
+    db::delete_produk(id).map_err(|e| e.to_string())
+}
+
 // ============ BACKUP & RESTORE ============
 
 #[command]

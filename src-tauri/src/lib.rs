@@ -52,6 +52,10 @@ pub fn run() {
             cmd_backup_now,
             cmd_list_backups,
             cmd_restore_backup,
+            cmd_get_all_produk,
+            cmd_simpan_produk,
+            cmd_update_produk,
+            cmd_delete_produk,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

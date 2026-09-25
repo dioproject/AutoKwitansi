@@ -15,6 +15,7 @@
         <p class="subtitle">Kwitansi SPJ Sekolah</p>
       </div>
       <nav>
+        <div class="nav-group-label">AUTO KWITANSI</div>
         <button class="nav-btn" data-page="dashboard" onclick="showPage('dashboard')">
           <span class="nav-icon">📈</span> Dashboard
         </button>
@@ -33,13 +34,17 @@
         <button class="nav-btn" data-page="print-settings" onclick="showPage('print-settings')">
           <span class="nav-icon">⚙️</span> Pengaturan Cetak
         </button>
+        <div class="nav-group-label">POS KASIR</div>
+        <button class="nav-btn" data-page="produk" onclick="showPage('produk')">
+          <span class="nav-icon">📦</span> Produk
+        </button>
         <button class="nav-btn" data-page="pos-settings" onclick="showPage('pos-settings')">
           <span class="nav-icon">🖨️</span> Printer Thermal
         </button>
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v3.13.1</p>
+        <p class="version">v3.14.0</p>
       </div>
     </aside>
 
@@ -221,6 +226,39 @@
             <h3 style="margin:0 0 12px;font-size:14px;">Pajak Terkumpul</h3>
             <div id="dashboard-tax"></div>
           </div>
+        </div>
+      </section>
+
+      <!-- PAGE: PRODUK (POS KASIR) -->
+      <section id="page-produk" class="page">
+        <div class="page-header">
+          <h2>Produk</h2>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <select id="produk-kategori-filter" onchange="handleProdukFilterChange()" title="Filter kategori" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;">
+              <option value="">Semua kategori</option>
+            </select>
+            <div class="search-bar">
+              <input type="text" id="produk-search" placeholder="Cari produk..." oninput="handleProdukFilterChange()" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="openProdukModal()">+ Tambah Produk</button>
+          </div>
+        </div>
+        <div class="table-container" style="max-height:60vh;overflow-y:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Nama</th>
+                <th>Kategori</th>
+                <th style="text-align:right;">Harga</th>
+                <th>Satuan</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="produk-tbody">
+              <tr><td colspan="6" class="empty">Belum ada produk</td></tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -679,6 +717,40 @@
       <div id="modal-cetak-content" style="background:#f1f5f9;border:1px solid var(--border);border-radius:6px;padding:14px;max-height:70vh;overflow:auto;">
       </div>
       <p class="hint" style="margin-top:10px;font-size:11px;color:var(--text-muted);">Contoh data — ikut mode, ukuran font, margin & posisi field terkini. Ubah angka lalu buka ulang / biarkan terbuka saat mengubah.</p>
+    </div>
+  </div>
+
+  <!-- MODAL: PRODUK -->
+  <div id="modal-produk" class="modal hidden" onclick="if(event.target===this)window._closeModal('modal-produk')">
+    <div class="modal-content" style="max-width:480px;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;font-size:16px;" id="modal-produk-title">📦 Tambah Produk</h3>
+        <button onclick="window._closeModal('modal-produk')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);padding:0;line-height:1;">&times;</button>
+      </div>
+      <input type="hidden" id="p_id" />
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="form-group full-width">
+          <label for="p_nama">Nama Produk</label>
+          <input type="text" id="p_nama" placeholder="Pensil 2B" />
+        </div>
+        <div class="form-group">
+          <label for="p_harga">Harga (Rp)</label>
+          <input type="text" id="p_harga" placeholder="5.000" oninput="handleProdukHargaInput(this)" />
+        </div>
+        <div class="form-group">
+          <label for="p_satuan">Satuan</label>
+          <input type="text" id="p_satuan" placeholder="pcs — bebas isi" />
+        </div>
+        <div class="form-group full-width">
+          <label for="p_kategori">Kategori</label>
+          <input type="text" id="p_kategori" list="kategori-list" placeholder="ATK" />
+          <datalist id="kategori-list"></datalist>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:14px;">
+        <button class="btn btn-primary" onclick="handleSimpanProduk()">Simpan</button>
+        <button class="btn btn-secondary" onclick="window._closeModal('modal-produk')">Batal</button>
+      </div>
     </div>
   </div>
 

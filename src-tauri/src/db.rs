@@ -185,6 +185,19 @@ pub fn init_db() -> Result<()> {
         );",
     )?;
 
+    // Master produk untuk POS kasir (mandiri, tidak terkait kwitansi/BKU).
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS produk (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nama TEXT NOT NULL DEFAULT '',
+            harga REAL NOT NULL DEFAULT 0,
+            kategori TEXT NOT NULL DEFAULT '',
+            satuan TEXT NOT NULL DEFAULT 'pcs',
+            created_at TEXT DEFAULT (datetime('now','localtime'))
+        );",
+    )?;
+    conn.execute_batch("CREATE INDEX IF NOT EXISTS idx_produk_nama ON produk(nama);")?;
+
     // Insert default sekolah if empty
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM sekolah", [], |row| row.get(0))?;
     if count == 0 {
@@ -340,6 +353,56 @@ pub fn get_kwitansi_by_id(id: i64) -> Result<Kwitansi> {
 pub fn delete_kwitansi(id: i64) -> Result<()> {
     let conn = get_connection()?;
     conn.execute("DELETE FROM kwitansi WHERE id=?1", params![id])?;
+    Ok(())
+}
+
+// ============ PRODUK (master POS kasir, mandiri) ============
+
+fn row_to_produk(row: &rusqlite::Row) -> Result<crate::models::Produk> {
+    Ok(crate::models::Produk {
+        id: row.get(0)?,
+        nama: row.get(1)?,
+        harga: row.get(2)?,
+        kategori: row.get(3)?,
+        satuan: row.get(4)?,
+        created_at: row.get(5)?,
+    })
+}
+
+pub fn get_all_produk() -> Result<Vec<crate::models::Produk>> {
+    let conn = get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, nama, harga, kategori, satuan, created_at FROM produk ORDER BY nama ASC",
+    )?;
+    let rows = stmt.query_map([], row_to_produk)?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row?);
+    }
+    Ok(out)
+}
+
+pub fn insert_produk(p: &crate::models::Produk) -> Result<i64> {
+    let conn = get_connection()?;
+    conn.execute(
+        "INSERT INTO produk (nama, harga, kategori, satuan) VALUES (?1, ?2, ?3, ?4)",
+        params![p.nama, p.harga, p.kategori, p.satuan],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn update_produk(id: i64, p: &crate::models::Produk) -> Result<()> {
+    let conn = get_connection()?;
+    conn.execute(
+        "UPDATE produk SET nama=?1, harga=?2, kategori=?3, satuan=?4 WHERE id=?5",
+        params![p.nama, p.harga, p.kategori, p.satuan, id],
+    )?;
+    Ok(())
+}
+
+pub fn delete_produk(id: i64) -> Result<()> {
+    let conn = get_connection()?;
+    conn.execute("DELETE FROM produk WHERE id=?1", params![id])?;
     Ok(())
 }
 
@@ -902,3 +965,4 @@ mod tests {
         result.expect("init_db harus sukses di DB lama + insert import harus bisa");
     }
 }
+
