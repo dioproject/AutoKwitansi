@@ -455,6 +455,22 @@ pub fn cmd_pos_test_print() -> Result<(), String> {
     crate::pos_print::test_print(&s).map_err(|e| e.to_string())
 }
 
+/// Test print memakai nilai form (tanpa menyimpan) — agar Test Print
+/// tidak memaksa simpan pengaturan + toast yang membingungkan.
+#[command]
+pub fn cmd_pos_test_print_with(settings: PosSettings) -> Result<(), String> {
+    crate::pos_print::test_print(&settings).map_err(|e| e.to_string())
+}
+
+// ============ SERIAL PORT SCAN ============
+
+/// Daftar port serial yang terdeteksi (untuk dropdown pilihan, ganti ketik manual).
+#[command]
+pub fn cmd_list_serial_ports() -> Result<Vec<String>, String> {
+    let ports = serialport::available_ports().map_err(|e| format!("Gagal scan port: {}", e))?;
+    Ok(ports.into_iter().map(|p| p.port_name).collect())
+}
+
 // ============ PRODUK (master POS kasir, mandiri) ============
 
 #[command]

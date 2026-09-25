@@ -1141,34 +1141,13 @@ window.handleCetakPosBatch = async function () {
   }
 };
 
-// ========== POS SETTINGS MODAL ==========
-document.addEventListener("DOMContentLoaded", async () => {
-  const s = getPosSettings();
-  if (s) {
-    const pw = document.getElementById("pos_paper_width");
-    const port = document.getElementById("pos_port");
-    const baud = document.getElementById("pos_baud_rate");
-    if (pw) pw.value = s.paper_width || 58;
-    if (port) port.value = s.port || "";
-    if (baud) baud.value = s.baud_rate || 9600;
-  }
-});
+// ========== POS SETTINGS MODAL (legacy, dipakai setup page) ==========
 
 window.handleSimpanPosSettings = async function () {
-  const s = getPosSettings() || {};
-  const settings = {
-    id: s.id || null,
-    paper_width: parseInt(document.getElementById("pos_paper_width")?.value || "58"),
-    port: document.getElementById("pos_port")?.value || "",
-    baud_rate: parseInt(document.getElementById("pos_baud_rate")?.value || "9600"),
-  };
-
   try {
-    await invoke("cmd_save_pos_settings", { settings });
-    // Reload in pos.js
+    await invoke("cmd_save_pos_settings", { settings: readPosSetupForm() });
     await loadPosSettingsMod();
     showToast("Pengaturan POS disimpan", "success");
-    window._closeModal("modal-pos-settings");
   } catch (e) {
     showToast("Gagal simpan: " + e, "error");
   }
@@ -1185,10 +1164,56 @@ window.handlePosTestPrint = async function () {
 
 // ========== POS SETUP PAGE ==========
 
+function readPosSetupForm() {
+  const s = getPosSettings() || {};
+  return {
+    id: s.id || null,
+    paper_width: parseInt(document.getElementById("pos_setup_paper_width")?.value || "58"),
+    port: document.getElementById("pos_setup_port")?.value || "",
+    baud_rate: parseInt(document.getElementById("pos_setup_baud_rate")?.value || "9600"),
+    header_text: document.getElementById("pos_setup_header")?.value || "",
+    footer_text: document.getElementById("pos_setup_footer")?.value || "",
+  };
+}
+
+/** Scan port serial + isi dropdown, pertahankan pilihan tersimpan */
+window.handleScanPorts = async function (silent) {
+  const sel = document.getElementById("pos_setup_port");
+  let ports = [];
+  try {
+    ports = await invoke("cmd_list_serial_ports");
+  } catch (e) {
+    if (!silent && window._showToast) window._showToast("Gagal scan: " + e, "error");
+    ports = [];
+  }
+  if (sel) {
+    const cur = sel.value || (getPosSettings()?.port || "");
+    sel.innerHTML = `<option value="">— pilih port —</option>` +
+      ports.map(p => `<option value="${p}"${p === cur ? " selected" : ""}>${p}</option>`).join("") +
+      (cur && !ports.includes(cur) ? `<option value="${cur}" selected>${cur} (tersimpan)</option>` : "");
+    if (!sel.value && ports.length === 1) sel.value = ports[0];
+  }
+  if (!silent) {
+    if (window._showToast) {
+      if (ports.length === 0) window._showToast("Tidak ada port COM terdeteksi — instal driver USB-Serial printer dulu", "warning");
+      else window._showToast(`${ports.length} port ditemukan: ${ports.join(", ")}`, "success");
+    }
+  }
+  return ports;
+};
+
 async function loadPosSetupPage() {
   try {
     const s = await invoke("cmd_get_pos_settings");
-    document.getElementById("pos_setup_port").value = s.port || "";
+    await loadPosSettingsMod();
+    await window.handleScanPorts(true);
+    const sel = document.getElementById("pos_setup_port");
+    if (sel && s.port) {
+      if (![...sel.options].some(o => o.value === s.port)) {
+        sel.innerHTML += `<option value="${s.port}" selected>${s.port} (tersimpan)</option>`;
+      }
+      sel.value = s.port;
+    }
     document.getElementById("pos_setup_baud_rate").value = s.baud_rate || 9600;
     document.getElementById("pos_setup_paper_width").value = s.paper_width || 58;
     document.getElementById("pos_setup_header").value = s.header_text || "";
@@ -1209,18 +1234,8 @@ window.renderPosPaperPreview = function () {
 };
 
 window.handleSimpanPosSetupSettings = async function () {
-  const s = getPosSettings() || await loadPosSettingsMod() || {};
-  const settings = {
-    id: s.id || null,
-    paper_width: parseInt(document.getElementById("pos_setup_paper_width")?.value || "58"),
-    port: document.getElementById("pos_setup_port")?.value || "",
-    baud_rate: parseInt(document.getElementById("pos_setup_baud_rate")?.value || "9600"),
-    header_text: document.getElementById("pos_setup_header")?.value || "",
-    footer_text: document.getElementById("pos_setup_footer")?.value || "",
-  };
-
   try {
-    await invoke("cmd_save_pos_settings", { settings });
+    await invoke("cmd_save_pos_settings", { settings: readPosSetupForm() });
     await loadPosSettingsMod();
     showToast("Pengaturan printer thermal disimpan", "success");
   } catch (e) {
@@ -1229,9 +1244,13 @@ window.handleSimpanPosSetupSettings = async function () {
 };
 
 window.handlePosSetupTestPrint = async function () {
-  // Simpan dulu agar port/baud terupdate
-  await handleSimpanPosSetupSettings();
-  await window.handlePosTestPrint();
+  // Test pakai nilai di layar apa adanya — TANPA menyimpan + tanpa toast simpan.
+  try {
+    await invoke("cmd_pos_test_print_with", { settings: readPosSetupForm() });
+    showToast("Test print berhasil dikirim", "success");
+  } catch (e) {
+    showToast("Gagal test print: " + e, "error");
+  }
 };
 
 window.handleResetPosSetup = function () {

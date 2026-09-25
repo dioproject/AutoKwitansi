@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.15.0 (Current)
+### v3.16.0 (Current)
+- [NEW] Scan port COM printer thermal (dropdown pilih, pesan error dibantu troubleshooting); Test Print tak lagi memaksa simpan; hapus modal settings lama tak terpakai
+
+### v3.15.0
 - [NEW] POS Kasir mandiri: katalog + keranjang + diskon/tunai/kembalian + tanggal bebas, simpan ke `penjualan`, cetak struk thermal, riwayat + cetak ulang (terpisah dari kwitansi/BKU)
 
 ### v3.14.0

@@ -248,7 +248,10 @@ fn send_bytes(settings: &PosSettings, bytes: &[u8], ctx: &str) -> Result<(), Str
                 .map_err(|e| format!("Gagal flush printer: {}", e))?;
             Ok(())
         }
-        Err(e) => Err(format!("Tidak bisa buka port {}: {}", settings.port, e)),
+        Err(e) => Err(format!(
+            "Tidak bisa buka port {} (cek kabel, driver USB-Serial, baud rate, dan pastikan tak dipakai aplikasi lain): {}",
+            settings.port, e
+        )),
     }
 }
 
@@ -432,7 +435,10 @@ pub fn print_nota(kwitansi: &Kwitansi, settings: &PosSettings) -> Result<(), Str
                 .map_err(|e| format!("Gagal flush printer: {}", e))?;
             Ok(())
         }
-        Err(e) => Err(format!("Tidak bisa buka port {}: {}", settings.port, e)),
+        Err(e) => Err(format!(
+            "Tidak bisa buka port {} (cek kabel, driver USB-Serial, baud rate, dan pastikan tak dipakai aplikasi lain): {}",
+            settings.port, e
+        )),
     }
 }
 
@@ -455,7 +461,10 @@ pub fn test_print(settings: &PosSettings) -> Result<(), String> {
                 .map_err(|e| format!("Gagal flush printer: {}", e))?;
             Ok(())
         }
-        Err(e) => Err(format!("Tidak bisa buka port {}: {}", settings.port, e)),
+        Err(e) => Err(format!(
+            "Tidak bisa buka port {} (cek kabel, driver USB-Serial, baud rate, dan pastikan tak dipakai aplikasi lain): {}",
+            settings.port, e
+        )),
     }
 }
 

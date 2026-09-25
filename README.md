@@ -10,7 +10,7 @@ Aplikasi desktop pembuatan kwitansi SPJ (Surat Pertanggungjawaban) untuk lembaga
 - **PPh 23 4% Makan Minum** — checkbox otomatis untuk uraian makan/minum/konsumsi/catering/jamuan; eksklusif terhadap PPh 21.
 - **Referensi ARKAS 2026** — 153 kode kegiatan resmi (dari PDF) jadi patokan kalimat cetak + saran input + deteksi pajak.
 - **Cetak Nota POS Thermal (ESC/POS)** — cetak langsung ke printer thermal USB via COM port **tanpa dialog print**. Format struk kasir dengan header/footer kustom. Preview modal sebelum cetak, fallback ke printer biasa.
-- **Halaman Printer Thermal** — setup port, baud rate, lebar kertas (58/80mm), header & footer struk kustom, test print, preview kertas live.
+- **Printer Thermal** — setup port (scan COM + pilih, bukan ketik), baud rate, lebar kertas (58/80mm), header & footer struk kustom, test print, preview kertas live.
 - **No Nota Auto-Generate** — setiap cetak POS mendapat nomor acak unik (`YYYYMMDD-NNNN`), bukan nomor kwitansi.
 - **Import BKU Per Bulan** — multi-PDF sekaligus, dikelompokkan per bulan/tahun, merge manual per bulan.
 - **Riwayat Group per Bulan** — accordion "BKU {Bulan} {Tahun}", terbaru terbuka; badge BPU/BNU/PPh21/PPh21 5%/PPh23/PPh23 2%/PPN; pencarian flat.
@@ -71,7 +71,7 @@ AutoKwitansi/
 │   └── styles.css             # Styling + accordion + print media queries
 ├── src-tauri/
 │   ├── src/
-│   │   ├── lib.rs             # Module registration (9 mod) + 34 command
+│   │   ├── lib.rs             # Module registration (9 mod) + 36 command
 │   │   ├── commands.rs        # 23 Tauri commands + deteksi PPh 21 + expand BNU
 │   │   ├── db.rs              # SQLite CRUD + migrations + generate_pos_number()
 │   │   ├── models.rs          # Data models (8 structs)

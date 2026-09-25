@@ -57,6 +57,8 @@ pub fn run() {
             cmd_get_penjualan,
             cmd_delete_penjualan,
             cmd_print_penjualan,
+            cmd_pos_test_print_with,
+            cmd_list_serial_ports,
             cmd_get_all_produk,
             cmd_simpan_produk,
             cmd_update_produk,

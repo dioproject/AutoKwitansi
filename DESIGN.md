@@ -19,7 +19,7 @@ Aplikasi desktop pembuatan kwitansi SPJ sekolah — **satu aplikasi utuh** (tanp
 │                        MAIN FLOW                            │
 │                                                             │
 │  1. Data Sekolah → isi nama, alamat, kepsek, bendahara      │
-│  2. Printer Thermal → set COM port, baud, lebar kertas,     │
+│  2. Printer Thermal → scan + pilih COM port, baud, lebar kertas,│
 │     header/footer struk → Test Print → Simpan               │
 │  3. Import BKU Per Bulan → multi-PDF → group per bulan      │
 │     ├─ merge manual per bulan (centang 2+ → gabung)         │
@@ -51,7 +51,7 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 
 | Module | Fungsi | Commands |
 |--------|--------|----------|
-| `commands.rs` | 34 command (kwitansi, produk, penjualan, backup, dashboard, POS, docs) | semua `cmd_*` |
+| `commands.rs` | 36 command (kwitansi, produk, penjualan, backup, dashboard, POS, docs) | semua `cmd_*` |
 | `db.rs` | SQLite CRUD + migrations + `generate_pos_number()` (rand) | — |
 | `pdf_import.rs` | Parse 1 PDF BKU → BkuData | `cmd_parse_bku_pdf` |
 | `bku_period.rs` | Parse N PDF + import per bulan (pajak & expand BNU per tx) | `cmd_parse_bku_pdfs`, `cmd_import_bku_period` |
@@ -70,7 +70,7 @@ Semua modul di-import **statis** di `main.js` (tidak ada lagi dynamic import per
 - **Import BKU Per Bulan** — multi-PDF, grouped preview, toolbar merge per bulan (Gabungkan yang Dicentang / Gabung Otomatis per Kode / Uraikan Semua)
 - **Data Sekolah** — form identitas
 - **Pengaturan Cetak** — kwitansi: mode, kertas, margin, font, drag-drop editor
-- **Printer Thermal** — POS: port COM, baud rate, lebar kertas, header/footer struk kustom, test print, preview struk live
+- **Printer Thermal** — POS: scan + pilih port COM (bukan ketik), baud rate, lebar kertas, header/footer struk kustom, test print, preview struk live
 
 ### Halaman vs Printer (diferensiasi visual)
 Di preview cetak, tombol dikelompokkan dengan label:
