@@ -90,7 +90,7 @@ AutoKwitansi/
 │  └── cmd_parse_bku_pdfs / cmd_import_bku_period       [PERIOD]   │
 │                                                                  │
 │  db.rs         → SQLite CRUD + migrations (9 tabel)              │
-│                  + generate_pos_number() (rand, YYYYMMDD-NNNN)   │
+│                  + generate_pos_number() (rand, XXXX-XXXX tanpa tanggal)   │
 │  terbilang.rs  → angka → huruf Indonesia                         │
 │  pdf_import.rs → pdf-extract text → grouping → BkuData           │
 │  bku_period.rs → multi-PDF parse + import per bulan              │
@@ -136,7 +136,7 @@ Alur cetak nota thermal:
 1. Frontend: `cetakNotaPos(k)` → tampilkan **modal preview** (struk dirender HTML monospace).
 2. User klik **Thermal** → `invoke("cmd_print_pos_nota", { kwitansiId })`.
 3. Backend `pos_print.rs`:
-   - `db::generate_pos_number()` → nomor acak `YYYYMMDD-NNNN`.
+   - `db::generate_pos_number()` → nomor acak `XXXX-XXXX` huruf+angka tanpa tanggal.
    - `build_escpos_nota(k, settings, nota_number)` → byte array ESC/POS:
      - Header: `header_text` kustom → fallback `nama_toko`/`alamat_toko` (BPU) → fallback "NOTA PEMBAYARAN" (center, bold).
      - Body: No (label BPU/BNU + nota number), Tgl, ITEM (uraian), TOTAL (bold, right), blok pajak (bruto/pph/netto) jika kena PPh, Penerima.

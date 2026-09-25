@@ -26,6 +26,86 @@ fn sanitize_ascii(s: &str) -> String {
         .collect()
 }
 
+// ============ LOGO RASTER (ESC/POS GS v 0) ============
+// Gambar (PNG/JPG/BMP) tak bisa langsung dikirim ke printer thermal.
+// Dikonversi ke bitmap 1-bit (hitam-putih, threshold 128) lalu dicetak
+// sebagai grafik raster. Bila tak ada logo, bagian ini dilewati.
+
+/// Muat logo → (lebar_byte, tinggi_dot, data_packed). None bila gagal.
+fn load_logo_raster(logo_path: &str, max_dots: u32) -> Option<(usize, usize, Vec<u8>)> {
+    let p = logo_path.trim();
+    if p.is_empty() {
+        return None;
+    }
+    let img = image::open(p).ok()?;
+    let gray = img.to_luma8();
+    let (w0, h0) = (gray.width().max(1), gray.height().max(1));
+    // Skala agar muat lebar kertas, tinggi dibatasi 240 dot.
+    let w = max_dots;
+    let mut h = (h0 as u64 * max_dots as u64 / w0 as u64).min(240) as u32;
+    if h == 0 {
+        h = 1;
+    }
+    let resized = image::imageops::resize(&gray, w, h, image::imageops::FilterType::Triangle);
+    let x_bytes = ((w as usize) + 7) / 8;
+    let mut data = vec![0u8; x_bytes * h as usize];
+    for y in 0..h {
+        for x in 0..w {
+            // Gelap (<128) = titik hitam = bit 1 (MSB dulu).
+            if resized.get_pixel(x, y)[0] < 128 {
+                let idx = y as usize * x_bytes + x as usize / 8;
+                data[idx] |= 0x80 >> (x % 8);
+            }
+        }
+    }
+    Some((x_bytes, h as usize, data))
+}
+
+/// Tulis blok grafik raster ke buffer. Return false bila logo tak bisa dipakai.
+fn emit_logo(buf: &mut Vec<u8>, logo_path: &str, max_dots: u32) -> bool {
+    let (x_bytes, height, data) = match load_logo_raster(logo_path, max_dots) {
+        Some(v) => v,
+        None => return false,
+    };
+    if x_bytes == 0 || height == 0 || x_bytes > 255 || height > 2040 {
+        return false;
+    }
+    // GS v 0 m=0 (normal): xL xH yL yH + data
+    buf.extend_from_slice(&[0x1D, 0x76, 0x30, 0x00]);
+    buf.push((x_bytes & 0xFF) as u8);
+    buf.push(((x_bytes >> 8) & 0xFF) as u8);
+    buf.push((height & 0xFF) as u8);
+    buf.push(((height >> 8) & 0xFF) as u8);
+    buf.extend_from_slice(&data);
+    buf.extend_from_slice(LF);
+    true
+}
+
+/// Blok header identitas toko dari form khusus (nama/alamat/telp).
+/// Return true bila ada yang tercetak (agar pemanggil bisa fallback).
+fn emit_store_block(
+    buf: &mut Vec<u8>,
+    line: &dyn Fn(&str) -> String,
+    settings: &PosSettings,
+) -> bool {
+    if settings.store_name.trim().is_empty() {
+        return false;
+    }
+    buf.extend_from_slice(ESC_BOLD_ON);
+    buf.extend_from_slice(line(&settings.store_name).as_bytes());
+    buf.extend_from_slice(LF);
+    buf.extend_from_slice(ESC_BOLD_OFF);
+    if !settings.store_address.trim().is_empty() {
+        buf.extend_from_slice(line(&settings.store_address).as_bytes());
+        buf.extend_from_slice(LF);
+    }
+    if !settings.store_phone.trim().is_empty() {
+        buf.extend_from_slice(line(&format!("Telp: {}", settings.store_phone)).as_bytes());
+        buf.extend_from_slice(LF);
+    }
+    true
+}
+
 fn truncate_per_line(s: &str, max_chars: usize) -> String {
     let lines: Vec<&str> = s.split('\n').collect();
     let mut result = Vec::new();
@@ -62,14 +142,18 @@ fn build_escpos_nota(k: &Kwitansi, settings: &PosSettings, nota_number: &str) ->
     let mut buf = Vec::new();
 
     // ══════════════════════════
-    // HEADER — data toko (BPU) atau custom text
+    // HEADER — logo (opsional) lalu identitas toko
     // ══════════════════════════
     buf.extend_from_slice(ESC_ALIGN_CENTER);
+    let dots = if paper_width >= 80 { 576 } else { 384 };
+    emit_logo(&mut buf, &settings.logo_path, dots);
 
     let has_toko = !k.nama_toko.trim().is_empty();
     let custom_header = settings.header_text.trim();
 
-    if !custom_header.is_empty() {
+    if emit_store_block(&mut buf, &line, settings) {
+        // Form toko khusus (nama/alamat/telp) menang bila diisi.
+    } else if !custom_header.is_empty() {
         // User-defined custom header
         for hline in custom_header.lines() {
             buf.extend_from_slice(line(hline).as_bytes());
@@ -287,10 +371,15 @@ fn build_escpos_struk(p: &Penjualan, settings: &PosSettings) -> Vec<u8> {
 
     let mut buf = Vec::new();
 
-    // HEADER toko
+    // HEADER toko: logo (opsional) → form toko khusus → header lama → fallback
     buf.extend_from_slice(ESC_ALIGN_CENTER);
+    let dots = if paper_width >= 80 { 576 } else { 384 };
+    emit_logo(&mut buf, &settings.logo_path, dots);
+
     let custom_header = settings.header_text.trim();
-    if !custom_header.is_empty() {
+    if emit_store_block(&mut buf, &line, settings) {
+        // Form toko khusus menang bila diisi.
+    } else if !custom_header.is_empty() {
         for hline in custom_header.lines() {
             buf.extend_from_slice(line(hline).as_bytes());
             buf.extend_from_slice(LF);
@@ -627,6 +716,10 @@ mod tests {
             header_text: "".into(),
             footer_text: "".into(),
             last_pos_number: 0,
+            store_name: "".into(),
+            store_address: "".into(),
+            store_phone: "".into(),
+            logo_path: "".into(),
         };
         let out = String::from_utf8_lossy(&build_escpos_struk(&p, &settings)).to_string();
         assert!(out.contains("Toko Makmur"), "header toko:\n{}", out);
@@ -635,6 +728,75 @@ mod tests {
         assert!(out.contains("TOTAL"), "total:\n{}", out);
         assert!(out.contains("20.000"), "subtotal:\n{}", out);
         assert!(out.contains("Kembali"), "kembalian:\n{}", out);
+    }
+
+    fn test_settings() -> PosSettings {
+        PosSettings {
+            id: None,
+            paper_width: 58,
+            port: "".into(),
+            baud_rate: 9600,
+            header_text: "".into(),
+            footer_text: "".into(),
+            last_pos_number: 0,
+            store_name: "".into(),
+            store_address: "".into(),
+            store_phone: "".into(),
+            logo_path: "".into(),
+        }
+    }
+
+    #[test]
+    fn test_logo_raster_packing() {
+        // Gambar sintetis 16x8: kiri hitam, kanan putih.
+        let mut img = image::GrayImage::new(16, 8);
+        for y in 0..8 {
+            for x in 0..16 {
+                img.put_pixel(x, y, image::Luma([if x < 8 { 0 } else { 255 }]));
+            }
+        }
+        let dir = std::env::temp_dir();
+        let path = dir.join("ak-logo-test.png");
+        img.save(&path).unwrap();
+        let (xb, h, data) = load_logo_raster(&path.to_string_lossy(), 16).expect("logo terbaca");
+        assert_eq!((xb, h), (2, 8));
+        assert_eq!(data.len(), 16);
+        // Tiap baris: byte1 penuh hitam (0xFF), byte2 putih (0x00).
+        for row in data.chunks(2) {
+            assert_eq!(row, &[0xFF, 0x00]);
+        }
+        let _ = std::fs::remove_file(&path);
+        // Path kosong / tak ada → None (dilewati diam-diam).
+        assert!(load_logo_raster("", 384).is_none());
+        assert!(load_logo_raster("/tidak/ada.png", 384).is_none());
+    }
+
+    #[test]
+    fn test_store_block_menang_atas_header_lama() {
+        let mut s = test_settings();
+        s.store_name = "Toko Sendiri".into();
+        s.store_address = "Jl. Mawar 5".into();
+        s.store_phone = "0811".into();
+        s.header_text = "Header Lama".into();
+        let p = Penjualan {
+            id: None,
+            no_nota: "N1".into(),
+            tanggal: "2026-09-24".into(),
+            total: 0.0,
+            diskon: 0.0,
+            tunai: 0.0,
+            kembalian: 0.0,
+            penerima: "".into(),
+            nama_toko: "".into(),
+            alamat_toko: "".into(),
+            pimpinan_toko: "".into(),
+            created_at: None,
+            items: vec![],
+        };
+        let out = String::from_utf8_lossy(&build_escpos_struk(&p, &s)).to_string();
+        assert!(out.contains("Toko Sendiri"), "store menang:\n{}", out);
+        assert!(out.contains("Telp: 0811"), "telp:\n{}", out);
+        assert!(!out.contains("Header Lama"), "header lama kalah:\n{}", out);
     }
 
     #[test]

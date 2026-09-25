@@ -110,6 +110,14 @@ pub struct PosSettings {
     pub footer_text: String,
     #[serde(default)]
     pub last_pos_number: i64,
+    #[serde(default)]
+    pub store_name: String,
+    #[serde(default)]
+    pub store_address: String,
+    #[serde(default)]
+    pub store_phone: String,
+    #[serde(default)]
+    pub logo_path: String,
 }
 
 // ============ BPU DOKUMEN ============

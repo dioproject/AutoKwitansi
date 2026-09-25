@@ -58,6 +58,8 @@ pub fn run() {
             cmd_delete_penjualan,
             cmd_print_penjualan,
             cmd_pos_test_print_with,
+            cmd_upload_logo,
+            cmd_hapus_logo,
             cmd_list_serial_ports,
             cmd_get_all_produk,
             cmd_simpan_produk,

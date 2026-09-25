@@ -1,4 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { isBpu, loadPosSettings as loadPosSettingsMod, getPosSettings, cetakNotaPos, cetakPosThermal, cetakPosBrowser } from "./pos.js";
 import { cariUraianKegiatan, DAFTAR_KEGIATAN } from "./kode-referensi.js";
 import { needsDocuments, loadDocStatus, allDocsComplete } from "./bpu-docs.js";
@@ -1171,8 +1172,12 @@ function readPosSetupForm() {
     paper_width: parseInt(document.getElementById("pos_setup_paper_width")?.value || "58"),
     port: document.getElementById("pos_setup_port")?.value || "",
     baud_rate: parseInt(document.getElementById("pos_setup_baud_rate")?.value || "9600"),
-    header_text: document.getElementById("pos_setup_header")?.value || "",
+    header_text: s.header_text || "",
     footer_text: document.getElementById("pos_setup_footer")?.value || "",
+    store_name: document.getElementById("pos_setup_store_name")?.value || "",
+    store_address: document.getElementById("pos_setup_store_address")?.value || "",
+    store_phone: document.getElementById("pos_setup_store_phone")?.value || "",
+    logo_path: s.logo_path || "",
   };
 }
 
@@ -1220,8 +1225,17 @@ async function loadPosSetupPage() {
     }
     document.getElementById("pos_setup_baud_rate").value = s.baud_rate || 9600;
     document.getElementById("pos_setup_paper_width").value = s.paper_width || 58;
-    document.getElementById("pos_setup_header").value = s.header_text || "";
+    // Migrasi sekali: header lama 3 baris → form toko (belum disimpan sampai klik Simpan)
+    let sName = s.store_name || "", sAddr = s.store_address || "", sPhone = s.store_phone || "";
+    if (!sName && !sAddr && !sPhone && (s.header_text || "").trim()) {
+      const hl = s.header_text.split("\n").map(x => x.trim());
+      sName = hl[0] || ""; sAddr = hl[1] || ""; sPhone = (hl[2] || "").replace(/^telp\s*:\s*/i, "");
+    }
+    document.getElementById("pos_setup_store_name").value = sName;
+    document.getElementById("pos_setup_store_address").value = sAddr;
+    document.getElementById("pos_setup_store_phone").value = sPhone;
     document.getElementById("pos_setup_footer").value = s.footer_text || "";
+    renderLogoPreview(s.logo_path || "");
     renderPosPaperPreview();
     updatePosStrukPreview();
   } catch (e) {
@@ -1267,23 +1281,88 @@ window.handleResetPosSetup = function () {
   document.getElementById("pos_setup_port").value = "";
   document.getElementById("pos_setup_baud_rate").value = "9600";
   document.getElementById("pos_setup_paper_width").value = "58";
-  document.getElementById("pos_setup_header").value = "";
+  document.getElementById("pos_setup_store_name").value = "";
+  document.getElementById("pos_setup_store_address").value = "";
+  document.getElementById("pos_setup_store_phone").value = "";
   document.getElementById("pos_setup_footer").value = "";
   renderPosPaperPreview();
   updatePosStrukPreview();
 };
 
+function renderLogoPreview(logoPath) {
+  const img = document.getElementById("pos_logo_preview");
+  const del = document.getElementById("btn-hapus-logo");
+  if (logoPath) {
+    try {
+      if (img) {
+        img.src = convertFileSrc(logoPath);
+        img.style.display = "block";
+        img.onerror = () => { img.style.display = "none"; };
+      }
+    } catch (_) { if (img) img.style.display = "none"; }
+    if (del) del.style.display = "";
+  } else {
+    if (img) { img.removeAttribute("src"); img.style.display = "none"; }
+    if (del) del.style.display = "none";
+  }
+}
+
+window.handleUploadLogo = async function () {
+  try {
+    const file = await openDialog({
+      multiple: false,
+      filters: [{ name: "Gambar", extensions: ["png", "jpg", "jpeg", "bmp"] }],
+    });
+    if (!file) return;
+    const saved = await invoke("cmd_upload_logo", { srcPath: file });
+    await loadPosSettingsMod();
+    renderLogoPreview(saved);
+    updatePosStrukPreview();
+    showToast("Logo tersimpan", "success");
+  } catch (e) {
+    showToast("Gagal upload logo: " + e, "error");
+  }
+};
+
+window.handleHapusLogo = async function () {
+  if (!confirm("Hapus logo toko?")) return;
+  try {
+    await invoke("cmd_hapus_logo");
+    await loadPosSettingsMod();
+    renderLogoPreview("");
+    updatePosStrukPreview();
+    showToast("Logo dihapus", "success");
+  } catch (e) {
+    showToast("Gagal hapus logo: " + e, "error");
+  }
+};
+
 window.updatePosStrukPreview = function () {
-  const header = document.getElementById("pos_setup_header")?.value || "";
+  const sName = document.getElementById("pos_setup_store_name")?.value || "";
+  const sAddr = document.getElementById("pos_setup_store_address")?.value || "";
+  const sPhone = document.getElementById("pos_setup_store_phone")?.value || "";
   const footer = document.getElementById("pos_setup_footer")?.value || "";
+  const logoPath = getPosSettings()?.logo_path || "";
   const headerEl = document.getElementById("pos-struk-header");
   const footerEl = document.getElementById("pos-struk-footer");
   if (headerEl) {
-    if (header.trim()) {
-      headerEl.innerHTML = header.replace(/\n/g, "<br>");
-    } else {
-      headerEl.innerHTML = "<b>NOTA PEMBAYARAN</b>";
+    let html = "";
+    if (logoPath) {
+      try {
+        html += `<img src="${convertFileSrc(logoPath)}" style="max-width:110px;max-height:60px;" onerror="this.remove()" /><br>`;
+      } catch (_) {}
     }
+    if (sName.trim()) {
+      html += `<b>${escHtmlPreview(sName)}</b>`;
+      if (sAddr.trim()) html += `<br>${escHtmlPreview(sAddr)}`;
+      if (sPhone.trim()) html += `<br>Telp: ${escHtmlPreview(sPhone)}`;
+    } else {
+      const legacy = (getPosSettings()?.header_text || "").trim();
+      html += legacy
+        ? `<b>${legacy.split("\n").map(escHtmlPreview).join("<br>")}</b>`
+        : "<b>NOTA PEMBAYARAN</b>";
+    }
+    headerEl.innerHTML = html;
   }
   if (footerEl) {
     if (footer.trim()) {
@@ -1293,6 +1372,12 @@ window.updatePosStrukPreview = function () {
     }
   }
 };
+
+function escHtmlPreview(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
 
 // ========== UTILITIES ==========
 

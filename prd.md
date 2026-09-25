@@ -43,7 +43,7 @@
 - Cetak **langsung ke printer thermal USB** via COM port (serialport crate) — tanpa dialog print browser.
 - Setup di halaman **Printer Thermal**: port (COM3 dll), baud rate (9600–115200), lebar kertas 58/80mm, **header & footer struk kustom**, Test Print.
 - **Format struk kasir** (bukan duplikat kwitansi): header (kustom → nama toko BPU → "NOTA PEMBAYARAN"), No (label + nomor acak), Tgl, ITEM, TOTAL, blok PPh, Penerima, footer (kustom → "Terima kasih").
-- **No nota auto-generate random** per cetak (`YYYYMMDD-NNNN`) — bukan nomor kwitansi.
+- **No nota auto-generate random** per cetak (huruf+angka `XXXX-XXXX`, tanpa tanggal) — bukan nomor kwitansi.
 - **Modal preview** muncul sebelum cetak: user pilih 🖨️ Thermal (ESC/POS, status inline ✅/❌) atau 🖨️ Printer (fallback browser print).
 - Tombol POS hanya untuk kwitansi BPU.
 
@@ -102,7 +102,13 @@
 
 ## Changelog
 
-### v3.17.0 (Current)
+### v3.18.0 (Current)
+- [NEW] No nota acak huruf+angka TANPA tanggal (`XXXX-XXXX`, tanpa 0/O/1/I) — lebih meyakinkan
+- [NEW] Logo toko opsional di struk (upload PNG/JPG/BMP → raster 1-bit ESC/POS otomatis, kosong = dilewati)
+- [NEW] Form toko terpisah (Nama/Alamat/Telp) gantikan textarea header; migrasi sekali dari header lama
+- [IMPROVED] Input qty langsung di keranjang kasir (di tengah − ＋) untuk belanja banyak
+
+### v3.17.0
 - [NEW] Scan kenali jenis port (USB/Bluetooth/PCI); kabel & Bluetooth tetap didukung berdampingan
 - [IMPROVED] Toast error awet 12 detik + klik untuk salin (biar gampang dikirim)
 
@@ -205,7 +211,7 @@
 - [NEW] Cetak POS langsung ESC/POS via serialport (COM, baud rate)
 - [NEW] Halaman Printer Thermal: port, baud, lebar kertas, header/footer kustom, test print, preview struk live
 - [NEW] Modal preview nota POS (pilih Thermal / Printer, status inline)
-- [NEW] No nota POS auto-generate random (YYYYMMDD-NNNN)
+- [NEW] No nota POS auto-generate random (huruf+angka XXXX-XXXX, tanpa tanggal)
 - [NEW] Format struk kasir (header toko untuk BPU, ITEM, TOTAL, footer)
 - [NEW] PPh 21 6% honorarium: auto-detect BNU/07.12.04/honor/instruktur, bruto→netto, terbilang netto
 - [NEW] Deskripsi BNU auto-expand (tidak pendek/monoton)

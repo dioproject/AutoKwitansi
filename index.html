@@ -47,7 +47,7 @@
       </nav>
       <div class="sidebar-footer">
         <p>dio project</p>
-        <p class="version">v3.17.0</p>
+        <p class="version">v3.18.0</p>
       </div>
     </aside>
 
@@ -527,13 +527,30 @@
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
                 <span style="font-size:20px;">📝</span>
                 <div>
-                  <h3 style="margin:0;font-size:15px;">Kustomisasi Struk</h3>
-                  <p style="font-size:11px;color:var(--text-muted);margin:2px 0 0;">Header & footer akan tercetak di struk kasir (kosongkan untuk default)</p>
+                  <h3 style="margin:0;font-size:15px;">Identitas Toko & Struk</h3>
+                  <p style="font-size:11px;color:var(--text-muted);margin:2px 0 0;">Logo opsional + nama/alamat/telp tercetak di atas setiap struk</p>
                 </div>
               </div>
               <div class="form-group full-width">
-                <label for="pos_setup_header">Header Struk (tercetak di atas, rata tengah)</label>
-                <textarea id="pos_setup_header" rows="3" placeholder="TOKO MAKMUR JAYA&#10;Jl. Sudirman No. 123&#10;Telp: 0812-3456-7890" style="font-family:monospace;font-size:12px;" oninput="updatePosStrukPreview()"></textarea>
+                <label>Logo Toko (opsional)</label>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                  <img id="pos_logo_preview" alt="Logo" style="display:none;max-height:64px;max-width:200px;background:#fff;border:1px solid var(--border);border-radius:6px;padding:4px;" />
+                  <button class="btn btn-sm btn-secondary" onclick="handleUploadLogo()">🖼️ Upload Logo</button>
+                  <button class="btn btn-sm btn-secondary" id="btn-hapus-logo" onclick="handleHapusLogo()" style="display:none;">✖ Hapus</button>
+                </div>
+                <span style="font-size:10px;color:var(--text-muted);margin-top:2px;">PNG/JPG/BMP — otomatis jadi hitam-putih saat cetak. Kosong = tanpa logo, struk tetap normal.</span>
+              </div>
+              <div class="form-group full-width">
+                <label for="pos_setup_store_name">Nama Toko</label>
+                <input type="text" id="pos_setup_store_name" placeholder="TOKO MAKMUR JAYA" style="font-weight:700;" oninput="updatePosStrukPreview()" />
+              </div>
+              <div class="form-group">
+                <label for="pos_setup_store_address">Alamat Toko</label>
+                <input type="text" id="pos_setup_store_address" placeholder="Jl. Sudirman No. 123" oninput="updatePosStrukPreview()" />
+              </div>
+              <div class="form-group">
+                <label for="pos_setup_store_phone">No. Telp (opsional)</label>
+                <input type="text" id="pos_setup_store_phone" placeholder="0812-3456-7890" oninput="updatePosStrukPreview()" />
               </div>
               <div class="form-group full-width">
                 <label for="pos_setup_footer">Footer Struk (tercetak di bawah, rata tengah)</label>

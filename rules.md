@@ -72,8 +72,8 @@
 ### Cetak Nota POS
 1. Tombol POS hanya untuk kwitansi **BPU** (`nomor_kwitansi` mengandung "BPU", case-insensitive).
 2. Alur: klik POS → **modal preview** struk → user pilih Thermal (ESC/POS via COM) atau Printer (browser fallback).
-3. **No nota = random auto-generate** `YYYYMMDD-NNNN` per cetak — bukan nomor kwitansi. Label BPU/BNU tetap ditampilkan.
-4. Header struk: `header_text` kustom → fallback `nama_toko`+`alamat_toko` (BPU) → fallback "NOTA PEMBAYARAN". Footer: `footer_text` → fallback "Terima kasih".
+3. **No nota = random auto-generate** `XXXX-XXXX` huruf+angka TANPA tanggal per cetak — bukan nomor kwitansi. Label BPU/BNU tetap ditampilkan.
+4. Header struk: logo (raster 1-bit, opsional) → form toko khusus (nama/alamat/telp) → `header_text` lama → `nama_toko`+`alamat_toko` (BPU) → "NOTA PEMBAYARAN". Footer: `footer_text` → "Terima kasih".
 5. Isi struk **berbeda dari kwitansi**: tanpa "Sudah terima dari", tanpa bendahara/mengetahui/NIP — hanya ITEM, TOTAL, Penerima.
 6. BPU >1jt dengan dokumen belum 4/4 → warning konfirmasi (boleh lanjut).
 7. Port kosong / gagal open COM → error inline di modal, user bisa fallback Printer.

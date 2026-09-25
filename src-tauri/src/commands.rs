@@ -462,6 +462,39 @@ pub fn cmd_pos_test_print_with(settings: PosSettings) -> Result<(), String> {
     crate::pos_print::test_print(&settings).map_err(|e| e.to_string())
 }
 
+/// Upload logo toko: salin ke folder aplikasi, simpan path di settings.
+/// Logo dicetak sebagai raster 1-bit (ESC/POS GS v 0) — bila tak ada, dilewati.
+#[command]
+pub fn cmd_upload_logo(src_path: String) -> Result<String, String> {
+    let ext = std::path::Path::new(&src_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_default();
+    if !["png", "jpg", "jpeg", "bmp"].contains(&ext.as_str()) {
+        return Err("File harus gambar PNG/JPG/BMP".into());
+    }
+    let mut dest = db::app_data_dir();
+    dest.push(format!("logo-toko.{}", ext));
+    std::fs::copy(&src_path, &dest).map_err(|e| format!("Gagal salin logo: {}", e))?;
+    // Validasi bisa dibaca sebagai gambar.
+    image::open(&dest).map_err(|_| "File gambar rusak/tak dikenal".to_string())?;
+    let mut s = db::get_pos_settings().map_err(|e| e.to_string())?;
+    s.logo_path = dest.to_string_lossy().to_string();
+    db::save_pos_settings(&s).map_err(|e| e.to_string())?;
+    Ok(s.logo_path)
+}
+
+#[command]
+pub fn cmd_hapus_logo() -> Result<(), String> {
+    let mut s = db::get_pos_settings().map_err(|e| e.to_string())?;
+    if !s.logo_path.is_empty() {
+        let _ = std::fs::remove_file(&s.logo_path);
+    }
+    s.logo_path = String::new();
+    db::save_pos_settings(&s).map_err(|e| e.to_string())
+}
+
 // ============ SERIAL PORT SCAN ============
 
 /// Daftar port serial yang terdeteksi (untuk dropdown pilihan, ganti ketik manual).

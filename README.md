@@ -10,8 +10,8 @@ Aplikasi desktop pembuatan kwitansi SPJ (Surat Pertanggungjawaban) untuk lembaga
 - **PPh 23 4% Makan Minum** — checkbox otomatis untuk uraian makan/minum/konsumsi/catering/jamuan; eksklusif terhadap PPh 21.
 - **Referensi ARKAS 2026** — 153 kode kegiatan resmi (dari PDF) jadi patokan kalimat cetak + saran input + deteksi pajak.
 - **Cetak Nota POS Thermal (ESC/POS)** — cetak langsung ke printer thermal USB via COM port **tanpa dialog print**. Format struk kasir dengan header/footer kustom. Preview modal sebelum cetak, fallback ke printer biasa.
-- **Printer Thermal** — setup port (scan COM + pilih, bukan ketik), baud rate, lebar kertas (58/80mm), header & footer struk kustom, test print, preview kertas live.
-- **No Nota Auto-Generate** — setiap cetak POS mendapat nomor acak unik (`YYYYMMDD-NNNN`), bukan nomor kwitansi.
+- **Printer Thermal** — setup port (scan COM/Bluetooth + pilih), baud, kertas, logo toko opsional (raster otomatis), form nama/alamat/telp terpisah, test print, preview live.
+- **No Nota Auto-Generate** — setiap cetak POS mendapat nomor acak unik huruf+angka (`XXXX-XXXX`, tanpa tanggal), bukan nomor kwitansi.
 - **Import BKU Per Bulan** — multi-PDF sekaligus, dikelompokkan per bulan/tahun, merge manual per bulan.
 - **Riwayat Group per Bulan** — accordion "BKU {Bulan} {Tahun}", terbaru terbuka; badge BPU/BNU/PPh21/PPh21 5%/PPh23/PPh23 2%/PPN; pencarian flat.
 - **Rekap SPJ** — tabel + kartu total per periode (bruto/PPh/PPN/total), cetak rekapitulasi (kop + TTD), export CSV, panel Kesiapan LPJ + Perbaiki via modal Edit.

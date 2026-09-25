@@ -22,6 +22,11 @@ fn dirs_next() -> Option<PathBuf> {
     }
 }
 
+/// Folder data aplikasi (%APPDATA%/AutoKwitansi) — untuk file logo, dsb.
+pub fn app_data_dir() -> PathBuf {
+    dirs_next().unwrap_or_else(|| PathBuf::from("."))
+}
+
 pub fn get_connection() -> Result<Connection> {
     let path = get_db_path();
     let conn = Connection::open(path)?;
@@ -133,13 +138,17 @@ pub fn init_db() -> Result<()> {
             baud_rate INTEGER NOT NULL DEFAULT 9600,
             header_text TEXT NOT NULL DEFAULT '',
             footer_text TEXT NOT NULL DEFAULT '',
-            last_pos_number INTEGER NOT NULL DEFAULT 0
+            last_pos_number INTEGER NOT NULL DEFAULT 0,
+            store_name TEXT NOT NULL DEFAULT '',
+            store_address TEXT NOT NULL DEFAULT '',
+            store_phone TEXT NOT NULL DEFAULT '',
+            logo_path TEXT NOT NULL DEFAULT ''
         );
         ",
     )?;
 
     // Migration: add new columns if missing (for existing DBs)
-    let column_migrations: [(&str, &str, &str); 16] = [
+    let column_migrations: [(&str, &str, &str); 20] = [
         ("print_settings", "sig_gap", "REAL NOT NULL DEFAULT 15.0"),
         ("kwitansi", "bulan", "TEXT NOT NULL DEFAULT ''"),
         ("kwitansi", "nama_toko", "TEXT NOT NULL DEFAULT ''"),
@@ -155,6 +164,10 @@ pub fn init_db() -> Result<()> {
         ("pos_settings", "baud_rate", "INTEGER NOT NULL DEFAULT 9600"),
         ("pos_settings", "header_text", "TEXT NOT NULL DEFAULT ''"),
         ("pos_settings", "footer_text", "TEXT NOT NULL DEFAULT ''"),
+        ("pos_settings", "store_name", "TEXT NOT NULL DEFAULT ''"),
+        ("pos_settings", "store_address", "TEXT NOT NULL DEFAULT ''"),
+        ("pos_settings", "store_phone", "TEXT NOT NULL DEFAULT ''"),
+        ("pos_settings", "logo_path", "TEXT NOT NULL DEFAULT ''"),
         (
             "pos_settings",
             "last_pos_number",
@@ -872,7 +885,7 @@ pub fn save_print_settings(s: &PrintSettings) -> Result<()> {
 pub fn get_pos_settings() -> Result<PosSettings> {
     let conn = get_connection()?;
     let result = conn.query_row(
-        "SELECT id, paper_width, port, baud_rate, header_text, footer_text, last_pos_number FROM pos_settings LIMIT 1",
+        "SELECT id, paper_width, port, baud_rate, header_text, footer_text, last_pos_number, store_name, store_address, store_phone, logo_path FROM pos_settings LIMIT 1",
         [],
         |row| {
             Ok(PosSettings {
@@ -883,6 +896,10 @@ pub fn get_pos_settings() -> Result<PosSettings> {
                 header_text: row.get(4)?,
                 footer_text: row.get(5)?,
                 last_pos_number: row.get(6)?,
+                store_name: row.get(7)?,
+                store_address: row.get(8)?,
+                store_phone: row.get(9)?,
+                logo_path: row.get(10)?,
             })
         },
     );
@@ -898,11 +915,15 @@ pub fn get_pos_settings() -> Result<PosSettings> {
                 header_text: String::new(),
                 footer_text: String::new(),
                 last_pos_number: 0,
+                store_name: String::new(),
+                store_address: String::new(),
+                store_phone: String::new(),
+                logo_path: String::new(),
             };
             let conn2 = get_connection()?;
             conn2.execute(
-                "INSERT INTO pos_settings (paper_width, port, baud_rate, header_text, footer_text, last_pos_number) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![default.paper_width, default.port, default.baud_rate, default.header_text, default.footer_text, default.last_pos_number],
+                "INSERT INTO pos_settings (paper_width, port, baud_rate, header_text, footer_text, last_pos_number, store_name, store_address, store_phone, logo_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![default.paper_width, default.port, default.baud_rate, default.header_text, default.footer_text, default.last_pos_number, default.store_name, default.store_address, default.store_phone, default.logo_path],
             )?;
             let id = conn2.last_insert_rowid();
             Ok(PosSettings {
@@ -917,24 +938,33 @@ pub fn save_pos_settings(s: &PosSettings) -> Result<()> {
     let conn = get_connection()?;
     if let Some(id) = s.id {
         conn.execute(
-            "UPDATE pos_settings SET paper_width=?1, port=?2, baud_rate=?3, header_text=?4, footer_text=?5, last_pos_number=?6 WHERE id=?7",
-            params![s.paper_width, s.port, s.baud_rate, s.header_text, s.footer_text, s.last_pos_number, id],
+            "UPDATE pos_settings SET paper_width=?1, port=?2, baud_rate=?3, header_text=?4, footer_text=?5, last_pos_number=?6, store_name=?7, store_address=?8, store_phone=?9, logo_path=?10 WHERE id=?11",
+            params![s.paper_width, s.port, s.baud_rate, s.header_text, s.footer_text, s.last_pos_number, s.store_name, s.store_address, s.store_phone, s.logo_path, id],
         )?;
     } else {
         conn.execute("DELETE FROM pos_settings", [])?;
         conn.execute(
-            "INSERT INTO pos_settings (paper_width, port, baud_rate, header_text, footer_text, last_pos_number) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![s.paper_width, s.port, s.baud_rate, s.header_text, s.footer_text, s.last_pos_number],
+            "INSERT INTO pos_settings (paper_width, port, baud_rate, header_text, footer_text, last_pos_number, store_name, store_address, store_phone, logo_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![s.paper_width, s.port, s.baud_rate, s.header_text, s.footer_text, s.last_pos_number, s.store_name, s.store_address, s.store_phone, s.logo_path],
         )?;
     }
     Ok(())
 }
 
 /// Generate a random POS nota number (format: YYYYMMDD-RRRR)
+/// Nomor nota acak huruf+angka TANPA tanggal (meyakinkan sebagai nota toko).
+/// Format: XXXX-XXXX dari alfabet tegas (tanpa 0/O/1/I yang membingungkan).
 pub fn generate_pos_number() -> Result<String> {
-    let random_part: u32 = rand::random::<u32>() % 9000 + 1000;
-    let today = chrono::Local::now().format("%Y%m%d").to_string();
-    Ok(format!("{}-{:04}", today, random_part))
+    const ALPH: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let mut s = String::with_capacity(9);
+    for i in 0..8 {
+        if i == 4 {
+            s.push('-');
+        }
+        let idx = (rand::random::<u32>() as usize) % ALPH.len();
+        s.push(ALPH[idx] as char);
+    }
+    Ok(s)
 }
 
 // ============ BPU DOKUMEN ============
@@ -1034,6 +1064,23 @@ pub fn update_kwitansi_toko(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_generate_pos_number_alphanumeric() {
+        // Format XXXX-XXXX huruf+angka TANPA tanggal, tanpa 0/O/1/I.
+        const ALLOWED: &str = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789-";
+        for _ in 0..50 {
+            let n = generate_pos_number().unwrap();
+            assert_eq!(n.len(), 9, "panjang: {}", n);
+            assert_eq!(&n[4..5], "-", "strip: {}", n);
+            assert!(n.chars().all(|c| ALLOWED.contains(c)), "karakter: {}", n);
+            assert!(
+                !"01OI".chars().any(|amb| n.contains(amb)),
+                "tanpa 0/1/O/I: {}",
+                n
+            );
+        }
+    }
 
     #[test]
     fn test_init_db_migrates_old_db_without_bulan() {

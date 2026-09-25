@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { getPosSettings } from "./pos.js";
 
 // ========== POS KASIR (nota toko, mandiri — terpisah dari kwitansi/BKU) ==========
@@ -29,10 +30,15 @@ window.regenKasirNota = function () {
   document.getElementById("kasir-nota").value = genNotaNum();
 };
 
+/** Nomor nota acak huruf+angka TANPA tanggal (XXXX-XXXX, tanpa 0/O/1/I). */
 function genNotaNum() {
-  const now = new Date();
-  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-  return `${ymd}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const ALPH = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 8; i++) {
+    if (i === 4) s += "-";
+    s += ALPH[Math.floor(Math.random() * ALPH.length)];
+  }
+  return s;
 }
 
 window.renderKatalog = function () {
@@ -86,6 +92,16 @@ window.chQty = function (idx, delta) {
 
 window.removeLine = function (idx) {
   kasirCart.splice(idx, 1);
+  renderCart();
+};
+
+/** Ketik jumlah langsung (untuk belanja banyak, tanpa pencet + berkali-kali) */
+window.setQty = function (idx, val) {
+  const line = kasirCart[idx];
+  if (!line) return;
+  const q = parseInt(val) || 0;
+  if (q < 1) kasirCart.splice(idx, 1);
+  else line.qty = Math.min(q, 9999);
   renderCart();
 };
 
@@ -149,7 +165,7 @@ function renderCart() {
     : kasirCart.map((l, i) => `<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px;">
         <div style="flex:1;min-width:0;"><b>${esc(l.nama)}</b><br><span style="color:var(--text-muted);font-size:11px;">Rp ${formatRupiah(l.harga)} / ${esc(l.satuan || "")}</span></div>
         <button class="btn btn-sm btn-secondary" onclick="chQty(${i},-1)">−</button>
-        <span style="min-width:24px;text-align:center;font-weight:700;">${l.qty}</span>
+        <input type="number" min="1" max="9999" value="${l.qty}" onchange="setQty(${i}, this.value)" title="Ketik jumlah langsung" style="width:58px;text-align:center;padding:4px 2px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-weight:700;" />
         <button class="btn btn-sm btn-secondary" onclick="chQty(${i},1)">+</button>
         <span style="min-width:80px;text-align:right;font-weight:700;">${formatRupiah(Math.round(l.harga) * l.qty)}</span>
         <button class="btn btn-sm btn-danger" title="Hapus baris" onclick="removeLine(${i})">🗑️</button>
@@ -175,14 +191,27 @@ function renderStrukPreview() {
   if (!prev) return;
   if (kasirCart.length === 0) { prev.textContent = "—"; return; }
   const s = getPosSettings() || {};
-  const header = (s.header_text || "").trim();
-  const footer = (s.footer_text || "").trim();
+  const sName = (s.store_name || "").trim();
+  const lines = [];
+  let logoHtml = "";
+  if ((s.logo_path || "").trim()) {
+    try {
+      logoHtml = `<div style="text-align:center"><img src="${convertFileSrc(s.logo_path)}" style="max-width:140px;max-height:80px;" onerror="this.remove()"></div>`;
+    } catch (_) {}
+  }
+  if (sName) {
+    lines.push(sName);
+    if ((s.store_address || "").trim()) lines.push(s.store_address.trim());
+    if ((s.store_phone || "").trim()) lines.push("Telp: " + s.store_phone.trim());
+  } else {
+    const header = (s.header_text || "").trim();
+    if (header) lines.push(...header.split("\n"));
+    else lines.push("NOTA PEMBAYARAN");
+  }
   const tgl = document.getElementById("kasir-tanggal")?.value || "";
   const nota = document.getElementById("kasir-nota")?.value || "";
   const kasir = document.getElementById("kasir-penerima")?.value || "";
-  const lines = [];
-  if (header) lines.push(...header.split("\n"));
-  else lines.push("NOTA PEMBAYARAN");
+  const footer = (s.footer_text || "").trim();
   lines.push("================================");
   lines.push(`No  : ${nota}`);
   lines.push(`Tgl : ${formatTanggalPanjang(tgl)}`);
@@ -200,7 +229,7 @@ function renderStrukPreview() {
   if (kasir.trim()) lines.push(`Kasir: ${kasir.trim()}`);
   lines.push("--------------------------------");
   lines.push(footer || "Terima kasih");
-  prev.textContent = lines.join("\n");
+  prev.innerHTML = logoHtml + lines.map(esc).join("<br>");
 }
 
 let kasirBusy = false;

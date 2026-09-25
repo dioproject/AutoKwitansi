@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { cariUraianKegiatan } from "./kode-referensi.js";
 
 let currentPosSettings = null;
@@ -108,12 +109,25 @@ export function renderPosNotaTemplate(k, settings) {
 
   const autoNum = generateRandomNotaNum();
   const lines = [];
-  
-  // HEADER — data toko (BPU) atau custom text
+
+  // Logo toko (opsional) — tampil di atas header preview
+  let logoHtml = "";
+  if ((s.logo_path || "").trim()) {
+    try {
+      logoHtml = `<div style="text-align:center"><img src="${convertFileSrc(s.logo_path)}" style="max-width:120px;max-height:70px;" onerror="this.remove()"></div>\n`;
+    } catch (_) {}
+  }
+
+  // HEADER — form toko khusus menang → header lama → data toko BPU → default
+  const sName = (s.store_name || "").trim();
   const customHeader = (s.header_text || "").trim();
   const hasToko = (k.nama_toko || "").trim() !== "";
 
-  if (customHeader) {
+  if (sName) {
+    lines.push(centerText(sName, maxChars));
+    if ((s.store_address || "").trim()) lines.push(centerText(s.store_address.trim(), maxChars));
+    if ((s.store_phone || "").trim()) lines.push(centerText(`Telp: ${s.store_phone.trim()}`, maxChars));
+  } else if (customHeader) {
     for (const hline of customHeader.split("\n")) {
       lines.push(centerText(hline, maxChars));
     }
@@ -172,7 +186,7 @@ export function renderPosNotaTemplate(k, settings) {
   }
 
   return `
-    <div class="pos-nota" style="width:${widthMm}mm;font-family:'Courier New',monospace;font-size:${fontSize}pt;line-height:1.3;white-space:pre;border:1px solid #ccc;padding:3mm;margin:0 auto;">${lines.map(l => escHtml(l)).join("\n")}</div>
+    <div class="pos-nota" style="width:${widthMm}mm;font-family:'Courier New',monospace;font-size:${fontSize}pt;line-height:1.3;white-space:pre;border:1px solid #ccc;padding:3mm;margin:0 auto;">${logoHtml}${lines.map(l => escHtml(l)).join("\n")}</div>
   `;
 }
 
@@ -183,11 +197,15 @@ function labelNomorCetak(nomor) {
   return nomor || "";
 }
 
+/** Nomor nota acak huruf+angka TANPA tanggal (XXXX-XXXX, tanpa 0/O/1/I). */
 function generateRandomNotaNum() {
-  const now = new Date();
-  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `${ymd}-${rand}`;
+  const ALPH = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 8; i++) {
+    if (i === 4) s += "-";
+    s += ALPH[Math.floor(Math.random() * ALPH.length)];
+  }
+  return s;
 }
 
 /** Gabung uraian + uraian resmi ARKAS + kode rekening + tahun anggaran (patokan PDF referensi) */
