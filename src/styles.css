@@ -509,6 +509,8 @@ td .uraian-wrap {
   z-index: 9999;
   transition: opacity 0.3s, transform 0.3s;
   box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  max-width: min(520px, 90vw);
 }
 
 .toast.hidden {

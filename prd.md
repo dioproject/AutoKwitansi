@@ -102,7 +102,11 @@
 
 ## Changelog
 
-### v3.16.1 (Current)
+### v3.17.0 (Current)
+- [NEW] Scan kenali jenis port (USB/Bluetooth/PCI); kabel & Bluetooth tetap didukung berdampingan
+- [IMPROVED] Toast error awet 12 detik + klik untuk salin (biar gampang dikirim)
+
+### v3.16.1
 - [FIXED] Cetak gagal "port dipakai aplikasi lain" padahal tidak: retry buka-port 3x (400ms) di semua jalur cetak + kunci tombol saat proses (cegah klik ganda)
 
 ### v3.16.0

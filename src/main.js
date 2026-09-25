@@ -1176,27 +1176,31 @@ function readPosSetupForm() {
   };
 }
 
-/** Scan port serial + isi dropdown, pertahankan pilihan tersimpan */
+/** Scan port serial + isi dropdown, pertahankan pilihan tersimpan.
+ * Hasil backend: [{name, kind}] — kind: usb/bluetooth/pci/unknown. */
 window.handleScanPorts = async function (silent) {
   const sel = document.getElementById("pos_setup_port");
   let ports = [];
   try {
-    ports = await invoke("cmd_list_serial_ports");
+    const raw = await invoke("cmd_list_serial_ports");
+    ports = (raw || []).map(p => typeof p === "string" ? { name: p, kind: "unknown" } : p);
   } catch (e) {
     if (!silent && window._showToast) window._showToast("Gagal scan: " + e, "error");
     ports = [];
   }
+  const names = ports.map(p => p.name);
+  const labelOf = (p) => p.kind && p.kind !== "unknown" ? `${p.name} — ${p.kind}` : p.name;
   if (sel) {
     const cur = sel.value || (getPosSettings()?.port || "");
     sel.innerHTML = `<option value="">— pilih port —</option>` +
-      ports.map(p => `<option value="${p}"${p === cur ? " selected" : ""}>${p}</option>`).join("") +
-      (cur && !ports.includes(cur) ? `<option value="${cur}" selected>${cur} (tersimpan)</option>` : "");
-    if (!sel.value && ports.length === 1) sel.value = ports[0];
+      ports.map(p => `<option value="${p.name}"${p.name === cur ? " selected" : ""}>${labelOf(p)}</option>`).join("") +
+      (cur && !names.includes(cur) ? `<option value="${cur}" selected>${cur} (tersimpan)</option>` : "");
+    if (!sel.value && ports.length === 1) sel.value = ports[0].name;
   }
   if (!silent) {
     if (window._showToast) {
-      if (ports.length === 0) window._showToast("Tidak ada port COM terdeteksi — instal driver USB-Serial printer dulu", "warning");
-      else window._showToast(`${ports.length} port ditemukan: ${ports.join(", ")}`, "success");
+      if (ports.length === 0) window._showToast("Tidak ada port terdeteksi — untuk Bluetooth: pairing dulu di Settings Windows; untuk kabel: instal driver USB-Serial", "warning");
+      else window._showToast(`${ports.length} port ditemukan: ${ports.map(labelOf).join(", ")}`, "success");
     }
   }
   return ports;
@@ -1401,6 +1405,22 @@ function esc(str) {
 function showToast(message, type = "success") {
   const toast = document.getElementById("toast");
   toast.textContent = message;
+  toast.title = "Klik untuk menyalin & menutup";
   toast.className = `toast ${type}`;
-  setTimeout(() => toast.classList.add("hidden"), 3000);
+  if (showToast.timer) clearTimeout(showToast.timer);
+  // Error awet 12 dtk (sempat dibaca/dikirim), warning 6 dtk, sukses 3 dtk
+  const dur = type === "error" ? 12000 : type === "warning" ? 6000 : 3000;
+  showToast.timer = setTimeout(() => toast.classList.add("hidden"), dur);
 }
+
+// Klik toast: salin isi (biar gampang dikirim) lalu tutup
+document.addEventListener("DOMContentLoaded", () => {
+  const toast = document.getElementById("toast");
+  if (toast) {
+    toast.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(toast.textContent || ""); } catch (_) {}
+      if (showToast.timer) clearTimeout(showToast.timer);
+      toast.classList.add("hidden");
+    });
+  }
+});

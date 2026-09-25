@@ -465,10 +465,32 @@ pub fn cmd_pos_test_print_with(settings: PosSettings) -> Result<(), String> {
 // ============ SERIAL PORT SCAN ============
 
 /// Daftar port serial yang terdeteksi (untuk dropdown pilihan, ganti ketik manual).
+/// Termasuk port Bluetooth SPP (printer thermal BT yang sudah di-pairing
+/// muncul sebagai COM virtual) — kabel USB-Serial tetap didukung.
 #[command]
-pub fn cmd_list_serial_ports() -> Result<Vec<String>, String> {
+pub fn cmd_list_serial_ports() -> Result<Vec<SerialPortEntry>, String> {
     let ports = serialport::available_ports().map_err(|e| format!("Gagal scan port: {}", e))?;
-    Ok(ports.into_iter().map(|p| p.port_name).collect())
+    Ok(ports
+        .into_iter()
+        .map(|p| {
+            let kind = match p.port_type {
+                serialport::SerialPortType::UsbPort(_) => "usb",
+                serialport::SerialPortType::BluetoothPort => "bluetooth",
+                serialport::SerialPortType::PciPort => "pci",
+                serialport::SerialPortType::Unknown => "unknown",
+            };
+            SerialPortEntry {
+                name: p.port_name,
+                kind: kind.to_string(),
+            }
+        })
+        .collect())
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct SerialPortEntry {
+    pub name: String,
+    pub kind: String,
 }
 
 // ============ PRODUK (master POS kasir, mandiri) ============
