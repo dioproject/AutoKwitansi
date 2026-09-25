@@ -71,7 +71,7 @@ AutoKwitansi/
 │   └── styles.css             # Styling + accordion + print media queries
 ├── src-tauri/
 │   ├── src/
-│   │   ├── lib.rs             # Module registration (9 mod) + 36 command
+│   │   ├── lib.rs             # Module registration (9 mod) + 39 command
 │   │   ├── commands.rs        # 23 Tauri commands + deteksi PPh 21 + expand BNU
 │   │   ├── db.rs              # SQLite CRUD + migrations + generate_pos_number()
 │   │   ├── models.rs          # Data models (8 structs)

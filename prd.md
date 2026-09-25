@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.18.0 (Current)
+### v3.19.0 (Current)
+- [NEW] Edit penjualan di riwayat kasir (tanggal/no/kasir/diskon/tunai + qty, hitung ulang server) — reprint beda tanggal mudah
+
+### v3.18.0
 - [NEW] No nota acak huruf+angka TANPA tanggal (`XXXX-XXXX`, tanpa 0/O/1/I) — lebih meyakinkan
 - [NEW] Logo toko opsional di struk (upload PNG/JPG/BMP → raster 1-bit ESC/POS otomatis, kosong = dilewati)
 - [NEW] Form toko terpisah (Nama/Alamat/Telp) gantikan textarea header; migrasi sekali dari header lama

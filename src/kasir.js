@@ -302,6 +302,7 @@ async function loadRiwayatJual() {
         <td class="rupiah" style="text-align:right;">Rp ${formatRupiah(p.total)}</td>
         <td><div class="actions">
           <button class="btn btn-sm btn-pos" title="Cetak ulang struk" onclick="reprintJual(${p.id})">🖨️</button>
+          <button class="btn btn-sm btn-secondary" title="Edit (ubah tanggal/isi)" onclick="openJualModal(${p.id})">✏️</button>
           <button class="btn btn-sm btn-danger" title="Hapus" onclick="hapusJual(${p.id})">🗑️</button>
         </div></td>
       </tr>`).join("");
@@ -330,6 +331,113 @@ window.hapusJual = async function (id) {
     loadRiwayatJual();
   } catch (e) {
     if (window._showToast) window._showToast("Gagal menghapus: " + e, "error");
+  }
+};
+
+// ========== EDIT PENJUALAN (ganti tanggal/isi lalu reprint) ==========
+let _editingJual = null;
+
+window.openJualModal = async function (id) {
+  try {
+    const p = await invoke("cmd_get_penjualan", { id: id });
+    _editingJual = JSON.parse(JSON.stringify(p));
+    document.getElementById("ej_id").value = p.id;
+    document.getElementById("ej_tanggal").value = (p.tanggal || "").slice(0, 10);
+    document.getElementById("ej_nota").value = p.no_nota || "";
+    document.getElementById("ej_penerima").value = p.penerima || "";
+    document.getElementById("ej_diskon").value = p.diskon ? Math.round(p.diskon).toLocaleString("id-ID") : "";
+    document.getElementById("ej_tunai").value = p.tunai ? Math.round(p.tunai).toLocaleString("id-ID") : "";
+    renderEditJualItems();
+    updateEditJualTotal();
+    document.getElementById("modal-jual-edit").classList.remove("hidden");
+  } catch (e) {
+    if (window._showToast) window._showToast("Gagal memuat penjualan: " + e, "error");
+  }
+};
+
+function renderEditJualItems() {
+  const box = document.getElementById("ej-items");
+  if (!box || !_editingJual) return;
+  box.innerHTML = _editingJual.items.map((it, i) => `<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px;">
+      <div style="flex:1;min-width:0;"><b>${esc(it.nama)}</b><br><span style="color:var(--text-muted);font-size:11px;">Rp ${formatRupiah(it.harga)}</span></div>
+      <input type="number" min="1" max="9999" value="${it.qty}" onchange="setEditJualQty(${i}, this.value)" title="Ketik jumlah langsung" style="width:58px;text-align:center;padding:4px 2px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-weight:700;" />
+      <span style="min-width:80px;text-align:right;font-weight:700;">${formatRupiah(Math.round(it.harga) * it.qty)}</span>
+      <button class="btn btn-sm btn-danger" title="Hapus baris" onclick="removeEditJualItem(${i})">🗑️</button>
+    </div>`).join("") || '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:10px;">Tidak ada item</div>';
+}
+
+window.setEditJualQty = function (idx, val) {
+  if (!_editingJual || !_editingJual.items[idx]) return;
+  const q = parseInt(val) || 0;
+  if (q < 1) _editingJual.items.splice(idx, 1);
+  else _editingJual.items[idx].qty = Math.min(q, 9999);
+  renderEditJualItems();
+  updateEditJualTotal();
+};
+
+window.removeEditJualItem = function (idx) {
+  if (!_editingJual) return;
+  _editingJual.items.splice(idx, 1);
+  renderEditJualItems();
+  updateEditJualTotal();
+};
+
+window.handleEditJualRp = function (el) {
+  const raw = el.value.replace(/[^\d]/g, "");
+  el.value = raw === "" ? "" : parseInt(raw).toLocaleString("id-ID");
+  updateEditJualTotal();
+};
+
+function editJualAngka() {
+  const sub = (_editingJual?.items || []).reduce((s, it) => s + Math.round(it.harga) * it.qty, 0);
+  const disRaw = (document.getElementById("ej_diskon")?.value || "0").replace(/[^\d]/g, "");
+  const dis = Math.min(parseFloat(disRaw) || 0, sub);
+  const tunRaw = (document.getElementById("ej_tunai")?.value || "0").replace(/[^\d]/g, "");
+  const tun = parseFloat(tunRaw) || 0;
+  return { sub, dis, tot: sub - dis, tun, kem: tun - (sub - dis) };
+}
+
+function updateEditJualTotal() {
+  const info = document.getElementById("ej-total");
+  if (!info) return;
+  const a = editJualAngka();
+  info.innerHTML = `
+    <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>Rp ${formatRupiah(a.sub)}</span></div>
+    <div style="display:flex;justify-content:space-between;"><span>Diskon</span><span>- Rp ${formatRupiah(a.dis)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-weight:700;"><span>TOTAL</span><span>Rp ${formatRupiah(a.tot)}</span></div>
+    <div style="display:flex;justify-content:space-between;color:${a.kem < 0 ? "var(--danger)" : "var(--success)"};font-weight:600;"><span>Kembali</span><span>Rp ${formatRupiah(a.kem)}</span></div>`;
+}
+
+window.handleUpdateJual = async function () {
+  if (!_editingJual) return;
+  if (_editingJual.items.length === 0) {
+    if (window._showToast) window._showToast("Item tidak boleh kosong", "warning");
+    return;
+  }
+  const a = editJualAngka();
+  if (a.tun < a.tot) {
+    if (window._showToast) window._showToast("Tunai kurang dari total", "warning");
+    return;
+  }
+  const payload = {
+    ..._editingJual,
+    tanggal: document.getElementById("ej_tanggal").value,
+    no_nota: document.getElementById("ej_nota").value.trim(),
+    penerima: document.getElementById("ej_penerima").value.trim(),
+    diskon: a.dis, tunai: a.tun, total: 0, kembalian: 0,
+    items: _editingJual.items.map(it => ({
+      id: null, penjualan_id: _editingJual.id, produk_id: it.produk_id,
+      nama: it.nama, harga: Math.round(it.harga), qty: it.qty, subtotal: 0,
+    })),
+  };
+  try {
+    await invoke("cmd_update_penjualan", { p: payload });
+    if (window._showToast) window._showToast("Penjualan diperbarui — klik 🖨️ untuk reprint", "success");
+    window._closeModal("modal-jual-edit");
+    _editingJual = null;
+    loadRiwayatJual();
+  } catch (e) {
+    if (window._showToast) window._showToast("Gagal menyimpan: " + e, "error");
   }
 };
 

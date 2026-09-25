@@ -546,6 +546,30 @@ pub fn delete_penjualan(id: i64) -> Result<()> {
     Ok(())
 }
 
+pub fn update_penjualan(id: i64, p: &crate::models::Penjualan) -> Result<()> {
+    let conn = get_connection()?;
+    conn.execute(
+        "UPDATE penjualan SET no_nota=?1, tanggal=?2, total=?3, diskon=?4, tunai=?5, kembalian=?6, penerima=?7, nama_toko=?8, alamat_toko=?9, pimpinan_toko=?10 WHERE id=?11",
+        params![
+            p.no_nota, p.tanggal, p.total, p.diskon, p.tunai, p.kembalian,
+            p.penerima, p.nama_toko, p.alamat_toko, p.pimpinan_toko, id,
+        ],
+    )?;
+    conn.execute(
+        "DELETE FROM penjualan_item WHERE penjualan_id=?1",
+        params![id],
+    )?;
+    for it in &p.items {
+        let subtotal = (it.harga * it.qty as f64).round();
+        conn.execute(
+            "INSERT INTO penjualan_item (penjualan_id, produk_id, nama, harga, qty, subtotal)
+             VALUES (?1,?2,?3,?4,?5,?6)",
+            params![id, it.produk_id, it.nama, it.harga, it.qty, subtotal],
+        )?;
+    }
+    Ok(())
+}
+
 /// Cek apakah kwitansi sudah ada (anti-duplikat import ulang).
 /// Kunci: nomor + bulan + tahun anggaran.
 pub fn kwitansi_exists(nomor: &str, bulan: &str, tahun: &str) -> Result<bool> {

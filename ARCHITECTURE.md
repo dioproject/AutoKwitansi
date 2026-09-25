@@ -37,7 +37,7 @@ AutoKwitansi/
 │   ├── capabilities/default.json # Permissions (core, dialog)
 │   └── src/
 │       ├── main.rs               # Entry point → lib::run()
-│       ├── lib.rs                # Module registration (9 mod) + 36 command
+│       ├── lib.rs                # Module registration (9 mod) + 39 command
 │       ├── commands.rs           # 34 #[tauri::command]: kwitansi, produk, penjualan, backup, dashboard, POS, docs
 │       ├── db.rs                 # SQLite init, migrations, CRUD (9 tabel) + generate_pos_number
 │       ├── models.rs             # 8 structs (serde)
@@ -76,7 +76,7 @@ AutoKwitansi/
 ┌──────────────────────────────────────────────────────────────────┐
 │                  Backend (Rust / Tauri)                          │
 │                                                                  │
-│  commands.rs   → 36 #[command] functions                         │
+│  commands.rs   → 39 #[command] functions                         │
 │  ├── cmd_terbilang                                               │
 │  ├── cmd_get_sekolah / cmd_update_sekolah                        │
 │  ├── cmd_update_kwitansi (terbilang total ulang, tanpa expand)   │

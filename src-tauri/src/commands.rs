@@ -611,12 +611,11 @@ pub fn cmd_restore_backup(path: String) -> Result<String, String> {
 
 // ============ PENJUALAN POS KASIR (nota toko, mandiri) ============
 
-#[command]
-pub fn cmd_pos_checkout(mut p: Penjualan) -> Result<i64, String> {
+/// Validasi + hitung ulang server-side (dipakai checkout & update).
+fn hitung_penjualan(p: &mut Penjualan) -> Result<(), String> {
     if p.items.is_empty() {
         return Err("Keranjang kosong".into());
     }
-    // Hitung ulang di server agar struk & DB konsisten.
     let mut subtotal = 0.0;
     for it in &mut p.items {
         if it.qty < 1 {
@@ -645,7 +644,20 @@ pub fn cmd_pos_checkout(mut p: Penjualan) -> Result<i64, String> {
     if p.tanggal.trim().is_empty() {
         p.tanggal = chrono::Local::now().format("%Y-%m-%d").to_string();
     }
+    Ok(())
+}
+
+#[command]
+pub fn cmd_pos_checkout(mut p: Penjualan) -> Result<i64, String> {
+    hitung_penjualan(&mut p)?;
     db::insert_penjualan(&p).map_err(|e| e.to_string())
+}
+
+#[command]
+pub fn cmd_update_penjualan(mut p: Penjualan) -> Result<(), String> {
+    let id = p.id.ok_or("ID penjualan kosong".to_string())?;
+    hitung_penjualan(&mut p)?;
+    db::update_penjualan(id, &p).map_err(|e| e.to_string())
 }
 
 #[command]
