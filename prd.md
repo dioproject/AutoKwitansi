@@ -102,7 +102,10 @@
 
 ## Changelog
 
-### v3.16.0 (Current)
+### v3.16.1 (Current)
+- [FIXED] Cetak gagal "port dipakai aplikasi lain" padahal tidak: retry buka-port 3x (400ms) di semua jalur cetak + kunci tombol saat proses (cegah klik ganda)
+
+### v3.16.0
 - [NEW] Scan port COM printer thermal (dropdown pilih, pesan error dibantu troubleshooting); Test Print tak lagi memaksa simpan; hapus modal settings lama tak terpakai
 
 ### v3.15.0

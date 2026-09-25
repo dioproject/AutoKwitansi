@@ -203,7 +203,10 @@ function renderStrukPreview() {
   prev.textContent = lines.join("\n");
 }
 
+let kasirBusy = false;
+
 window.handleKasirCheckout = async function (cetak) {
+  if (kasirBusy) return;
   if (kasirCart.length === 0) {
     if (window._showToast) window._showToast("Keranjang kosong", "warning");
     return;
@@ -226,6 +229,11 @@ window.handleKasirCheckout = async function (cetak) {
     if (window._showToast) window._showToast("Tunai kurang dari total", "warning");
     return;
   }
+  const b1 = document.getElementById("btn-kasir-bayar");
+  const b2 = document.getElementById("btn-kasir-cetak");
+  if (b1) b1.disabled = true;
+  if (b2) b2.disabled = true;
+  kasirBusy = true;
   try {
     const id = await invoke("cmd_pos_checkout", { p: payload });
     if (cetak) {
@@ -243,6 +251,9 @@ window.handleKasirCheckout = async function (cetak) {
     loadRiwayatJual();
   } catch (e) {
     if (window._showToast) window._showToast("Gagal simpan: " + e, "error");
+  } finally {
+    kasirBusy = false;
+    renderCart();
   }
 };
 
@@ -267,12 +278,18 @@ async function loadRiwayatJual() {
       </tr>`).join("");
 }
 
+let reprintBusy = false;
+
 window.reprintJual = async function (id) {
+  if (reprintBusy) return;
+  reprintBusy = true;
   try {
     await invoke("cmd_print_penjualan", { penjualanId: id });
     if (window._showToast) window._showToast("Struk dikirim ke printer", "success");
   } catch (e) {
     if (window._showToast) window._showToast("Gagal cetak: " + e, "error");
+  } finally {
+    reprintBusy = false;
   }
 };
 

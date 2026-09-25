@@ -237,22 +237,33 @@ fn send_bytes(settings: &PosSettings, bytes: &[u8], ctx: &str) -> Result<(), Str
     if settings.port.is_empty() {
         return Err("Port printer belum diatur".into());
     }
-    match serialport::new(&settings.port, settings.baud_rate as u32)
-        .timeout(std::time::Duration::from_secs(5))
-        .open()
-    {
-        Ok(mut port) => {
-            port.write_all(bytes)
-                .map_err(|e| format!("Gagal kirim {} ke printer: {}", ctx, e))?;
-            port.flush()
-                .map_err(|e| format!("Gagal flush printer: {}", e))?;
-            Ok(())
+    // Windows sering telat melepas handle COM setelah print sebelumnya
+    // (klik ganda / print beruntun) → coba ulang beberapa kali.
+    let mut last_err = String::new();
+    for attempt in 1..=3 {
+        match serialport::new(&settings.port, settings.baud_rate as u32)
+            .timeout(std::time::Duration::from_secs(5))
+            .open()
+        {
+            Ok(mut port) => {
+                port.write_all(bytes)
+                    .map_err(|e| format!("Gagal kirim {} ke printer: {}", ctx, e))?;
+                port.flush()
+                    .map_err(|e| format!("Gagal flush printer: {}", e))?;
+                return Ok(());
+            }
+            Err(e) => {
+                last_err = e.to_string();
+                if attempt < 3 {
+                    std::thread::sleep(std::time::Duration::from_millis(400));
+                }
+            }
         }
-        Err(e) => Err(format!(
-            "Tidak bisa buka port {} (cek kabel, driver USB-Serial, baud rate, dan pastikan tak dipakai aplikasi lain): {}",
-            settings.port, e
-        )),
     }
+    Err(format!(
+        "Tidak bisa buka port {} @{} baud setelah 3x coba (cabut-colok kabel USB, cek Device Manager, tutup aplikasi lain yg memakai port, samakan baud): {}",
+        settings.port, settings.baud_rate, last_err
+    ))
 }
 
 /// Struk nota toko untuk penjualan POS kasir (mandiri, bukan kwitansi).
@@ -416,56 +427,16 @@ pub fn print_penjualan(penjualan: &Penjualan, settings: &PosSettings) -> Result<
 
 /// Print kwitansi nota directly to POS thermal printer via ESC/POS
 pub fn print_nota(kwitansi: &Kwitansi, settings: &PosSettings) -> Result<(), String> {
-    if settings.port.is_empty() {
-        return Err("Port printer belum diatur".into());
-    }
-
     let nota_number = db::generate_pos_number()
         .unwrap_or_else(|_| format!("{:06}", rand::random::<u32>() % 1000000));
     let bytes = build_escpos_nota(kwitansi, settings, &nota_number);
-
-    match serialport::new(&settings.port, settings.baud_rate as u32)
-        .timeout(std::time::Duration::from_secs(5))
-        .open()
-    {
-        Ok(mut port) => {
-            port.write_all(&bytes)
-                .map_err(|e| format!("Gagal kirim data ke printer: {}", e))?;
-            port.flush()
-                .map_err(|e| format!("Gagal flush printer: {}", e))?;
-            Ok(())
-        }
-        Err(e) => Err(format!(
-            "Tidak bisa buka port {} (cek kabel, driver USB-Serial, baud rate, dan pastikan tak dipakai aplikasi lain): {}",
-            settings.port, e
-        )),
-    }
+    send_bytes(settings, &bytes, "nota kwitansi")
 }
 
 /// Test print — send a test page
 pub fn test_print(settings: &PosSettings) -> Result<(), String> {
-    if settings.port.is_empty() {
-        return Err("Port printer belum diatur".into());
-    }
-
     let bytes = build_test_print(settings.paper_width);
-
-    match serialport::new(&settings.port, settings.baud_rate as u32)
-        .timeout(std::time::Duration::from_secs(5))
-        .open()
-    {
-        Ok(mut port) => {
-            port.write_all(&bytes)
-                .map_err(|e| format!("Gagal kirim test print: {}", e))?;
-            port.flush()
-                .map_err(|e| format!("Gagal flush printer: {}", e))?;
-            Ok(())
-        }
-        Err(e) => Err(format!(
-            "Tidak bisa buka port {} (cek kabel, driver USB-Serial, baud rate, dan pastikan tak dipakai aplikasi lain): {}",
-            settings.port, e
-        )),
-    }
+    send_bytes(settings, &bytes, "test print")
 }
 
 /// Gabung uraian + uraian resmi ARKAS + kode rekening + tahun anggaran

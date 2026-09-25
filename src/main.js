@@ -1243,13 +1243,19 @@ window.handleSimpanPosSetupSettings = async function () {
   }
 };
 
+let testPrintBusy = false;
+
 window.handlePosSetupTestPrint = async function () {
+  if (testPrintBusy) return;
+  testPrintBusy = true;
   // Test pakai nilai di layar apa adanya — TANPA menyimpan + tanpa toast simpan.
   try {
     await invoke("cmd_pos_test_print_with", { settings: readPosSetupForm() });
     showToast("Test print berhasil dikirim", "success");
   } catch (e) {
     showToast("Gagal test print: " + e, "error");
+  } finally {
+    testPrintBusy = false;
   }
 };
 
